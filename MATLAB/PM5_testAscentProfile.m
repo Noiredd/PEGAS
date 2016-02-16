@@ -4,7 +4,7 @@
 s1_dt = 0.05;           %sim precision [s]
 %run simulation and show Plots
 s1_prog = pp_prog';
-s1_results = ascentSimulation(s1_vehicle, struct('type', 1, 'program', s1_prog), s1_dt);
+s1_results = ascentSimulation(s1_vehicle, s1_init, struct('type', 1, 'program', s1_prog), s1_dt);
 figure(4); clf;
 subplot(2,3,1); plot(s1_results.Plots.t, s1_results.Plots.pitch); title('Pitch');
 subplot(2,3,4); plot(s1_results.Plots.t, s1_results.Plots.angle); title('Flight angle');

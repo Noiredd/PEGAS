@@ -18,7 +18,7 @@ ap_p = ap_pmin:ap_pdp:ap_pmax;
 ap_n = length(ap_v);
 ap_m = length(ap_p);
 %actual sweep - a very computationally heavy function
-[ap_a,ap_q] = sweepGravityTurn(s1_vehicle, ap_v, ap_p, ap_dt);
+[ap_a,ap_q] = sweepGravityTurn(s1_vehicle, s1_init, ap_v, ap_p, ap_dt);
 %for visualisation data must be converted to a proper format
 ap_x = zeros(1,ap_n*ap_m);
 ap_y = zeros(1,ap_n*ap_m);

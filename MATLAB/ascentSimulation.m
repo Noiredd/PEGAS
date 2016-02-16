@@ -1,8 +1,9 @@
 %ascentSimulation.m
 %2DOF atmospheric ascent simulation. Supports pitch control via time table
-%as well as pure gravity turn (lock on prograde). Pass control parameters
-%in 'control' struct (see section 'define control type' for details). Pass
-%simulation step time in 'dt'.
+%as well as pure gravity turn (lock on prograde). Pass initial condisions
+%in 'initial' struct (see section 'initialize simulation' for details).
+%Pass control parameters in 'control' struct (see section 'define control
+%type' for details). Pass simulation step time in 'dt'.
 %Vehicle is modelled as a point mass with drag. Simulation is located in a
 %rotating frame of reference, so a centrifugal force appears. Vehicle is
 %assumed to only have one engine and fuel tank. RO atmosphere (pressure and
@@ -13,7 +14,7 @@
 %   calculateAirDensity.m
 %   getMaxValue.m
 %   getOrbital.m
-function [results] = ascentSimulation(vehicle, control, dt)
+function [results] = ascentSimulation(vehicle, initial, control, dt)
     %declare globals
     global mu; global g0; global R;
     global atmpressure;  global atmtemperature;
@@ -43,24 +44,36 @@ function [results] = ascentSimulation(vehicle, control, dt)
     %simulate engine ignition effects
     m = m - engT*dm;    %rocket is burning fuel while bolted to the launchpad for engT seconds before it's released
     maxT = maxT - engT; %this results in loss of propellant mass and hence reduction of maximum burn time
-    N = floor(maxT/dt)+1;%simulation steps (precision supplied by argument)
-    t = zeros(1,N);     %current time
+    N = floor(maxT/dt)+1;%simulation steps
+    t = zeros(1,N);     %simulation time
     C = 0;              %centrifugal acceleration [m/s^2] (we use a cartesian non rotating frame of reference)
     F = zeros(1,N);     %thrust [N]
     q = zeros(1,N);     %dynamic pressure q [Pa]
     D = zeros(1,N);     %drag [N]
     G = 0;              %current gravity acceleration [m/s^2]
     vx = zeros(1,N);    %horizontal (tangential) velocity (towards the orbital velocity) [m/s]
-    vx_gain = (2*pi*R/24/3600)*...
-     cosd(vehicle.lat);%gained from Earth's rotational motion
     vy = zeros(1,N);    %vertical (radial) velocity (altitude change) [m/s]
     angle = zeros(1,N); %velocity vector direction log [deg] (0 - straight up, 90 - due east)
     pitch = zeros(1,N); %vehicle orientation log [deg] (pitch commands) (0 - straight up, 90 - due east)
     vg = 0;             %gravity losses (integrated) [m/s]
     vd = 0;             %aerodynamic losses (integrated) [m/s]
     alt = zeros(1,N);   %altitude (integral) [m] (measured from the surface)
-    alt(1) = vehicle.lsa;
     rad = zeros(1,N);   %radial distance from launch point (eg. geographical longitude, for a GTO launch) [deg]
+    
+    %initialize simulation
+    if initial.type==0     %launch from static position
+        alt(1) = initial.alt;
+        rad(1) = initial.lon;
+        vx_gain = (2*pi*R/24/3600)*cosd(initial.lat); %gained from Earth's rotational motion
+    elseif initial.type==1 %vehicle already in flight
+        t(1) = initial.t;
+        alt(1) = initial.alt;
+        rad(1) = initial.rad;
+        vx(1) = initial.vx;
+        vy(1) = initial.vy;
+        angle(1) = asind(vx(1) / sqrt(vx(1)^2+vy(1)^2));
+        vx_gain = 0;
+    end
     
     %MAIN LOOP
     for i=2:N

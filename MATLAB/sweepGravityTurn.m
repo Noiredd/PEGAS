@@ -5,13 +5,13 @@
 %altitude and maxQ value).
 %Dependencies:
 %   ascentSimulation.m
-function [a, q] = sweepGravityTurn(vehicle, velocities, pitches, precision)
+function [a, q] = sweepGravityTurn(vehicle, conditions, velocities, pitches, precision)
     a = zeros(length(velocities),length(pitches));
     q = zeros(length(velocities),length(pitches));
     for i = 1:length(velocities)
         for j = 1:length(pitches)
             c=struct('type',0, 'p', pitches(j), 'v', velocities(i));
-            r=ascentSimulation(vehicle, c, precision);
+            r=ascentSimulation(vehicle, conditions, c, precision);
             a(i,j) = r.Apoapsis;
             q(i,j) = r.maxQv;
         end;

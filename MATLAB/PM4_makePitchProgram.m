@@ -15,7 +15,7 @@ pp_k = 10;  %kill rotation period - final value will be reached 'pp_k'
 %calculate pitchover angle
 pp_p = pp_v*ap_cm+ap_cb;
 %generate a natural gravity turn for given parameters
-r = ascentSimulation(s1_vehicle, struct('type',0, 'p', pp_p, 'v', pp_v), ap_dt);
+r = ascentSimulation(s1_vehicle, s1_init, struct('type',0, 'p', pp_p, 'v', pp_v), ap_dt);
 %prepare variables and call the approximation function
 clear pp_pitch;
 clear pp_prog;
