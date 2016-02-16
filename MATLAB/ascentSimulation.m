@@ -150,9 +150,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
                                 alt(i-1)+R, vx(i-1), vy(i-1), target,...
                                 acc, ve,...
                                 A, B, T);   %passing old T instead of T-dt IS CORRECT
-                %if T>=7.5
-                    lc = 0;
-                %end;
+                lc = 0; %think about not resetting this one if PEG skipped AB recalculation
             end;
             temp = A - B*lc + C;
             %PEG debug logs
