@@ -1,9 +1,11 @@
 %ascentSimulation.m
-%2DOF atmospheric ascent simulation. Supports pitch control via time table
-%as well as pure gravity turn (lock on prograde). Pass initial condisions
-%in 'initial' struct (see section 'initialize simulation' for details).
-%Pass control parameters in 'control' struct (see section 'define control
-%type' for details). Pass simulation step time in 'dt'.
+%2DOF atmospheric ascent simulation. Supports pure gravity turn (lock on
+%prograde) simulation, pitch control via pitch-time table (pitch program)
+%and Powered Explicit Guidance control. Pass vehicle parameters in
+%'vehicle' struct. Pass initial conditions in 'initial' struct (see section
+%'initialize simulation' for details). Pass control parameters in 'control'
+%struct (see section 'define control type' for details). Pass simulation
+%step time in 'dt'.
 %Vehicle is modelled as a point mass with drag. Simulation is located in a
 %rotating frame of reference, so a centrifugal force appears. Vehicle is
 %assumed to only have one engine and fuel tank. RO atmosphere (pressure and
@@ -14,6 +16,7 @@
 %   calculateAirDensity.m
 %   getMaxValue.m
 %   getOrbital.m
+%   poweredExplicitGuidance.m
 function [results] = ascentSimulation(vehicle, initial, control, dt)
     %declare globals
     global mu; global g0; global R;
@@ -26,7 +29,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
     dm = vehicle.dm;
     maxT = vehicle.mt;
     engT = vehicle.et;
-    A = vehicle.ra;
+    area = vehicle.ra;
     dragcurve = vehicle.dc;
     
     %define control type
@@ -38,6 +41,15 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
     elseif control.type == 1
         %type 1 = pitch program control
         prog = control.program;
+    elseif control.type == 2
+        %type 2 = powered explicit guidance
+        target = control.target*1000+R; %target orbit altitude
+        ct = control.major;             %length of the major loop
+        lc = 0;                         %time since last PEG cycle
+        ENG = 1;                        %engine state flag:
+                                            %0 - fuel deprived;
+                                            %1 - running;
+                                            %2 - cut as scheduled by PEG
     end
     
     %SIMULATION SETUP
@@ -46,14 +58,16 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
     maxT = maxT - engT; %this results in loss of propellant mass and hence reduction of maximum burn time
     N = floor(maxT/dt)+1;%simulation steps
     t = zeros(1,N);     %simulation time
-    C = 0;              %centrifugal acceleration [m/s^2] (we use a cartesian non rotating frame of reference)
+    Ca = 0;             %centrifugal acceleration [m/s^2] (we use a cartesian non rotating frame of reference)
     F = zeros(1,N);     %thrust [N]
     q = zeros(1,N);     %dynamic pressure q [Pa]
     D = zeros(1,N);     %drag [N]
-    G = 0;              %current gravity acceleration [m/s^2]
-    vx = zeros(1,N);    %horizontal (tangential) velocity (towards the orbital velocity) [m/s]
+    Ga = 0;             %current gravity acceleration [m/s^2]
+    vair = 0;           %relative air velocity (subtracted for aero calculations) [m/s]
+    vx = zeros(1,N);    %horizontal (tangential) velocity (orbital) [m/s]
     vy = zeros(1,N);    %vertical (radial) velocity (altitude change) [m/s]
-    angle = zeros(1,N); %velocity vector direction log [deg] (0 - straight up, 90 - due east)
+    angleS = zeros(1,N);%velocity vector direction log [deg] (0 - straight up, 90 - due east)
+    angleO = zeros(1,N);%angleS is related to surface (air) (undefined on launchpad), angleO is orbital (90 on launchpad)
     pitch = zeros(1,N); %vehicle orientation log [deg] (pitch commands) (0 - straight up, 90 - due east)
     vg = 0;             %gravity losses (integrated) [m/s]
     vd = 0;             %aerodynamic losses (integrated) [m/s]
@@ -64,15 +78,35 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
     if initial.type==0     %launch from static position
         alt(1) = initial.alt;
         rad(1) = initial.lon;
-        vx_gain = (2*pi*R/24/3600)*cosd(initial.lat); %gained from Earth's rotational motion
+        vair = (2*pi*R/24/3600)*cosd(initial.lat); %gained from Earth's rotational motion
+        vx(1) = vair;
+        angleS(1) = 0;
+        angleO(1) = 90;
     elseif initial.type==1 %vehicle already in flight
         t(1) = initial.t;
-        alt(1) = initial.alt;
+        alt(1) = initial.alt-R;
         rad(1) = initial.rad;
         vx(1) = initial.vx;
         vy(1) = initial.vy;
-        angle(1) = asind(vx(1) / sqrt(vx(1)^2+vy(1)^2));
-        vx_gain = 0;
+        vair = initial.wind;
+        angleS(1) = asind((vx(1)-vair) / sqrt((vx(1)-vair)^2+vy(1)^2));
+        angleO(1) = asind(vx(1) / sqrt(vx(1)^2+vy(1)^2));
+        pitch(1) = angleS(1);
+    end
+    
+    %PEG setup
+    if control.type==2
+        dbg = zeros(6,N);  %debug log (A, B, C, sum, sum acos, T)
+        %get effective exhaust velocity...
+        p = approxFromCurve(alt(1)/1000, atmpressure);
+        isp = (isp1-isp0)*p+isp0;
+        ve = isp*g0;
+        acc = ve*dm/m;     %...to find initial acceleration
+        [A, B, C, T] = poweredExplicitGuidance(...
+                        0,...
+                        alt(1)+R, vx(1), vy(1), target,...
+                        acc, ve,...
+                        0, 0, maxT);
     end
     
     %MAIN LOOP
@@ -82,7 +116,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
             %natural, lock-prograde gravity turn
             if vy(i-1) >= gtiV && GT == 0
                 GT = 1;
-            elseif angle(i-1) > gtiP && GT == 1
+            elseif angleS(i-1) > gtiP && GT == 1
                 GT = 2;
             end;
             if GT == 0
@@ -90,11 +124,51 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
             elseif GT == 1
                 pitch(i) = min(pitch(i-1)+dt, gtiP);    %hardcoded 1deg/s change (to simulate real, not instantaneous pitchover)
             else
-                pitch(i) = angle(i-1);
+                pitch(i) = angleS(i-1);
             end;
         elseif control.type == 1
             %pitch program control
             pitch(i) = approxFromCurve(t(i-1), prog);
+        elseif control.type == 2
+            %PEG pitch control
+            %check if there's still fuel
+            if (t(i)-t(1) > maxT && ENG > 0)
+                ENG = 0;    %engine ran out of fuel
+                break;      %exit the main simulation loop
+            end;
+            %get current vehicle acceleration and effective exhaust velocity
+            ve = isp*g0;    %isp retained from previous iteration
+            acc = ve*dm/m;
+            %check how long ago was the last PEG cycle
+            if (lc < ct)
+                %if not too long ago - increment
+                lc = lc + dt;
+            else
+                %run PEG
+                [A, B, C, T] = poweredExplicitGuidance(...
+                                lc,...
+                                alt(i-1)+R, vx(i-1), vy(i-1), target,...
+                                acc, ve,...
+                                A, B, T);   %passing old T instead of T-dt IS CORRECT
+                %if T>=7.5
+                    lc = 0;
+                %end;
+            end;
+            temp = A - B*lc + C;
+            %PEG debug logs
+            dbg(1,i) = A;
+            dbg(2,i) = B;
+            dbg(3,i) = C;
+            dbg(4,i) = temp;
+            dbg(5,i) = acosd( min(1, max(-1, temp)) );   %clamp to arcus cosinus domain (ideally should never be needed)
+            dbg(6,i) = T-lc;
+            %PEG-scheduled cutoff
+            if (T-lc < dt && ENG == 1)
+                ENG = 2;
+                break;
+            end;
+            %pitch control (clamped same as debug entry 5)
+            pitch(i) = acosd( min(1, max(-1, temp)) );
         end
         
         %PHYSICS SIMULATION PART
@@ -108,23 +182,28 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         vx(i) = vx(i-1) + dv*sind(pitch(i-1));
         vy(i) = vy(i-1) + dv*cosd(pitch(i-1));
         %centrifugal and gravitational acceleration
-        C = vx(i-1)^2/(alt(i-1)+R);
-        G = mu/(R+alt(i-1))^2;
-        vy(i) = vy(i) + (C - G) * dt;
-        vg = vg + G * dt;%integrate gravity losses
+        Ca = vx(i-1)^2/(alt(i-1)+R);
+        Ga = mu/(alt(i-1)+R)^2;
+        vy(i) = vy(i) + (Ca - Ga) * dt;
+        vg = vg + Ga * dt;%integrate gravity losses
         %aerodynamic losses (simplest way: no lift or AoA effects)
-        airv = vy(i-1)^2 + vx(i-1)^2;  %should be sqrt of that, but we need squared value at q
-        cd = approxFromCurve(sqrt(airv), dragcurve); %vehicle drag coefficient at given velocity
-        temp = approxFromCurve(alt(i-1)/1000, atmtemperature)+273.15; %air temperature at altitude
+            %velocity related to air (so we subtract what we gained with
+            %Earth's rotation because the air around us is rotating too)
+        airv = vy(i-1)^2 + ((vx(i-1))-vair)^2;
+            %we retain squared value for dynamic pressure calculation, for
+            %drag coefficient we do separate ad-hoc root
+        cd = approxFromCurve(sqrt(airv), dragcurve);
+        temp = approxFromCurve(alt(i-1)/1000, atmtemperature)+273.15;
         dens = calculateAirDensity(p*101325, temp);
-        q(i) = 0.5*dens*airv;  %dynamic pressure
-        D(i) = A*cd*q(i);  %aerodynamic drag force (original formula: 0.5*A*cd*dens*airv*airv)
-        dv = D(i)/m * dt;  %reuse an old variable, this time for a velocity decrement due to drag
-        vx(i) = vx(i) - dv*sind(angle(i-1));
-        vy(i) = vy(i) - dv*cosd(angle(i-1));
-        vd = vd + dv;%integrate aerodynamic losses
-        %velocity vector angle
-        angle(i) = asind(vx(i) / sqrt(vx(i)^2+vy(i)^2));
+        q(i) = 0.5*dens*airv;   %dynamic pressure
+        D(i) = area*cd*q(i);    %aerodynamic drag force (original formula: 0.5*A*cd*dens*airv^2)
+        dv = D(i)/m * dt;       %reuse an old variable, this time for a velocity decrement due to drag
+        vx(i) = vx(i) - dv*sind(angleS(i-1));
+        vy(i) = vy(i) - dv*cosd(angleS(i-1));
+        vd = vd + dv;           %integrate aerodynamic losses
+        %velocity vector angles
+        angleS(i) = asind((vx(i)-vair) / sqrt((vx(i)-vair)^2+vy(i)^2)); %surface-related
+        angleO(i) = asind(vx(i) / sqrt(vx(i)^2+vy(i)^2));    %orbit-related
         %integrate altitude and radial distance
         alt(i) = alt(i-1) + vy(i)*dt;
         rad(i) = rad(i-1) + atan2d(vx(i)*dt, alt(i)+R);
@@ -137,25 +216,32 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         end;
     end
     %prepare summary
-    plots = struct('t', t,...
-                   'F', F,...
-                   'q', q,...
-                   'D', D,...
-                   'vx', vx,...
-                   'vy', vy,...
-                   'angle', angle,...
-                   'pitch', pitch,...
-                   'altitude', alt,...
-                   'radial', rad);
-    airv = sqrt((vx(N)+vx_gain)^2+vy(N)^2);
-    results = struct('Altitude', alt(N)/1000,...
+    plots = struct('t', t(1:i-1),...
+                   'F', F(1:i-1),...
+                   'q', q(1:i-1),...
+                   'D', D(1:i-1),...
+                   'vx', vx(1:i-1),...
+                   'vy', vy(1:i-1),...
+                   'angle_srf', angleS(1:i-1),...
+                   'angle_obt', angleO(1:i-1),...
+                   'pitch', pitch(1:i-1),...
+                   'alt', alt(1:i-1),...
+                   'rad', rad(1:i-1));
+    airv = sqrt(vx(i-1)^2+vy(i-1)^2);
+    results = struct('Altitude', alt(i-1),...
+                     'Apoapsis', 0, 'Periapsis', 0,...
+                     'Eccentricity', 0,...
                      'Velocity', airv,...
-                     'Angle', acosd(vy(N)/airv),...
-                     'Apoapsis', 0, 'maxQv', 0, 'maxQt', 0,...
+                     'VelocityX', vx(i-1),...
+                     'VelocityY', vy(i-1),...
+                     'maxQv', 0, 'maxQt', 0,...
+                     'Angle_srf', angleS(i-1),...
+                     'Angle_obt', angleO(i-1),...
                      'LostGravity', vg,...
                      'LostDrag', vd,...
                      'LostTotal', vg+vd,...
+                     'BurnTimeLeft',maxT-t(i-1),...
                      'Plots', plots);
-    [results.Apoapsis,~] = getOrbital(vx(N)+vx_gain, vy(N), alt(N)+R); %returns apoapsis and periapsis
+    [results.Apoapsis,results.Periapsis,results.Eccentricity] = getOrbital(vx(i-1), vy(i-1), alt(i-1)+R); %returns apoapsis and periapsis
     [results.maxQt, results.maxQv] = getMaxValue(q); %returns maxQ's occurence (index in time table) and value
     results.maxQt = t(results.maxQt); %format to seconds

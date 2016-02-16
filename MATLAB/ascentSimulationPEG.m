@@ -92,7 +92,7 @@ function [results] = ascentSimulationPEG(vehicle, init, control, dt)
             dbg(2,i) = B;
             dbg(3,i) = C;
             dbg(4,i) = temp;
-            dbg(5,i) = acosd( min(1, max(-1, temp)) );   %clamp do arcus cosinus domain (ideally should never be needed)
+            dbg(5,i) = acosd( min(1, max(-1, temp)) );   %clamp to arcus cosinus domain (ideally should never be needed)
             dbg(6,i) = T-lc;
         else
             acc = 0; %if engine was cut, there's no acceleration

@@ -20,3 +20,7 @@ function [y] = approxFromCurve(x, curve)
     b = curve(i,2) - m*curve(i,1);
     %compute
     y = m*x+b;
+    %if out of range - do nothing, repeat last value to be safe
+    if (x>curve(n,1))
+        y=curve(n,2);
+    end;
