@@ -84,7 +84,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         angleO(1) = 90;
     elseif initial.type==1 %vehicle already in flight
         t(1) = initial.t;
-        alt(1) = initial.alt-R;
+        alt(1) = initial.alt;
         rad(1) = initial.rad;
         vx(1) = initial.vx;
         vy(1) = initial.vy;
