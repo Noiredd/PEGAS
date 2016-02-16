@@ -9,8 +9,8 @@
 %   sweepGravityTurn.m
 %PARAMETERS - USER INPUT
 ap_dt = 0.1;    %simulation precision
-ap_vmin = 50; ap_vmax = 70; ap_vdv = 10;  %min/max velocity to swep, precision
-ap_pmin = 1;  ap_pmax = 5;   ap_pdp = 2; %same for pitchover value
+ap_vmin = 50; ap_vmax = 80; ap_vdv = 10;  %min/max velocity to swep, precision
+ap_pmin = 1;  ap_pmax = 7;   ap_pdp = 2; %same for pitchover value
 ap_target = 150;    %target apoapsis to find equation for
 %input vectors and their lengths
 ap_v = ap_vmin:ap_vdv:ap_vmax;
@@ -18,7 +18,7 @@ ap_p = ap_pmin:ap_pdp:ap_pmax;
 ap_n = length(ap_v);
 ap_m = length(ap_p);
 %actual sweep - a very computationally heavy function
-[ap_a,ap_q] = sweepGravityTurn(ap_v, ap_p, ap_dt);
+[ap_a,ap_q] = sweepGravityTurn(s1_vehicle, ap_v, ap_p, ap_dt);
 %for visualisation data must be converted to a proper format
 ap_x = zeros(1,ap_n*ap_m);
 ap_y = zeros(1,ap_n*ap_m);

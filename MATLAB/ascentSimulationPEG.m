@@ -18,7 +18,7 @@ function [results] = ascentSimulationPEG(vehicle, init, control, dt)
     
     %unpack vehicle data
     m = vehicle.m0;
-    isp = vehicle.isp;
+    isp = vehicle.i0;
     dm = vehicle.dm;
     maxT = vehicle.mt;
     

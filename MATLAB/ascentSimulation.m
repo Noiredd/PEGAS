@@ -13,20 +13,20 @@
 %   calculateAirDensity.m
 %   getMaxValue.m
 %   getOrbital.m
-function [results] = ascentSimulation(control, dt)
+function [results] = ascentSimulation(vehicle, control, dt)
     %declare globals
-    global mu; global g0; global R; global VEHICLE1;
+    global mu; global g0; global R;
     global atmpressure;  global atmtemperature;
     
     %unpack vehicle data
-    m = VEHICLE1.m0;
-    isp0 = VEHICLE1.i0;
-    isp1 = VEHICLE1.i1;
-    dm = VEHICLE1.dm;
-    maxT = VEHICLE1.mt;
-    engT = VEHICLE1.et;
-    A = VEHICLE1.ra;
-    dragcurve = VEHICLE1.dc;
+    m = vehicle.m0;
+    isp0 = vehicle.i0;
+    isp1 = vehicle.i1;
+    dm = vehicle.dm;
+    maxT = vehicle.mt;
+    engT = vehicle.et;
+    A = vehicle.ra;
+    dragcurve = vehicle.dc;
     
     %define control type
     if control.type == 0
@@ -52,14 +52,14 @@ function [results] = ascentSimulation(control, dt)
     G = 0;              %current gravity acceleration [m/s^2]
     vx = zeros(1,N);    %horizontal (tangential) velocity (towards the orbital velocity) [m/s]
     vx_gain = (2*pi*R/24/3600)*...
-     cosd(VEHICLE1.lat);%gained from Earth's rotational motion
+     cosd(vehicle.lat);%gained from Earth's rotational motion
     vy = zeros(1,N);    %vertical (radial) velocity (altitude change) [m/s]
     angle = zeros(1,N); %velocity vector direction log [deg] (0 - straight up, 90 - due east)
     pitch = zeros(1,N); %vehicle orientation log [deg] (pitch commands) (0 - straight up, 90 - due east)
     vg = 0;             %gravity losses (integrated) [m/s]
     vd = 0;             %aerodynamic losses (integrated) [m/s]
     alt = zeros(1,N);   %altitude (integral) [m] (measured from the surface)
-    alt(1) = VEHICLE1.lsa;
+    alt(1) = vehicle.lsa;
     rad = zeros(1,N);   %radial distance from launch point (eg. geographical longitude, for a GTO launch) [deg]
     
     %MAIN LOOP
