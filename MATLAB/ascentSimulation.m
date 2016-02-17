@@ -50,6 +50,11 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
                                             %0 - fuel deprived;
                                             %1 - running;
                                             %2 - cut as scheduled by PEG
+    elseif control.type == 3
+        %type 3 = coast phase (unguided free flight)
+        %strongly recommended using initial.type==1
+        engT = 0;
+        maxT = control.length;
     end
     
     %SIMULATION SETUP
@@ -172,7 +177,12 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         p = approxFromCurve(alt(i-1)/1000, atmpressure); %get pressure
         isp = (isp1-isp0)*p+isp0;
         %calculate thrust and acceleration
-        F(i) = isp*g0*dm;
+        if control.type==3
+            %set thrust to zero for unpowered flight
+            F(i) = 0;
+        else
+            F(i) = isp*g0*dm;
+        end;
         acc(i) = F(i)/m;
         %new velocity
         dv = acc(i) * dt;
