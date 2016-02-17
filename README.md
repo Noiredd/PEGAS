@@ -1,3 +1,5 @@
+PS: git sucks.
+
 ## PEGAS
 *Powered Explicit Guidance Ascent System* is an autopilot for Kerbal Space Program made and ran in kOS, designed to control launch vehicles under a modified version of the game running [Realism Overhaul](http://forum.kerbalspaceprogram.com/threads/99966). At its current state it features two main sections:
 * passive pitch control for atmospheric flight (first stage guidance),
