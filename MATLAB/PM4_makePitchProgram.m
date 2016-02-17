@@ -30,4 +30,5 @@ plot(pp_prog(1,:), pp_prog(2,:), 'blue');
 title('Linearised pitch program');
 legend('original gravity turn pitch', 'linear approximated pitch', 'Location', 'SouthEast');
 hold off;
-clearvars r
+%cleanup
+clearvars pp_v pp_n pp_k pp_p r pp_pitch;

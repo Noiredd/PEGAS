@@ -70,3 +70,8 @@ hold off;
 %ap_2c = ap_2(ap_xc,ap_yc);
 %plot(ap_xc, ap_2c);
 %title('Secondary constraint surface');
+
+%CLEANUP
+clearvars ap_vmin ap_vmax ap_vdv ap_pmin ap_pmax ap_pdp ap_target;
+clearvars ap_v ap_p ap_n ap_m ap_a ap_q ap_x ap_y ap_z;
+clearvars ap_C ap_h ap_xc ap_yc ap_cvars xf yf;

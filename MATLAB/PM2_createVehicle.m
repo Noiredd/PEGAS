@@ -45,6 +45,9 @@ s1_vehicle = struct('m0', s1_m0,...
                     'ra', s1_A,...
                     'dc', s1_drag);
 s1_init = struct('type', 0, 'lat', s1_lat, 'lon', s1_lon, 'alt', s1_lsa);
+%cleanup
+clearvars s1_m0 s1_thrust s1_isp0 s1_isp1 s1_fm s1_A s1_drag s1_dm;
+clearvars s1_lat s1_lon s1_lsa s1_twr s1_twf s1_expct_dv s1_vx_gain;
                 
 %SECOND STAGE
 s2_m0       = 7442;             %stage 2 mass at separation [kg]
@@ -52,9 +55,9 @@ s2_thrust   = 55400;            %thrust vacuum [N]
 s2_isp0     = 340;              %isp vacuum [s]
 s2_isp1     = 340;              %isp ASL [s]
 s2_fm       = 6284;             %stage 2 fuel mass [kg]
-s2_A        = s1_A;             %reference cross section area [m2]
+s2_A        = 7.06;             %reference cross section area [m2]
 s2_engT     = 0;                %only in compliance to standard vehicle structure
-s2_drag     = s1_drag;          %drag coefficient here copied from first stage
+s2_drag     = s1_vehicle.dc;    %drag coefficient here copied from first stage
 s2_dm       = s2_thrust/...
                    (s2_isp0*g0); %mass flow rate [kg/s]
 s2_maxT 	= s2_fm*s2_isp0*g0/...
@@ -72,3 +75,6 @@ s2_vehicle = struct('m0', s2_m0,...
 s2_twr      = s2_thrust/(s2_m0*g0)
 s2_twf      = s2_dm*s2_isp0/(s2_m0-s2_fm)
 s2_expct_dv = s2_isp0*g0*log(s2_m0/(s2_m0-s2_fm))
+%cleanup
+clearvars s2_m0 s2_thrust s2_isp0 s2_isp1 s2_fm s2_A s2_engT s2_drag s2_dm;
+clearvars s2_twr s2_twf s2_expc_dv;
