@@ -60,6 +60,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
     t = zeros(1,N);     %simulation time
     Ca = 0;             %centrifugal acceleration [m/s^2] (we use a cartesian non rotating frame of reference)
     F = zeros(1,N);     %thrust [N]
+    acc = zeros(1,N);   %acceleration due to thrust [m/s^s]
     q = zeros(1,N);     %dynamic pressure q [Pa]
     D = zeros(1,N);     %drag [N]
     Ga = 0;             %current gravity acceleration [m/s^2]
@@ -101,11 +102,11 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         p = approxFromCurve(alt(1)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
         ve = isp*g0;
-        acc = ve*dm/m;     %...to find initial acceleration
+        acc(1) = ve*dm/m;  %...to find initial acceleration
         [A, B, C, T] = poweredExplicitGuidance(...
                         0,...
                         alt(1)+R, vx(1), vy(1), target,...
-                        acc, ve,...
+                        acc(1), ve,...
                         0, 0, maxT);
     end
     
@@ -136,9 +137,6 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
                 ENG = 0;    %engine ran out of fuel
                 break;      %exit the main simulation loop
             end;
-            %get current vehicle acceleration and effective exhaust velocity
-            ve = isp*g0;    %isp retained from previous iteration
-            acc = ve*dm/m;
             %check how long ago was the last PEG cycle
             if (lc < ct)
                 %if not too long ago - increment
@@ -148,7 +146,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
                 [A, B, C, T] = poweredExplicitGuidance(...
                                 lc,...
                                 alt(i-1)+R, vx(i-1), vy(i-1), target,...
-                                acc, ve,...
+                                acc(i-1), isp*g0,...%use previously calculated acceleration and Isp
                                 A, B, T);   %passing old T instead of T-dt IS CORRECT
                 lc = 0; %think about not resetting this one if PEG skipped AB recalculation
             end;
@@ -173,10 +171,11 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         %get isp
         p = approxFromCurve(alt(i-1)/1000, atmpressure); %get pressure
         isp = (isp1-isp0)*p+isp0;
-        %calculate thrust
+        %calculate thrust and acceleration
         F(i) = isp*g0*dm;
+        acc(i) = F(i)/m;
         %new velocity
-        dv = F(i)/m * dt;
+        dv = acc(i) * dt;
         vx(i) = vx(i-1) + dv*sind(pitch(i-1));
         vy(i) = vy(i-1) + dv*cosd(pitch(i-1));
         %centrifugal and gravitational acceleration
@@ -216,6 +215,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
     %prepare summary
     plots = struct('t', t(1:i-1),...
                    'F', F(1:i-1),...
+                   'a', acc(1:i-1),...
                    'q', q(1:i-1),...
                    'D', D(1:i-1),...
                    'vx', vx(1:i-1),...
