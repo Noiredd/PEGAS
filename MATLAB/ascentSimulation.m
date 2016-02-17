@@ -97,7 +97,6 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
         vair = initial.wind;
         angleS(1) = asind((vx(1)-vair) / sqrt((vx(1)-vair)^2+vy(1)^2));
         angleO(1) = asind(vx(1) / sqrt(vx(1)^2+vy(1)^2));
-        pitch(1) = angleS(1);
     end
     
     %PEG setup
@@ -113,6 +112,7 @@ function [results] = ascentSimulation(vehicle, initial, control, dt)
                         alt(1)+R, vx(1), vy(1), target,...
                         acc(1), ve,...
                         0, 0, maxT);
+        pitch(1) = acosd(A + C);
     end
     
     %MAIN LOOP
