@@ -1,5 +1,8 @@
 %PM5_testAscentProfile.m
 %Ascent simulation using precalculated pitch program.
+%Dependencies:
+%   ascentSimulationPEG.m
+%   flightPlots.m
 %PARAMETERS - USER INPUT
 s1_dt = 0.05;           %sim precision [s]
 %run simulation

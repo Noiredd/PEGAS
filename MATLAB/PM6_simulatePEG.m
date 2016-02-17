@@ -2,8 +2,8 @@
 %Ascent simulation using Powered Explicit Guidance.
 %Dependencies:
 %   ascentSimulationPEG.m
-%      poweredExplicitGuidance.m
 %   continueFlight.m
+%   flightPlots.m
 %PARAMETERS - USER INPUT
 peg_target = 200;
 peg_cycle = 2;

@@ -74,14 +74,14 @@ function [] = flightPlots(powered, coast, fid)
     subplot(2,3,5);
     hold on;
     for i=1:length(powered)
-        plot(powered(i).Plots.t, powered(i).Plots.rad*(2*pi*R/360), clr);
+        plot(powered(i).Plots.t, (powered(i).Plots.rad-powered(1).Plots.rad(1))*(2*pi*R/360000), clr);
     end;
     for i=1:length(coast)
-        plot(coast(i).Plots.t, coast(i).Plots.rad*(2*pi*R/360), 'b');
+        plot(coast(i).Plots.t, (coast(i).Plots.rad-powered(1).Plots.rad(1))*(2*pi*R/360000), 'b');
     end;
     title('Downrange');
     xlabel('Time [s]');
-    ylabel('Distance [m]');
+    ylabel('Distance [km]');
     hold off;
     %velocity plots X
     subplot(2,3,6);
