@@ -1,4 +1,4 @@
-PS: git sucks.
+PS: git is hard.
 
 ## PEGAS
 *Powered Explicit Guidance Ascent System* is an autopilot for Kerbal Space Program made and ran in kOS, designed to control launch vehicles under a modified version of the game running [Realism Overhaul](http://forum.kerbalspaceprogram.com/threads/99966). At its current state it features two main sections:
@@ -66,4 +66,4 @@ Aside from those scripts, code contains various functions which are sufficiently
 
 ##### Credits
 
-MATLAB `linearFit.m` function contains pieces written originally by [Andrey Rubshtein](http://stackoverflow.com/users/817452/andrey-rubshtein) and [Nikolai Golovchenko](http://golovchenko.org), whom I hereby thank for their great work.
+MATLAB `linearFit.m` function contains pieces written originally by [Andrey Rubshtein](http://stackoverflow.com/users/817452/andrey-rubshtein) and [Nikolai Golovchenko](http://golovchenko.org). `flightPlots.m` uses [Richard Crozier](http://www.mathworks.com/matlabcentral/profile/authors/1590682-richard-crozier)'s [`tightfit`](http://www.mathworks.com/matlabcentral/fileexchange/34055-tightfig) (see MATLAB\tightfit.license for attached BSD license). Thank you all for your great work!

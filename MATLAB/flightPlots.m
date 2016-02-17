@@ -96,4 +96,6 @@ function [] = flightPlots(powered, coast, fid)
     xlabel('Time [s]');
     ylabel('Velocity [m/s]');
     hold off;
+    %remove excessive margins
+    tightfig;
 end
