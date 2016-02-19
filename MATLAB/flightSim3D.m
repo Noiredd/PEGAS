@@ -6,10 +6,22 @@
 %   [+] unpowered motion in gravity
 %   [+] basic 3D visualization
 %   [+] thrust
+%   [+] pitch programming
 %   [ ] drag
+%   [ ] complete data output
+%   [ ] results postprocessing & plotting
 %   [ ] natural gravity turn
-%   [ ] pitch/yaw programming
-%   [ ] ?
+%   [ ] compare 2D vs 3D performance
+%   [ ] reconstruct PEG
+%   [ ] clean up vector math (until this point we'll be doing everything multiple times)
+%   [ ] orbital elements from r&v
+%   [ ] passive yaw programming (verify azimuth~inclination results)
+%   [ ] PEG YAW CONTROL
+%   [ ] ...
+%   [ ] sample flight comparison (MATLAB vs kOS, constant azimuth)
+%       examine how inclination&LAN behave for purposes of launch timing
+%   [ ] ...
+%   [ ] MULTISTAGE
 function [results] = flightSim3D(vehicle, initial, control, dt)
     %declare globals
     global mu, global g0, global R;
@@ -105,7 +117,8 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         nu = cross(r(i,:),v(i,:));
         nu = nu/norm(nu);           %normal versor -> our local "Left"
         cu = cross(nu,ru);          %circuferential versor -> our local "Forward" (towards the horizon)
-            %"navball" coordinates
+            %"navball" coordinates: not actually what KSP navball looks
+            %like - the real one would use 'ru', 'en' and cross(ru,en)
         un = [r(i,1) r(i,2) 0];
         un = un/norm(un);           %local "Equatorial Up"
         nn = cross([r(i,1) r(i,2) 0],[v(i,1) v(i,2) 0]);
@@ -126,7 +139,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     results = struct('Altitude', (norm(r(i,:))-R)/1000,...
                      'Velocity', norm(v(i,:)),...
                      'Plots', plots);
-    figure(1); clf; plot(temp);
+    %figure(1); clf; plot(temp);
     figure(2); clf;
     scale=1;
     hold on;
@@ -135,7 +148,8 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     sx=sx(11:end,:);
     sy=sy(11:end,:);
     sz=sz(11:end,:);
-    scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
+    %comment/uncomment line below to switch between Earth-based plot and trajectory oriented one
+    %scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
         %lets try a ground path instead a sphere
         gp=zeros(N,3);
         for i=1:N
@@ -164,10 +178,6 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     %acceleration
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.03*acv;%final
     plot3(t(:,1),t(:,2),t(:,3),'y');
-    for i=1:100:N
-        t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.1*cFromNavball(r(i,:), v(i,:), pitch(i), yaw);%initial
-        plot3(t(:,1),t(:,2),t(:,3),'r');
-    end;
     hold off;
 end
 
