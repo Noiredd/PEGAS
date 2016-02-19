@@ -73,12 +73,13 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     nn = cross([r(1,1) r(1,2) 0],[v(1,1) v(1,2) 0]); nn = nn/norm(nn);
     en = cross(nn,un);
     
+    temp=zeros(1,N);
     %MAIN LOOP
     for i=2:N
         %PITCH CONTROL
         if control.type == 1
             pitch(i) = approxFromCurve(t(i-1), prog);
-            yaw = 10;
+            yaw = 0;
         end;
         
         %PHYSICS
@@ -111,6 +112,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         nn = nn/norm(nn);           %local "North"
         en = cross(nn,un);          %local "East"
             %angles
+            temp(i)=acosd(dot(r(i,:),acv)/(norm(r(i,:))*norm(acv)));
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
@@ -124,15 +126,16 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     results = struct('Altitude', (norm(r(i,:))-R)/1000,...
                      'Velocity', norm(v(i,:)),...
                      'Plots', plots);
-    %figure(1); clf; plot((rr-R)/1000);
+    figure(1); clf; plot(temp);
     figure(2); clf;
+    scale=1;
     hold on;
     plot3(r(:,1),r(:,2),r(:,3));
     [sx,sy,sz]=sphere(20);%make half a sphere
     sx=sx(11:end,:);
     sy=sy(11:end,:);
     sz=sz(11:end,:);
-    %plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
+    scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
         %lets try a ground path instead a sphere
         gp=zeros(N,3);
         for i=1:N
@@ -141,7 +144,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         plot3(gp(:,1),gp(:,2),gp(:,3),'k');
     %local circumferential versors
     scatter3(r(i,1),r(i,2),r(i,3),'r');
-    scale=50000;
+    scale=scale*50000;
     t=zeros(2,3);
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*ru; %radial (away)
     plot3(t(:,1),t(:,2),t(:,3),'r');
@@ -159,9 +162,12 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     plot3(t(:,1),t(:,2),t(:,3),'k');
         %[dot(un,nn) dot(un,en) dot(nn,en)]
     %acceleration
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.03*acv;
+    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.03*acv;%final
     plot3(t(:,1),t(:,2),t(:,3),'y');
-    
+    for i=1:100:N
+        t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.1*cFromNavball(r(i,:), v(i,:), pitch(i), yaw);%initial
+        plot3(t(:,1),t(:,2),t(:,3),'r');
+    end;
     hold off;
 end
 
@@ -171,14 +177,16 @@ function [c] = cFromNavball(r, v, p, y)
     %current velocity under v (1x3)
     %pitch aim under p (scalar) - degrees away from Up
     %yaw aim under y (scalar) - degrees from East towards North
-    up = [r(1) r(2) 0];
-    up = up/norm(up);           %local "Equatorial Up"
+    eup = [r(1) r(2) 0];
+    eup = eup/norm(eup);        %local "Equatorial Up"
     north = cross([r(1) r(2) 0],[v(1) v(2) 0]);
     north = north/norm(north);  %local "North"
-    east = cross(north,up);     %local "East"
+    east = cross(north,eup);    %true "East"
+    up = r/norm(r);             %true "Up" (away from the planet)
+    tn = cross(up,east);        %true "North"
     %up, north and east components
     a = cosd(p)*up;
-    b = sind(p)*sind(y)*north;
+    b = sind(p)*sind(y)*tn;
     c = sind(p)*cosd(y)*east;
     c = a + b + c;
 end
