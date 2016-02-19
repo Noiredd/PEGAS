@@ -23,9 +23,9 @@ s1_dm       = s1_thrust/...
 s1_maxT     = s1_fm*s1_isp1*g0/...
                       s1_thrust %burn time [s]
 %launch site
-s1_lat      = 45.9;             %latitude of the launch site [deg]
-s1_lon      = -30.0;            %longitude of the launch site [deg]
-s1_lsa      = 441;              %launch site altitude ASL [m]
+s1_lat      = 28.60861;         %latitude of the launch site [deg]
+s1_lon      = -80.59772;        %longitude of the launch site [deg]
+s1_lsa      = 99;               %launch site altitude ASL [m]
 %derived parameters
 s1_twr      = s1_thrust/...
                      (s1_m0*g0) %TWR at launch

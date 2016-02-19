@@ -10,20 +10,28 @@
 %   [ ] natural gravity turn
 %   [ ] pitch/yaw programming
 %   [ ] ?
-function [results] = flightSim3D(vehicle, time, dt)
+function [results] = flightSim3D(vehicle, initial, control, dt)
     %declare globals
     global mu, global g0, global R;
     global atmpressure;
     
-    %unpack vehicle data
+    %VEHICLE UNPACK
     m = vehicle.m0;
     isp0 = vehicle.i0;
     isp1 = vehicle.i1;
     dm = vehicle.dm;
-    maxT = vehicle.mt;%time
+    maxT = vehicle.mt;
     engT = vehicle.et;
     area = vehicle.ra;
-    dragcurve = vehicle.dc;
+    drag = vehicle.dc;
+    
+    %CONTROL SETUP
+    if control.type == 0
+        return; %we're not ready yet
+    elseif control.type == 1
+        prog = control.program;
+        %turns out it's easier to implement this than aero turn
+    end;
     
     %SIMULATION SETUP
     m = m - engT*dm;    %rocket is burning fuel while bolted to the launchpad for engT seconds before it's released
@@ -32,13 +40,14 @@ function [results] = flightSim3D(vehicle, time, dt)
     t = zeros(N,1);     %simulation time
     F = zeros(N,1);     %thrust magnitude [N]
     acc = zeros(N,1);   %acceleration due to thrust magnitude [m/s^2]
+    pitch = zeros(N,1); %pitch command log [deg] (0 - straight up)
     %vehicle position in cartesian XYZ frame
     r = zeros(N,3);     %from Earth's center [m]
     rr = zeros(N,1);    %magnitude [m]
     %vehicle velocity
     v = zeros(N,3);     %relative to Earth's center [m/s]
     vv = zeros(N,1);    %magnitude [m/s]
-    %flight angles (THIS IS NOT RIGHT FOR NOW)
+    %flight angles (THIS IS PROBABLY INCORRECT FOR NOW)
     fpa_srf = zeros(1,N);   %Flight Pitch Angle (surface) - how much the vehicle points "up" in relation to moving air [deg]
                             %at launchpad this is undefined. 0 = straight up, 90 = due East
     fpa_obt = zeros(1,N);   %the same but related to orbital velocity [deg]le points "up" in relation to moving air [deg]
@@ -52,10 +61,10 @@ function [results] = flightSim3D(vehicle, time, dt)
     %forces
     Ga = [0 0 0];           %current gravitational acceleration vector [m/s^2]
     
-    %SIMULATION INITIALIZATION (just bogus for now)
-    r(1,:) = [R/sqrt(2) 0 R/sqrt(2)];
+    %SIMULATION INITIALIZATION
+    [r(1,1),r(1,2),r(1,3)] = sph2cart(degtorad(initial.lon), degtorad(initial.lat), R+initial.alt);
     rr(1) = norm(r(1,:));
-    v(1,:) = [0 7863.3122 0];
+    v(1,:) = surfSpeed(r(1,:));
     vv(1) = norm(v(1,:));
     ru = r(1,:)/rr(1);
     nu = cross(r(1,:),v(1,:)); nu = nu/norm(nu);
@@ -66,19 +75,21 @@ function [results] = flightSim3D(vehicle, time, dt)
     
     %MAIN LOOP
     for i=2:N
-        %PHYSICS PART
+        %PITCH CONTROL
+        if control.type == 1
+            pitch(i) = approxFromCurve(t(i-1), prog);
+            yaw = 10;
+        end;
+        
+        %PHYSICS
         %thrust/acceleration
         p = approxFromCurve((rr(i-1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
         F(i) = isp*g0*dm;
         acc(i) = F(i)/m;
-        acv1 = cosd(0)*ru;         %vertical component of thrust
-        acv2 = sind(0)*cosd(0)*cu; %prograde component of thrust
-        acv3 = sind(0)*sind(0)*nu; %normal component of thrust
-        %acv = acc(i)*(acv1+acv2+acv3);
-        acv = acc(i)*cFromNavball(r(i-1,:), v(i-1,:), 20, 90);
-        %angle between planar component of thrust and east +angle between coordinate systems in plane
-        acosd(dot(acv2+acv3,en)/(norm(acv2+acv3)*norm(en)))+acosd(dot(cu,en));
+        acv = acc(i)*cFromNavball(r(i-1,:), v(i-1,:), pitch(i), yaw);
+        %%angle between planar component of thrust and east +angle between coordinate systems in plane
+        %acosd(dot(acv2+acv3,en)/(norm(acv2+acv3)*norm(en)))+acosd(dot(cu,en));
         %gravity
         Ga = mu*r(i-1,:)/norm(r(i-1,:))^3;
         %velocity
@@ -113,7 +124,7 @@ function [results] = flightSim3D(vehicle, time, dt)
     results = struct('Altitude', (norm(r(i,:))-R)/1000,...
                      'Velocity', norm(v(i,:)),...
                      'Plots', plots);
-   % figure(1); clf; plot(vv);
+    %figure(1); clf; plot((rr-R)/1000);
     figure(2); clf;
     hold on;
     plot3(r(:,1),r(:,2),r(:,3));
@@ -121,30 +132,36 @@ function [results] = flightSim3D(vehicle, time, dt)
     sx=sx(11:end,:);
     sy=sy(11:end,:);
     sz=sz(11:end,:);
-    plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
+    %plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
+        %lets try a ground path instead a sphere
+        gp=zeros(N,3);
+        for i=1:N
+            gp(i,:)=R*r(i,:)/norm(r(i,:));
+        end
+        plot3(gp(:,1),gp(:,2),gp(:,3),'k');
     %local circumferential versors
     scatter3(r(i,1),r(i,2),r(i,3),'r');
-    scale=2000000;
+    scale=50000;
     t=zeros(2,3);
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*ru; %radial (away)
-    plot3(t(:,1),t(:,2),t(:,3),'k');
+    plot3(t(:,1),t(:,2),t(:,3),'r');
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nu; %normal (plane change)
-    plot3(t(:,1),t(:,2),t(:,3),'k');
+    plot3(t(:,1),t(:,2),t(:,3),'g');
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*cu; %circumferential (prograde)
-    plot3(t(:,1),t(:,2),t(:,3),'k');
+    plot3(t(:,1),t(:,2),t(:,3),'b');
         %[dot(ru,nu) dot(ru,cu) dot(nu,cu)]
     %navball versors
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*un; %away in equatorial plane
-    plot3(t(:,1),t(:,2),t(:,3),'r');
+    plot3(t(:,1),t(:,2),t(:,3),'k');
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nn; %north
-    plot3(t(:,1),t(:,2),t(:,3),'r');
+    plot3(t(:,1),t(:,2),t(:,3),'k');
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*en; %east
-    plot3(t(:,1),t(:,2),t(:,3),'r');
+    plot3(t(:,1),t(:,2),t(:,3),'k');
         %[dot(un,nn) dot(un,en) dot(nn,en)]
     %acceleration
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.03*acv;
-    plot3(t(:,1),t(:,2),t(:,3),'g');
-        norm(acv)
+    plot3(t(:,1),t(:,2),t(:,3),'y');
+    
     hold off;
 end
 
@@ -164,4 +181,19 @@ function [c] = cFromNavball(r, v, p, y)
     b = sind(p)*sind(y)*north;
     c = sind(p)*cosd(y)*east;
     c = a + b + c;
+end
+
+%finds Earth's rotation velocity vector at given cartesian location
+function [rot] = surfSpeed(r)
+    global R;
+    %get latitude
+    [~,lat,~] = cart2sph(r(1), r(2), r(3));
+    vel = 2*pi*R/(24*3600); %equatorial
+    vel = vel*cos(lat);     %at latitude
+    %now, find vector pointing in direction of Earth's rotation
+    %first rotate our location 90 degrees about Z axis
+    m = [0 1 0; -1 0 0; 0 0 1];
+    t = r*m;
+    %wind blows east - get the vector using a tool we already have
+    rot = vel*cFromNavball(r, t, 90, 0);
 end
