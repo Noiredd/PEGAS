@@ -8,7 +8,7 @@
 %   [+] thrust
 %   [+] pitch programming
 %   [+] clean up vector math
-%   [ ] drag
+%   [+] drag
 %   [ ] complete data output
 %   [ ] results postprocessing & plotting
 %   [ ] natural gravity turn
@@ -24,8 +24,8 @@
 %   [ ] MULTISTAGE
 function [results] = flightSim3D(vehicle, initial, control, dt)
     %declare globals
-    global mu, global g0, global R;
-    global atmpressure;
+    global mu; global g0; global R;
+    global atmpressure; global atmtemperature;
     
     %VEHICLE UNPACK
     m = vehicle.m0;
@@ -52,7 +52,10 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     t = zeros(N,1);     %simulation time
     F = zeros(N,1);     %thrust magnitude [N]
     acc = zeros(N,1);   %acceleration due to thrust magnitude [m/s^2]
+    q = zeros(N,1);     %dynamic pressure [Pa]
     pitch = zeros(N,1); %pitch command log [deg] (0 - straight up)
+    g_loss = 0;         %gravity d-v losses [m/s]
+    d_loss = 0;         %drag d-v losses [m/s]
     %vehicle position in cartesian XYZ frame
     r = zeros(N,3);     %from Earth's center [m]
     rmag = zeros(N,1);  %magnitude [m]
@@ -62,8 +65,6 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     %reference frame matrices
     nav = zeros(3,3);   %KSP-style navball frame (radial, North, East)
     rnc = zeros(3,3);   %PEG-style tangential frame (radial, normal, circumferential)
-    %forces
-    Ga = [0 0 0];       %current gravitational acceleration vector [m/s^2]
     
     %SIMULATION INITIALIZATION
     [r(1,1),r(1,2),r(1,3)] = sph2cart(degtorad(initial.lon), degtorad(initial.lat), R+initial.alt);
@@ -89,10 +90,23 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         acc(i) = F(i)/m;
         acv = acc(i)*makeVector(nav, pitch(i), yaw);
         %gravity
-        Ga = mu*r(i-1,:)/norm(r(i-1,:))^3;
+        G = mu*r(i-1,:)/norm(r(i-1,:))^3;           %acceleration [m/s^2]
+        g_loss = g_loss + norm(G)*dt;               %integrate gravity losses
+        %drag
+        vair = v(i-1,:) - surfSpeed(r(i-1,:), nav); %air velocity (relative to surface)
+        vairmag = norm(vair);
+        if vairmag==0
+            %since we later divide by this and in first iteration it's zero
+            vairmag = 1;
+        end;
+        cd = approxFromCurve(vairmag, drag);        %drag coefficient
+        temp = approxFromCurve((rmag(i-1)-R)/1000, atmtemperature)+273.15;
+        dens = calculateAirDensity(p*101325, temp);
+        q(i) = 0.5*dens*vairmag^2;                  %dynamic pressure
+        D = area*cd*q(i)/m;                         %drag-induced acceleration [m/s^2]
+        d_loss = d_loss + D*dt;                     %integrate drag losses
         %velocity
-        v(i,:) = v(i-1,:) - Ga*dt + acv*dt;
-        vmag(i) = norm(v(i,:));
+        v(i,:) = v(i-1,:) + acv*dt - G*dt - D*vair/vairmag*dt;
         %position
         r(i,:) = r(i-1,:) + v(i,:)*dt;
         rmag(i) = norm(r(i,:));
@@ -103,14 +117,16 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
     end;
-    
     %OUTPUT
     plots = struct('t', t(1:i),...
                    'v', v,...
                    'vv', vmag,...
+                   'q', q,...
                    'r', r);
     results = struct('Altitude', (norm(r(i,:))-R)/1000,...
                      'Velocity', norm(v(i,:)),...
+                   'gl', g_loss,...
+                   'dl', d_loss,...
                      'Plots', plots);
     %figure(1); clf; plot(temp);
     figure(2); clf;
@@ -121,7 +137,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     sx=sx(11:end,:);
     sy=sy(11:end,:);
     sz=sz(11:end,:);
-    %comment/uncomment line below to switch between Earth-based plot and trajectory oriented one
+    %comment/uncomment line below to switch between Earth-oriented and trajectory-based plots
     %scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
         %ground path
         gp=zeros(N,3);
@@ -139,7 +155,6 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     plot3(t(:,1),t(:,2),t(:,3),'g');
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*rnc(3,:); %circumferential (prograde)
     plot3(t(:,1),t(:,2),t(:,3),'b');
-        rnc
     %navball versors
     scale = scale/2;
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nav(1,:); %away in equatorial plane
@@ -148,8 +163,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     plot3(t(:,1),t(:,2),t(:,3),'k');
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nav(3,:); %east
     plot3(t(:,1),t(:,2),t(:,3),'k');
-        nav
-    %acceleration
+    %acceleration vectors
     t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.03*acv;%final
     plot3(t(:,1),t(:,2),t(:,3),'y');
     hold off;
