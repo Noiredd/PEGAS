@@ -11,10 +11,11 @@
 %   [+] drag
 %   [+] complete data output
 %   [+] orbital elements from r&v
-%   [ ] results postprocessing & plotting
-%   [ ] natural gravity turn
-%   [ ] compare 2D vs 3D performance
+%   [+] reconstruct control module
+%   [ ] launch azimuth passable in 'control'
 %   [ ] reconstruct PEG
+%   [ ] results postprocessing & plotting
+%   [ ] compare 2D vs 3D performance
 %   [ ] passive yaw programming (verify azimuth~inclination results)
 %   [ ] PEG YAW CONTROL
 %   [ ] ...
@@ -39,11 +40,31 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     
     %CONTROL SETUP
     if control.type == 0
-        return; %we're not ready yet
+        %type 0 = natural gravity turn simulation
+        gtiP = control.p;   %initial pitchover angle for gravity turn
+        gtiV = control.v;   %velocity at which the pitchover begins
+        GT = 0; %gravity turn status flag:
+                    %0 - not begun yet;
+                    %1 - equaling to flight angle;
+                    %2 - match flight angle
     elseif control.type == 1
+        %type 1 = pitch program control
         prog = control.program;
-        %turns out it's easier to implement this than aero turn
-    end;
+    elseif control.type == 2
+        %type 2 = powered explicit guidance
+        target = control.target*1000+R; %target orbit altitude
+        ct = control.major;             %length of the major loop
+        lc = 0;                         %time since last PEG cycle
+        ENG = 1;                        %engine state flag:
+                                            %0 - fuel deprived;
+                                            %1 - running;
+                                            %2 - cut as scheduled by PEG
+    elseif control.type == 3
+        %type 3 = coast phase (unguided free flight)
+        %strongly recommended using initial.type==1
+        engT = 0;
+        maxT = control.length;
+    end
     
     %SIMULATION SETUP
     m = m - engT*dm;    %rocket is burning fuel while bolted to the launchpad for engT seconds before it's released
@@ -54,6 +75,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     acc = zeros(N,1);   %acceleration due to thrust magnitude [m/s^2]
     q = zeros(N,1);     %dynamic pressure [Pa]
     pitch = zeros(N,1); %pitch command log [deg] (0 - straight up)
+    yaw = zeros(N,1);   %yaw command log [deg] (0 - straight East, 90 - North)
     g_loss = 0;         %gravity d-v losses [m/s]
     d_loss = 0;         %drag d-v losses [m/s]
     %vehicle position in cartesian XYZ frame
@@ -62,25 +84,74 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     %vehicle velocity
     v = zeros(N,3);     %relative to Earth's center [m/s]
     vmag = zeros(N,1);  %magnitude [m/s]
+    vair = zeros(N,3);  %relavite to surface [m/s]
+    vairmag = zeros(N,1);%magnitude relative to surface [m/s]
     %reference frame matrices
     nav = zeros(3,3);   %KSP-style navball frame (radial, North, East)
     rnc = zeros(3,3);   %PEG-style tangential frame (radial, normal, circumferential)
+    %flight angles
+    ang_p_srf = zeros(1,N); %flight pitch angle, surface related
+    ang_y_srf = zeros(1,N); %flight yaw angle, surface related
+    ang_p_obt = zeros(1,N); %flight pitch angle, orbital (absolute)
+    ang_y_obt = zeros(1,N); %flight yaw angle, orbital (absolute)
     
     %SIMULATION INITIALIZATION
-    %wonder what would happen if one wanted to launch from the North Pole :D
-    [r(1,1),r(1,2),r(1,3)] = sph2cart(degtorad(initial.lon), degtorad(initial.lat), R+initial.alt);
+    if initial.type==0      %launch from static site
+        %btw, wonder what would happen if one wanted to launch from the North Pole :D
+        [r(1,1),r(1,2),r(1,3)] = sph2cart(degtorad(initial.lon), degtorad(initial.lat), R+initial.alt);
+        v(1,:) = surfSpeedInit(r(1,:));
+    elseif initial.type==1  %vehicle already in flight
+        t(1) = initial.t;
+        r(1,:) = initial.r;
+        v(1,:) = initial.v;
+    else
+        disp('Wrong initial conditions!');
+        return;
+    end
     rmag(1) = norm(r(1,:));
-    v(1,:) = surfSpeedInit(r(1,:));
     vmag(1) = norm(v(1,:));
     nav = getNavballFrame(r(1,:), v(1,:));
     rnc = getCircumFrame(r(1,:), v(1,:));
+    vair(1,:) = v(1,:) - surfSpeed(r(1,:), nav);
+    vairmag(1) = max(norm(vair(1)),1);
+    ang_p_srf(1) = acosd(dot(vair(1,:),nav(1,:))/vairmag(1));
+    ang_y_srf(1) = acosd(dot(vair(1,:),nav(3,:))/vairmag(1));
+    ang_p_obt(1) = acosd(dot(v(1,:),nav(1,:))/vmag(1));
+    ang_y_obt(1) = acosd(dot(v(1,:),nav(3,:))/vmag(1));
+    
+    %PEG SETUP (will be here)
+    if control.type==2
+        dbg = zeros(4,N);   %debug log (A, B, C, T)
+    end
     
     %MAIN LOOP
     for i=2:N
         %PITCH CONTROL
-        if control.type == 1
+        if control.type == 0
+            %natural, lock-prograde gravity turn
+            %state control
+            if dot(v(i-1,:), nav(1,:)) >= gtiV && GT == 0
+                %vertical velocity condition matched
+                GT = 1;
+            elseif ang_p_srf(i-1) > gtiP && GT == 1
+                %(surface) initial pitch angle reached
+                GT = 2;
+            end;
+            %pitch control depending on state
+            if GT == 0
+                %vertical flight, velocity buildup
+                pitch(i) = 0;
+            elseif GT == 1
+                %pitching over to a given angle
+                pitch(i) = min(pitch(i-1)+dt, gtiP);    %hardcoded 1deg/s change (to simulate real, not instantaneous pitchover)
+            else
+                %pitch angle matching airspeed (thrust prograde)
+                pitch(i) = ang_p_srf(i-1);
+            end;
+        elseif control.type == 1
+            %pitch program control, with possible yaw control too
             pitch(i) = approxFromCurve(t(i-1), prog);
-            yaw = 0;
+            yaw(i) = 0;
         end;
         
         %PHYSICS
@@ -89,25 +160,19 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         isp = (isp1-isp0)*p+isp0;
         F(i) = isp*g0*dm;
         acc(i) = F(i)/m;
-        acv = acc(i)*makeVector(nav, pitch(i), yaw);
+        acv = acc(i)*makeVector(nav, pitch(i), yaw(i));
         %gravity
         G = mu*r(i-1,:)/norm(r(i-1,:))^3;           %acceleration [m/s^2]
         g_loss = g_loss + norm(G)*dt;               %integrate gravity losses
         %drag
-        vair = v(i-1,:) - surfSpeed(r(i-1,:), nav); %air velocity (relative to surface)
-        vairmag = norm(vair);
-        if vairmag==0
-            %since we later divide by this and in first iteration it's zero
-            vairmag = 1;
-        end;
-        cd = approxFromCurve(vairmag, drag);        %drag coefficient
+        cd = approxFromCurve(vairmag(i-1), drag);   %drag coefficient
         temp = approxFromCurve((rmag(i-1)-R)/1000, atmtemperature)+273.15;
         dens = calculateAirDensity(p*101325, temp);
-        q(i) = 0.5*dens*vairmag^2;                  %dynamic pressure
+        q(i) = 0.5*dens*vairmag(i-1)^2;             %dynamic pressure
         D = area*cd*q(i)/m;                         %drag-induced acceleration [m/s^2]
         d_loss = d_loss + D*dt;                     %integrate drag losses
-        %velocity
-        v(i,:) = v(i-1,:) + acv*dt - G*dt - D*vair/vairmag*dt;
+        %absolute velocity
+        v(i,:) = v(i-1,:) + acv*dt - G*dt - D*vair(i,:)/vairmag(i-1)*dt;
         vmag(i) = norm(v(i,:));
         %position
         r(i,:) = r(i-1,:) + v(i,:)*dt;
@@ -115,6 +180,17 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         %local reference frames
         nav = getNavballFrame(r(i,:), v(i,:));
         rnc = getCircumFrame(r(i,:), v(i,:));
+        %surface velocity (must be here because needs reference frames)
+        vair(i,:) = v(i,:) - surfSpeed(r(i,:), nav);
+        vairmag(i) = norm(vair(i,:));
+        if vairmag(i)==0    %since we later divide by this and in first iteration it can be zero
+            vairmag(i) = 1;
+        end;
+        %angles
+        ang_p_srf(i) = acosd(dot(vair(i,:),nav(1,:))/vairmag(i));
+        ang_y_srf(i) = acosd(dot(vair(i,:),nav(3,:))/vairmag(i));
+        ang_p_obt(i) = acosd(dot(v(i,:),nav(1,:))/vmag(i));
+        ang_y_obt(i) = acosd(dot(v(i,:),nav(3,:))/vmag(i));
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
@@ -128,7 +204,12 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                    'F', F,...
                    'a', acc,...
                    'q', q,...
-                   'pitch', pitch);
+                   'pitch', pitch,...
+                   'yaw', yaw,...
+                   'angle_ps', ang_p_srf,...
+                   'angle_ys', ang_y_srf,...
+                   'angle_po', ang_p_obt,...
+                   'angle_yo', ang_y_obt);
     orbit = struct('SMA', 0, 'ECC', 0, 'INC', 0,...
                    'LAN', 0, 'AOP', 0, 'TAN', 0);
     results = struct('Altitude', (rmag(i)-R)/1000,...
@@ -251,16 +332,6 @@ function [rot] = surfSpeedInit(r)
     t = r*[0 1 0; -1 0 0; 0 0 1];   %90 degrees counterclockwise around Z axis, looking down
     f = getNavballFrame(r, t);      %temp frame
     rot = surfSpeed(r, f);          %use a standard function
-%    %get latitude
-%    [~,lat,~] = cart2sph(r(1), r(2), r(3));
-%    vel = 2*pi*R/(24*3600); %equatorial
-%    vel = vel*cos(lat);     %at latitude
-%    %now, find vector pointing in direction of Earth's rotation
-%    %first rotate our location 90 degrees about Z axis (looking down - counterclockwise)
-%    m = [0 1 0; -1 0 0; 0 0 1];
-%    t = r*m;
-%    %wind blows east - get the vector using a tool we already have
-%    rot = vel*cFromNavball(r, t, 90, 0);
 end
 
 %finds Earth's rotation velocity vector at given cartesian location
