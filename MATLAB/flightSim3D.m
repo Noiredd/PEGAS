@@ -12,7 +12,7 @@
 %   [+] complete data output
 %   [+] orbital elements from r&v
 %   [+] reconstruct control module
-%   [ ] launch azimuth passable in 'control'
+%   [+] launch azimuth passable in 'control'
 %   [ ] reconstruct PEG
 %   [ ] results postprocessing & plotting
 %   [ ] compare 2D vs 3D performance
@@ -48,8 +48,9 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                     %1 - equaling to flight angle;
                     %2 - match flight angle
     elseif control.type == 1
-        %type 1 = pitch program control
+        %type 1 = pitch program control, constant azimuth
         prog = control.program;
+        azim = control.azimuth; %for now only constant, no programming
     elseif control.type == 2
         %type 2 = powered explicit guidance
         target = control.target*1000+R; %target orbit altitude
@@ -151,7 +152,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         elseif control.type == 1
             %pitch program control, with possible yaw control too
             pitch(i) = approxFromCurve(t(i-1), prog);
-            yaw(i) = 0;
+            yaw(i) = 90-azim;
         end;
         
         %PHYSICS
