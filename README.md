@@ -52,12 +52,12 @@ To understand the guidance algorithm, read the original document: [Explicit guid
 
 When I first began thinking of implementing Powered Explicit Guidance, I realized that getting the math right will be tricky and writing code/debugging in kOS - extremely tedious. I chose to create a simulation environment in MATLAB and design the algorithm there, with easy variable preview, comfortable language and (most importantly) fast execution times. Having first written a simplified physics engine I took a small detour and created a simple tool for designing atmospheric ascent trajectories. All that now makes a software suite you can use to design your own ascent profiles or test your craft's performance.
 
-MATLAB folder contains the following main files (named differently to distinguish from functions):
+MATLAB folder contains the following main files (named in a different fashion to distinguish from functions):
 
-* `PM1_initSim.m` - prepares global functions with atmosphere data (straight from RO settings) etc.
-* `PM2_createVehicle.m` - sample sheet for defining a test vehicle (includes parameters of the rocket from my demo video).
+* `PM1_initSim.m` - prepares global variables with atmosphere data (straight from RO settings) etc.
+* `PM2_createVehicle.m` - sample sheet for defining a vehicle (includes parameters of the demo rocket from my video).
 * `PM3_findAscentPaths.m` - a rather brute-force attempt at ascent profile design: finds gravity turn parameters (initial angle and velocity) that satisfy a condition (apoapsis at burnout) by running simulations for each parameter combination and analyzing solutions. In my experience, there is a linear relation between the two that produce desired burnout state, so this script finds such a relation.
-* `PM4_makePitchProgram.m` - creates a pitch program (pitch~time table as used by PEGAS) from a selected natural gravity turn path by fitting a piecewise linear function into a flight profile obtained in previous step. This minimizes AoA during ascent.
+* `PM4_makePitchProgram.m` - creates a pitch program (pitch~time table as used by PEGAS) from a selected natural gravity turn path by fitting a piecewise linear function into a flight profile obtained in previous step. This allows easy usage of pitch profile in kOS and minimizes AoA during ascent.
 * `PM5_testAscentProfile.m` - flies a detailed simulation using the newly created pitch program as guidance. Creates a structure containing some basic flight data and plots various logs.
 * `PM6_simulatePEG.m` - runs another simulation, this time with Powered Explicit Guidance. Easy continuation of a previous flight is possible, even with coast periods inbetween (or after). Flight data output to screen.
 * `PM7_writeKSBoot.m` - outputs the pitch program and some basic stage data (time of burn) straight to a `.ks` file in a format (almost) immediately ready to use as a PEGAS bootfile (user still needs to fill in blanks that MATLAB isn't aware of, such as fairings jettison, ullage mode etc.).
@@ -66,4 +66,4 @@ Aside from those scripts, code contains various functions which are sufficiently
 
 ##### Credits
 
-MATLAB `linearFit.m` function contains pieces written originally by [Andrey Rubshtein](http://stackoverflow.com/users/817452/andrey-rubshtein) and [Nikolai Golovchenko](http://golovchenko.org). `flightPlots.m` uses [Richard Crozier](http://www.mathworks.com/matlabcentral/profile/authors/1590682-richard-crozier)'s [`tightfit`](http://www.mathworks.com/matlabcentral/fileexchange/34055-tightfig) (see MATLAB\tightfit.license for attached BSD license). Thank you all for your great work!
+MATLAB `linearFit.m` function contains pieces written originally by [Andrey Rubshtein](http://stackoverflow.com/users/817452/andrey-rubshtein) and [Nikolai Golovchenko](http://golovchenko.org). `flightPlots.m` uses [Richard Crozier](http://www.mathworks.com/matlabcentral/profile/authors/1590682-richard-crozier)'s [`tightfit`](http://www.mathworks.com/matlabcentral/fileexchange/34055-tightfig) (see MATLAB\tightfit.license for attached BSD license). Thank you for your great work!

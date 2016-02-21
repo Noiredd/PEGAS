@@ -13,7 +13,7 @@
 %   [+] orbital elements from r&v
 %   [+] reconstruct control module
 %   [+] launch azimuth passable in 'control'
-%   [ ] reconstruct PEG
+%   [+] reconstruct PEG
 %   [ ] results postprocessing & plotting
 %   [ ] compare 2D vs 3D performance
 %   [ ] passive yaw programming (verify azimuth~inclination results)
@@ -54,6 +54,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     elseif control.type == 2
         %type 2 = powered explicit guidance
         target = control.target*1000+R; %target orbit altitude
+        azim = control.azimuth;         %YAW CONTROL COMING SOON
         ct = control.major;             %length of the major loop
         lc = 0;                         %time since last PEG cycle
         ENG = 1;                        %engine state flag:
@@ -65,7 +66,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         %strongly recommended using initial.type==1
         engT = 0;
         maxT = control.length;
-    end
+    end;
     
     %SIMULATION SETUP
     m = m - engT*dm;    %rocket is burning fuel while bolted to the launchpad for engT seconds before it's released
@@ -108,7 +109,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     else
         disp('Wrong initial conditions!');
         return;
-    end
+    end;
     rmag(1) = norm(r(1,:));
     vmag(1) = norm(v(1,:));
     nav = getNavballFrame(r(1,:), v(1,:));
@@ -122,8 +123,19 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     
     %PEG SETUP (will be here)
     if control.type==2
-        dbg = zeros(4,N);   %debug log (A, B, C, T)
-    end
+        dbg = zeros(N,4);   %debug log (A, B, C, T)
+        p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
+        isp = (isp1-isp0)*p+isp0;
+        ve = isp*g0;
+        acc(1) = ve*dm/m;
+        [A, B, C, T] = poweredExplicitGuidance(...
+                        0, rmag(1),...                                  %cycle length, altitude
+                        dot(v(1,:),rnc(3,:)), dot(v(1,:),nav(1,:)),...  %velocity X (local forward), velocity Y (local up)
+                        target, acc(1), ve, 0, 0, maxT);                %target, acceleration, exhaust velocity, old A B T
+        dbg(1,:) = [A, B, C, T];
+        pitch(1) = acosd(A + C);
+        yaw(1) = 90-azim;
+    end;
     
     %MAIN LOOP
     for i=2:N
@@ -153,13 +165,49 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
             %pitch program control, with possible yaw control too
             pitch(i) = approxFromCurve(t(i-1), prog);
             yaw(i) = 90-azim;
+        elseif control.type == 2
+            %PEG pitch control
+            %check if there's still fuel
+            if (t(i)-t(1) > maxT && ENG > 0)
+                ENG = 0;    %engine ran out of fuel
+                break;      %exit the main simulation loop
+            end;
+            %check how long ago was the last PEG cycle
+            if (lc < ct)
+                %if not too long ago - increment
+                lc = lc + dt;
+            else
+                %run PEG
+                [A, B, C, T] = poweredExplicitGuidance(...
+                                0, rmag(i-1),...
+                                dot(v(i-1,:),rnc(3,:)), dot(v(i-1,:),nav(1,:)),...
+                                target, acc(i-1), ve, A, B, T); %passing old T instead of T-dt IS CORRECT
+                lc = 0; %TODO: bypass resetting this one if PEG skipped AB recalculation
+            end;
+            %PEG debug logs
+            dbg(i,1) = A;
+            dbg(i,2) = B;
+            dbg(i,3) = C;
+            dbg(i,4) = T;
+            %PEG-scheduled cutoff
+            if (T-lc < dt && ENG == 1)
+                ENG = 2;
+                break;
+            end;
+            %pitch control (clamped to acosd domain which should never be necessary)
+            pitch(i) = acosd( min(1, max(-1, A - B*lc + C)) );
         end;
         
         %PHYSICS
         %thrust/acceleration
         p = approxFromCurve((rmag(i-1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
-        F(i) = isp*g0*dm;
+        %enable coast flight
+        if control.type==3
+            F(i) = 0;
+        else
+            F(i) = isp*g0*dm;
+        end;
         acc(i) = F(i)/m;
         acv = acc(i)*makeVector(nav, pitch(i), yaw(i));
         %gravity
@@ -197,78 +245,82 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         t(i) = t(i-1) + dt;
     end;
     %OUTPUT
-    plots = struct('t', t(1:i),...
-                   'r', r,...
-                   'rmag', rmag,...
-                   'v', v,...
-                   'vmag', vmag,...
-                   'F', F,...
-                   'a', acc,...
-                   'q', q,...
-                   'pitch', pitch,...
-                   'yaw', yaw,...
-                   'angle_ps', ang_p_srf,...
-                   'angle_ys', ang_y_srf,...
-                   'angle_po', ang_p_obt,...
-                   'angle_yo', ang_y_obt);
+    plots = struct('t', t(1:i-1),...
+                   'r', r(1:i-1,:),...
+                   'rmag', rmag(1:i-1),...
+                   'v', v(1:i-1,:),...
+                   'vmag', vmag(1:i-1),...
+                   'F', F(1:i-1),...
+                   'a', acc(1:i-1),...
+                   'q', q(1:i-1),...
+                   'pitch', pitch(1:i-1),...
+                   'yaw', yaw(1:i-1),...
+                   'angle_ps', ang_p_srf(1:i-1),...
+                   'angle_ys', ang_y_srf(1:i-1),...
+                   'angle_po', ang_p_obt(1:i-1),...
+                   'angle_yo', ang_y_obt(1:i-1));
+    %add debug data if created
+    if exist('dbg', 'var')==1
+        plots().DEBUG = dbg;
+    end;
     orbit = struct('SMA', 0, 'ECC', 0, 'INC', 0,...
                    'LAN', 0, 'AOP', 0, 'TAN', 0);
-    results = struct('Altitude', (rmag(i)-R)/1000,...
+    results = struct('Altitude', (rmag(i-1)-R)/1000,...
                      'Apoapsis', 0, 'Periapsis', 0,...
                      'Orbit', orbit,...
-                     'Velocity', vmag(i),...
-                     'VelocityY', dot(v(i,:), nav(1,:)),...
-                     'VelocityT', dot(v(i,:), rnc(3,:)),...
+                     'Velocity', vmag(i-1),...
+                     'VelocityY', dot(v(i-1,:), nav(1,:)),...
+                     'VelocityT', dot(v(i-1,:), rnc(3,:)),...
                      'maxQv', 0, 'maxQt', 0,...
                      'LostGravity', g_loss,...
                      'LostDrag', d_loss,...
                      'LostTotal', g_loss+d_loss,...
-                     'BurnTimeLeft', maxT-t(i)+t(1),...
+                     'BurnTimeLeft', maxT-t(i-1)+t(1),...
                      'Plots', plots);
     [results.Apoapsis, results.Periapsis, results.Orbit.SMA,...
                     results.Orbit.ECC, results.Orbit.INC,...
                     results.Orbit.LAN, results.Orbit.AOP,...
-                    results.Orbit.TAN] = getOrbitalElements(r(i,:), v(i,:));
+                    results.Orbit.TAN] = getOrbitalElements(r(i-1,:), v(i-1,:));
     [results.maxQt, results.maxQv] = getMaxValue(q');   %get time and value of maxQ
     results.maxQt = t(results.maxQt);                   %format maxQ time to seconds
     %PLOTS
-    %figure(1); clf; plot(temp);
-    figure(2); clf;
+    %figure(2); clf; plot(temp);
+    figure(1); clf;
     scale=1;
     hold on;
-    plot3(r(:,1),r(:,2),r(:,3));
+    plot3(r(1:i-1,1),r(1:i-1,2),r(1:i-1,3));    %trajectory
     [sx,sy,sz]=sphere(20);%make half a sphere
     sx=sx(11:end,:);
     sy=sy(11:end,:);
     sz=sz(11:end,:);
     %comment/uncomment line below to switch between Earth-oriented and trajectory-based plots
-    %scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
+    scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
         %ground path
-        gp=zeros(N,3);
-        for i=1:N
+        gp=zeros(i-1,3);
+        for i=1:i-1
             gp(i,:)=R*r(i,:)/norm(r(i,:));
         end
         plot3(gp(:,1),gp(:,2),gp(:,3),'k');
     %local circumferential versors
-    scatter3(r(i,1),r(i,2),r(i,3),'r');
+    scatter3(r(i-1,1),r(i-1,2),r(i-1,3),'r');
     scale=scale*50000;
     t=zeros(2,3);
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*rnc(1,:); %radial (away)
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*rnc(1,:); %radial (away)
     plot3(t(:,1),t(:,2),t(:,3),'r');
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*rnc(2,:); %normal (plane change)
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*rnc(2,:); %normal (plane change)
     plot3(t(:,1),t(:,2),t(:,3),'g');
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*rnc(3,:); %circumferential (prograde)
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*rnc(3,:); %circumferential (prograde)
     plot3(t(:,1),t(:,2),t(:,3),'b');
     %navball versors
     scale = scale/2;
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nav(1,:); %away in equatorial plane
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*nav(1,:); %away in equatorial plane
     plot3(t(:,1),t(:,2),t(:,3),'k');
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nav(2,:); %north
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*nav(2,:); %north
     plot3(t(:,1),t(:,2),t(:,3),'k');
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*nav(3,:); %east
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*nav(3,:); %east
     plot3(t(:,1),t(:,2),t(:,3),'k');
     %acceleration vectors
-    t(1,:)=r(i,:); t(2,:)=t(1,:)+scale*0.03*acv;%final
+    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*0.03*acv;%final
     plot3(t(:,1),t(:,2),t(:,3),'y');
     hold off;
     axis equal;
