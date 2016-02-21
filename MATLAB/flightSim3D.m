@@ -14,7 +14,8 @@
 %   [+] reconstruct control module
 %   [+] launch azimuth passable in 'control'
 %   [+] reconstruct PEG
-%   [ ] results postprocessing & plotting
+%   [+] results postprocessing...
+%   [ ] ...and plotting
 %   [ ] compare 2D vs 3D performance
 %   [ ] passive yaw programming (verify azimuth~inclination results)
 %   [ ] PEG YAW CONTROL
@@ -86,6 +87,8 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     %vehicle velocity
     v = zeros(N,3);     %relative to Earth's center [m/s]
     vmag = zeros(N,1);  %magnitude [m/s]
+    vy = zeros(N,1);    %magnitude - altitude change [m/s]
+    vt = zeros(N,1);    %magnitude - tangential [m/s]
     vair = zeros(N,3);  %relavite to surface [m/s]
     vairmag = zeros(N,1);%magnitude relative to surface [m/s]
     %reference frame matrices
@@ -116,6 +119,8 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     rnc = getCircumFrame(r(1,:), v(1,:));
     vair(1,:) = v(1,:) - surfSpeed(r(1,:), nav);
     vairmag(1) = max(norm(vair(1)),1);
+    vy(1) = dot(v(1,:),nav(1,:));
+    vt(1) = dot(v(1,:),rnc(3,:));
     ang_p_srf(1) = acosd(dot(vair(1,:),nav(1,:))/vairmag(1));
     ang_y_srf(1) = acosd(dot(vair(1,:),nav(3,:))/vairmag(1));
     ang_p_obt(1) = acosd(dot(v(1,:),nav(1,:))/vmag(1));
@@ -129,9 +134,9 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         ve = isp*g0;
         acc(1) = ve*dm/m;
         [A, B, C, T] = poweredExplicitGuidance(...
-                        0, rmag(1),...                                  %cycle length, altitude
-                        dot(v(1,:),rnc(3,:)), dot(v(1,:),nav(1,:)),...  %velocity X (local forward), velocity Y (local up)
-                        target, acc(1), ve, 0, 0, maxT);                %target, acceleration, exhaust velocity, old A B T
+                        0,...
+                        rmag(1), vt(1), vy(1), target,...
+                        acc(1), ve, 0, 0, maxT);
         dbg(1,:) = [A, B, C, T];
         pitch(1) = acosd(A + C);
         yaw(1) = 90-azim;
@@ -179,9 +184,9 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
             else
                 %run PEG
                 [A, B, C, T] = poweredExplicitGuidance(...
-                                0, rmag(i-1),...
-                                dot(v(i-1,:),rnc(3,:)), dot(v(i-1,:),nav(1,:)),...
-                                target, acc(i-1), ve, A, B, T); %passing old T instead of T-dt IS CORRECT
+                                0,...
+                                rmag(i-1), vt(i-1), vy(i-1), target,...
+                                acc(i-1), ve, A, B, T); %passing old T instead of T-dt IS CORRECT
                 lc = 0; %TODO: bypass resetting this one if PEG skipped AB recalculation
             end;
             %PEG debug logs
@@ -220,9 +225,11 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         q(i) = 0.5*dens*vairmag(i-1)^2;             %dynamic pressure
         D = area*cd*q(i)/m;                         %drag-induced acceleration [m/s^2]
         d_loss = d_loss + D*dt;                     %integrate drag losses
-        %absolute velocity
+        %absolute velocities
         v(i,:) = v(i-1,:) + acv*dt - G*dt - D*vair(i-1,:)/vairmag(i-1)*dt;
         vmag(i) = norm(v(i,:));
+        vy(i) = dot(v(i,:),nav(1,:));
+        vt(i) = dot(v(i,:),rnc(3,:));
         %position
         r(i,:) = r(i-1,:) + v(i,:)*dt;
         rmag(i) = norm(r(i,:));
@@ -249,6 +256,8 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                    'r', r(1:i-1,:),...
                    'rmag', rmag(1:i-1),...
                    'v', v(1:i-1,:),...
+                   'vy', vy(1:i-1),...
+                   'vt', vt(1:i-1),...
                    'vmag', vmag(1:i-1),...
                    'F', F(1:i-1),...
                    'a', acc(1:i-1),...
