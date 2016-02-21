@@ -14,8 +14,7 @@
 %   [+] reconstruct control module
 %   [+] launch azimuth passable in 'control'
 %   [+] reconstruct PEG
-%   [+] results postprocessing...
-%   [ ] ...and plotting
+%   [+] results postprocessing, plotting and visualization
 %   [ ] compare 2D vs 3D performance
 %   [ ] passive yaw programming (verify azimuth~inclination results)
 %   [ ] PEG YAW CONTROL
@@ -292,47 +291,6 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                     results.Orbit.TAN] = getOrbitalElements(r(i-1,:), v(i-1,:));
     [results.maxQt, results.maxQv] = getMaxValue(q');   %get time and value of maxQ
     results.maxQt = t(results.maxQt);                   %format maxQ time to seconds
-    %PLOTS
-    %figure(2); clf; plot(temp);
-    figure(1); clf;
-    scale=1;
-    hold on;
-    plot3(r(1:i-1,1),r(1:i-1,2),r(1:i-1,3));    %trajectory
-    [sx,sy,sz]=sphere(20);%make half a sphere
-    sx=sx(11:end,:);
-    sy=sy(11:end,:);
-    sz=sz(11:end,:);
-    %comment/uncomment line below to switch between Earth-oriented and trajectory-based plots
-    scale=scale*50;plot3(R*sx,R*sy,R*sz,'g'); scatter3(0,0,0,'g');
-        %ground path
-        gp=zeros(i-1,3);
-        for i=1:i-1
-            gp(i,:)=R*r(i,:)/norm(r(i,:));
-        end
-        plot3(gp(:,1),gp(:,2),gp(:,3),'k');
-    %local circumferential versors
-    scatter3(r(i-1,1),r(i-1,2),r(i-1,3),'r');
-    scale=scale*50000;
-    t=zeros(2,3);
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*rnc(1,:); %radial (away)
-    plot3(t(:,1),t(:,2),t(:,3),'r');
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*rnc(2,:); %normal (plane change)
-    plot3(t(:,1),t(:,2),t(:,3),'g');
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*rnc(3,:); %circumferential (prograde)
-    plot3(t(:,1),t(:,2),t(:,3),'b');
-    %navball versors
-    scale = scale/2;
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*nav(1,:); %away in equatorial plane
-    plot3(t(:,1),t(:,2),t(:,3),'k');
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*nav(2,:); %north
-    plot3(t(:,1),t(:,2),t(:,3),'k');
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*nav(3,:); %east
-    plot3(t(:,1),t(:,2),t(:,3),'k');
-    %acceleration vectors
-    t(1,:)=r(i-1,:); t(2,:)=t(1,:)+scale*0.03*acv;%final
-    plot3(t(:,1),t(:,2),t(:,3),'y');
-    hold off;
-    axis equal;
 end
 
 %constructs a local reference frame, KSP-navball style

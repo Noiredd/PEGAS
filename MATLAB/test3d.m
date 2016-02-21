@@ -1,12 +1,14 @@
 %test3D
-a=flightSim3D(s1_vehicle, s1_init, struct('type', 1, 'program', s1_prog, 'azimuth', 90), 0.1);
+s2_dt = 0.05;
+a=flightSim3D(s1_vehicle, s1_init, struct('type', 1, 'program', s1_prog, 'azimuth', 90), s2_dt);
 n=length(a.Plots.t);
 b=flightSim3D(s2_vehicle,...
               struct('type',1, 't',a.Plots.t(n), 'r',a.Plots.r(n,:), 'v',a.Plots.v(n,:)),...
-              struct('type',3, 'length',25), 0.1);
+              struct('type',3, 'length',25), s2_dt);
 n=length(b.Plots.t);
 c=flightSim3D(s2_vehicle,...
               struct('type',1, 't',b.Plots.t(n), 'r',b.Plots.r(n,:), 'v',b.Plots.v(n,:)),...
               struct('type',2, 'target',200, 'major',2, 'azimuth',90),...
-              0.1);
-telemetry([a, c], b, 2);
+              s2_dt);
+telemetry([a, c], b, 1);
+trajectory([a, c], b, 1, 1, 2);
