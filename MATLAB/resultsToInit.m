@@ -1,0 +1,9 @@
+%resultsToInit.m
+%Converts flightSim3D results into input ininitialization struct.
+function [init] = resultsToInit(results)
+    n = length(results.Plots.t);
+    init = struct('type', 1,...
+                  't', results.Plots.t(n),...
+                  'r', results.Plots.r(n,:),...
+                  'v', results.Plots.v(n,:));
+end

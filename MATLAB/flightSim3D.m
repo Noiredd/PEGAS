@@ -15,8 +15,7 @@
 %   [+] launch azimuth passable in 'control'
 %   [+] reconstruct PEG
 %   [+] results postprocessing, plotting and visualization
-%   [ ] compare 2D vs 3D performance
-%   [ ] passive yaw programming (verify azimuth~inclination results)
+%   [+] compare 2D vs 3D performance
 %   [ ] PEG YAW CONTROL
 %   [ ] ...
 %   [ ] sample flight comparison (MATLAB vs kOS, constant azimuth)

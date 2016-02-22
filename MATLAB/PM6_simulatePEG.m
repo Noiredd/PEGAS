@@ -8,8 +8,8 @@
 peg_target = 200;
 peg_cycle = 2;
 peg_coast = 25; %coast period before second stage ignition
-peg_post = 60;  %show orbit after burnout too
-s2_dt = 0.04;
+%peg_post = 60;  %show orbit after burnout too
+s2_dt = 0.05;
 %initial conditions structure: starting from arbitrary point is possible,
 %but so is easy continuation from results of previous stage simulation
 init = struct('t',50,...
@@ -25,7 +25,7 @@ init = continueFlight(preCoast, 322.4249);
 %run PEG
 s2_results = ascentSimulation(s2_vehicle, init, struct('type',2,'target',peg_target,'major',peg_cycle), s2_dt);
 %post coast
-init = continueFlight(s2_results, 322.4249);
-postCoast = ascentSimulation(s2_vehicle, init, struct('type',3,'length',peg_post), s2_dt);
+%init = continueFlight(s2_results, 322.4249);
+%postCoast = ascentSimulation(s2_vehicle, init, struct('type',3,'length',peg_post), s2_dt);
 %plots
-flightPlots([s1_results s2_results], [preCoast postCoast], 5);
+flightPlots([s1_results s2_results], preCoast, 5);%[preCoast postCoast], 5);

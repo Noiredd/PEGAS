@@ -1,0 +1,23 @@
+COMPARISON: old 2D approach vs new 3D
+To reproduce, first initialize with:
+	PM1_initSim
+	PM2_createVehicle
+	load('pp_prog.mat')
+To obtain 2D results ('s1_results' & 's2_results'):
+	PM5_testAscentProfile
+	PM6_simulatePEG
+To obtain 3D results ('a' & 'b', respectively):
+	test3d
+
+RESULTS
+
+			s1 2D	s1 3D	s2 2D	s2 3D
+Altitude	60.090	60.069	200.00	200.00
+Apoapsis	149.01	148.83	200.53	200.65
+Periapsis	-		-		194.18	194.92
+Velocity	2638.9	2629.6	7786.9	7787.2
+VelocityY	1242.5	1242.0	-2.097	-2.162
+maxQv		30162	30135	11.590	10.627
+maxQt		66.60	66.55	163.90	163.95
+LostDrag	212.22	211.89	-		-
+BurnTimeL	-		-		12.804	10.754

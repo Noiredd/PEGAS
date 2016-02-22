@@ -61,7 +61,7 @@ function [] = telemetry(powered, coast, fid)
     subplot(2,3,4); hold on;
     for i=1:length(powered)
         x = powered(i).Plots;
-        plot(x.t, x.a/g0, c);
+        plot(x.t, x.a/g0, 'b');
     end;
     for i=1:length(coast)
         x = coast(i).Plots;
