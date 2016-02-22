@@ -77,4 +77,4 @@ s2_twf      = s2_dm*s2_isp0/(s2_m0-s2_fm)
 s2_expct_dv = s2_isp0*g0*log(s2_m0/(s2_m0-s2_fm))
 %cleanup
 clearvars s2_m0 s2_thrust s2_isp0 s2_isp1 s2_fm s2_A s2_engT s2_drag s2_dm;
-clearvars s2_twr s2_twf s2_expc_dv;
+clearvars s2_twr s2_twf s2_expct_dv;

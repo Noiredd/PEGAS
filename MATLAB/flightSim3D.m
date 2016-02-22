@@ -199,6 +199,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
             end;
             %pitch control (clamped to acosd domain which should never be necessary)
             pitch(i) = acosd( min(1, max(-1, A - B*lc + C)) );
+            yaw(i) = 90-azim;
         end;
         
         %PHYSICS
