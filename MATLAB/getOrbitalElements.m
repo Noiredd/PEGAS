@@ -11,7 +11,7 @@
 %   true anomaly
 %https://en.wikibooks.org/wiki/Astrodynamics/Classical_Orbit_Elements
 %http://space.stackexchange.com/a/1919
-function [ap, pe, sma, ecc, inc, lan, aop, v] = getOrbitalElements(r, v)
+function [ap, pe, sma, ecc, inc, lan, aop, tan] = getOrbitalElements(r, v)
     global mu; global R;
     %angular momentum
     h = cross(r, v);
@@ -28,10 +28,19 @@ function [ap, pe, sma, ecc, inc, lan, aop, v] = getOrbitalElements(r, v)
     inc = acosd(dot([0 0 1], h)/norm(h));
     %longitude of the ascending node
     lan = acosd(dot([1 0 0], n)/norm(n));
+    if n(2)<0
+        lan = 360-lan;
+    end;
     %argument of periapsis
     aop = acosd(dot(n, e)/(norm(n)*norm(e)));
+    if e(3)<0
+        aop = 360-aop;
+    end;
     %true anomaly
-    v = acosd(dot(e, r)/(norm(e)*norm(r)));
+    tan = acosd(dot(e, r)/(norm(e)*norm(r)));
+    if dot(r,v)<0
+        tan = 360-tan;
+    end;
     %Ap, Pe
     ap = (sma*(1+ecc)-R)/1000;
     pe = (sma*(1-ecc)-R)/1000;
