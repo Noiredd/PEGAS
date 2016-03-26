@@ -7,10 +7,11 @@
 %and displays a plot, allowing the user to select their solution point.
 %Dependencies:
 %   sweepGravityTurn.m
+%       flightSim2D.m
 %PARAMETERS - USER INPUT
 ap_dt = 0.1;    %simulation precision
-ap_vmin = 50; ap_vmax = 80; ap_vdv = 10;  %min/max velocity to swep, precision
-ap_pmin = 1;  ap_pmax = 7;   ap_pdp = 2; %same for pitchover value
+ap_vmin = 50; ap_vmax = 80; ap_vdv = 10;    %min/max velocity to swep, precision
+ap_pmin = 1;  ap_pmax = 7;   ap_pdp = 2;    %same for pitchover value
 ap_target = 150;    %target apoapsis to find equation for
 %input vectors and their lengths
 ap_v = ap_vmin:ap_vdv:ap_vmax;
