@@ -4,6 +4,8 @@
 %Dependencies:
 %   createLineApprox.m
 %       linearFit.m
+%   flightSim2D.m       legacy 2D simulation, because faster than 3D
+%                       consider complete migration to 3D for consistency
 %PARAMETERS - USER INPUT
 pp_v = 55;  %velocity to start pitchover at
 pp_n = 5;   %linear approximation control points for the free trajectory
@@ -15,7 +17,7 @@ pp_k = 10;  %kill rotation period - final value will be reached 'pp_k'
 %calculate pitchover angle
 pp_p = pp_v*ap_cm+ap_cb;
 %generate a natural gravity turn for given parameters
-r = ascentSimulation(s1_vehicle, s1_init, struct('type',0, 'p', pp_p, 'v', pp_v), ap_dt);
+r = flightSim2D(s1_vehicle, s1_init, struct('type',0, 'p', pp_p, 'v', pp_v), ap_dt);
 %prepare variables and call the approximation function
 clear pp_pitch;
 clear pp_prog;

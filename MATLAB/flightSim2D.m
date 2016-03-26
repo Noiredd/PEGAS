@@ -1,4 +1,4 @@
-%ascentSimulation.m
+%flightSim2D.m
 %2DOF atmospheric ascent simulation. Supports pure gravity turn (lock on
 %prograde) simulation, pitch control via pitch-time table (pitch program)
 %and Powered Explicit Guidance control. Pass vehicle parameters in
@@ -17,7 +17,7 @@
 %   getMaxValue.m
 %   getOrbital.m
 %   poweredExplicitGuidance.m
-function [results] = ascentSimulation(vehicle, initial, control, dt)
+function [results] = flightSim2D(vehicle, initial, control, dt)
     %declare globals
     global mu; global g0; global R;
     global atmpressure;  global atmtemperature;

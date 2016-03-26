@@ -1,26 +1,21 @@
 %flightSim3D.m
-%Experiment on 3DoF simulation in Cartesian coordinates.
+%Complete 3DoF flight simulation in Cartesian coordinates.
+%Pass vehicle parameters in 'vehicle' struct. Pass initial conditions in
+%'init' struct (see section 'simulation initialization' for details, true
+%documentation is TODO for now). Pass control method in 'control' struct
+%(see 'control setup' section for details) - supports a natural gravity
+%turn simulation, predefined pitch program, PEG pitch guidance and unguided
+%free flight. NO yaw steering.
+%Vehicle is modelled as a point mass with drag. Simulation is located in an
+%Earth-centered, inertial frame of reference, so in launch simulations the
+%vehicle does not begin stationary (unless on a pole). No vehicle details
+%are assumed, engine is modelled only using thrust and Isp with no regard
+%for actual number or type of engines. RO atmosphere is modelled. No AoA or
+%lift effects are taken into account.
 %Progress map:
-%   [+] reconstruct world and variables
-%   [+] basic data output for verification
-%   [+] unpowered motion in gravity
-%   [+] basic 3D visualization
-%   [+] thrust
-%   [+] pitch programming
-%   [+] clean up vector math
-%   [+] drag
-%   [+] complete data output
-%   [+] orbital elements from r&v
-%   [+] reconstruct control module
-%   [+] launch azimuth passable in 'control'
-%   [+] reconstruct PEG
-%   [+] results postprocessing, plotting and visualization
-%   [+] compare 2D vs 3D performance
+%   [+] SIMULATION
 %   [ ] PEG YAW CONTROL
-%   [ ] ...
-%   [ ] sample flight comparison (MATLAB vs kOS, constant azimuth)
-%       examine how inclination&LAN behave for purposes of launch timing
-%   [ ] ...
+%   [ ] LAN+INC TARGETING
 %   [ ] MULTISTAGE
 function [results] = flightSim3D(vehicle, initial, control, dt)
     %declare globals
