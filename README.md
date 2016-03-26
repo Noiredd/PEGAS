@@ -38,7 +38,7 @@ Almost everything in PEGAS is timed, that is: no dynamic checking for engine shu
 
 Some time after seconds stage ignition (another declared value) PEG guidance is activated and the autopilot begins navigating the craft into a specified orbit. For now it can only be a circular orbit with only inclination coming from launch site latitude.
 
-To understand the guidance algorithm, read the original document: [Explicit guidance equations for multistage boost trajectories](http://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19660006073.pdf) by Fred Teren, Lewis Research Center. This article on [Orbiter Wiki](http://www.orbiterwiki.org/wiki/Powered_Explicit_Guidance), which is less mathematical and focuses on what you need to know to implement it, will be easier to digest, however it might not be enough and in order to understand everything you'll need to refer to the original anyway.
+To understand the guidance algorithm, read the original document: [Explicit guidance equations for multistage boost trajectories](http://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19660006073.pdf) by Fred Teren, Lewis Research Center (today Glenn Research Center). This article on [Orbiter Wiki](http://www.orbiterwiki.org/wiki/Powered_Explicit_Guidance), which is less mathematical and focuses on what you need to know to implement it, will be easier to digest, however it might not be enough and in order to understand everything you'll need to refer to the original anyway.
 
 ### Coming up
 
