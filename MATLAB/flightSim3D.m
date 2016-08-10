@@ -55,7 +55,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                                             %0 - fuel deprived;
                                             %1 - running;
                                             %2 - cut as scheduled by PEG
-    elseif control.type == 3
+    elseif control.type == 5
         %type 3 = coast phase (unguided free flight)
         %strongly recommended using initial.type==1
         engT = 0;
