@@ -1,9 +1,9 @@
 %unifiedPoweredFlightGuidance.m
 %Implementation of Unified Powered Flight Guidance in Standard Ascent Mode
 %as described by Brand, Brown and Higgins in Space Shuttle GN&C Equation Document 24.
-function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previous)
+function [current, guidance] = unifiedPoweredFlightGuidance(vehicle, target, state, previous)
     %INPUT
-    %vehicle    struct, defines everything about the vehicle
+    %vehicle    struct, defines vehicle performance data
     % .thrust   value in Newtons, assumed constant throughout the burn
     % .isp      value in seconds, assumed constant throughout the burn
     % .mass     value in kilograms, initial mass of the vehicle on ignition
@@ -12,7 +12,7 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     % .velocity value in meters per second, magnitude of vector
     % .angle    value in degrees, flight path angle
     % .normal   unit 3-vector normal to target orbital plane
-    %state      struct, defines current vehicle state
+    %state      struct, defines current vehicle physical state
     % .time     value in seconds, current mission elapsed time
     % .mass     value in kilograms, current vehicle mass
     % .radius   3-vector in meters, current vehicle position (cartesian)
@@ -29,8 +29,26 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     %OUTPUT
     %current    struct, contains results of this iteration for use with the
     %           next one; fields are exactly the same as in 'previous'
+    %guidance   struct, contains extracted guidance data
+    % .pitch    value in degrees, calculated pitch angle
+    % .pitchdot value in degrees per second, calculated pitch change rate
+    % .yaw      value in degrees, calculated yaw angle
+    % .yawdot   value in degrees per second, calculated yaw change rate
+    % .tgo      value in seconds, time to cutoff
+    
+    %"BLOCK 0"
     global mu;
     global g0;
+    gamma	= target.angle;
+    iy      = target.normal;
+    rdval   = target.radius;
+    vdval   = target.velocity;
+    r       = state.radius;
+    v       = state.velocity;
+    rbias   = previous.rbias;
+    rd      = previous.rd;
+    rgrav   = previous.rgrav;
+    vgo     = previous.vgo;
     
     %BLOCK 1 - needs to be reworked for multistage later
     fT = vehicle.thrust;
@@ -39,15 +57,11 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     m = state.mass;
     aT = fT/m;
     tu = ve/aT;
-    r = state.radius;
-    rgrav = previous.rgrav;
-    rbias = previous.rbias;
     
     %BLOCK 2 - unneeded since KSP makes all the data readily available
     %the only thing worth implementing (maybe) is the vgo update, so TODO
     
     %BLOCK 3 - needs to be reworked for multistage later
-    vgo = previous.vgo;
     L1 = norm(vgo);
     tgo = tu*(1-exp(-L1/ve));
     
@@ -65,11 +79,7 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     %BLOCK 5
     lambda = vgo/norm(vgo);
     %rgrav = (tgo/previous.tgo)^2 * rgrav;
-    rd = previous.rd;
-    r = state.radius;
-    v = state.velocity;
     rgo = rd - (r + v*tgo + rgrav);
-    iy = target.normal;
     iz = cross(rd,iy);
     iz = iz/norm(iz);
     rgoxy = rgo - dot(iz,rgo)*iz;
@@ -87,10 +97,19 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     vbias = vgo-vthrust;
     rbias = rgo-rthrust;
     
-    %BLOCK 6 - this will calculate pitch and yaw angles from iF vector
+    %BLOCK 6
+    %calculates pitch and yaw angles from iF vector
+    dir_pseudo = [0,0,1];
+    dir_up = r/norm(r);
+    dir_east = cross(dir_pseudo,dir_up);
+    dir_north = cross(dir_up,dir_east);
+    pitch = acosd(dot(iF,dir_up));          %angle between two unit vectors
+    iF_plane = iF - dot(iF,dir_up)*dir_up;  %thrust component in tangent plane
+    yaw = 90-acosd(dot(iF_plane,dir_north));
+    %TODO: turning rate vector into angle rates
     
     %BLOCK 7 - this needs the Conic State Extrapolation Routine
-    %while it's not coded, we'll use a naive trajectory integration
+    %we'll use a naive trajectory integration for now
     rprop = zeros(ceil(tgo),3);
     vprop = zeros(ceil(tgo),3);
     rprop(1,:) = r - 0.1*rthrust - 1/30*vthrust*tgo;
@@ -104,10 +123,6 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     
     %BLOCK 8
     rp = r + v*tgo + rgrav + rthrust;
-    rdval = target.radius;
-    vdval = target.velocity;
-    gamma = target.angle;
-    iy = target.normal;
     rd = rdval*rp/norm(rp);
     ix = rd/norm(rd);
     iz = cross(ix,iy);
@@ -116,9 +131,10 @@ function [current] = unifiedPoweredFlightGuidance(vehicle, target, state, previo
     
     %RETURN
     current = previous;
-    current.time = state.time;
-    current.tgo = tgo;
-    current.rbias = rbias;
-    current.rd = rd;
-    current.rgrav = rgrav;
-    current.vgo = vgo;
+    current.time    = state.time;
+    current.tgo     = tgo;
+    current.rbias   = rbias;
+    current.rd      = rd;
+    current.rgrav   = rgrav;
+    current.vgo     = vgo;
+    guidance = struct('pitch', pitch, 'yaw', yaw, 'pitchdot', 0, 'yawdot', 0, 'tgo', tgo);
