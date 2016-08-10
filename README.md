@@ -64,6 +64,6 @@ MATLAB folder contains the following main files (named in a different fashion to
 
 Aside from those scripts, code contains various functions which are sufficiently (I hope) described within their files.
 
-##### Credits
+### Credits
 
-MATLAB `linearFit.m` function contains pieces written originally by [Andrey Rubshtein](http://stackoverflow.com/users/817452/andrey-rubshtein) and [Nikolai Golovchenko](http://golovchenko.org). `flightPlots.m` uses [Richard Crozier](http://www.mathworks.com/matlabcentral/profile/authors/1590682-richard-crozier)'s [`tightfit`](http://www.mathworks.com/matlabcentral/fileexchange/34055-tightfig) (see MATLAB\tightfit.license for attached BSD license). Thank you for your great work!
+MATLAB `linearFit.m` function contains pieces written originally by [Andrey Rubshtein](http://stackoverflow.com/users/817452/andrey-rubshtein) and [Nikolai Golovchenko](http://golovchenko.org). `flightPlots.m` uses [Richard Crozier](http://www.mathworks.com/matlabcentral/profile/authors/1590682-richard-crozier)'s [`tightfit`](http://www.mathworks.com/matlabcentral/fileexchange/34055-tightfig) (see MATLAB\tightfit.license for attached BSD license). I also made use of [Will Campbell](https://www.mathworks.com/matlabcentral/profile/authors/1050816-will-campbell)'s [`earth_sphere`](https://www.mathworks.com/matlabcentral/fileexchange/27123-earth-sized-sphere-with-topography) code (see MATLAB\earth_sphere.license for attached BSD license). Thank you for your great work!
