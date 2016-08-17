@@ -206,7 +206,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                 break;      %exit the main simulation loop
             end;
             %check how long ago was the last PEG cycle
-            if (lc < ct)
+            if (lc < ct-dt)
                 %if not too long ago - increment
                 lc = lc + dt;
             else
@@ -238,7 +238,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                 break;      %exit the main simulation loop
             end;
             %check how long ago was the last PEG cycle
-            if (lc < ct)
+            if (lc < ct-dt)
                 %if not too long ago - increment
                 lc = lc + dt;
             else
@@ -490,7 +490,7 @@ function [a] = debugInitializator(n)
                'vd', zeros(n,3),...
                'vgop', zeros(n,3),...
                'dvgo', zeros(n,3),...
-               'vgo', zeros(n,3));
+               'vgo2', zeros(n,3));
 end
 
 %handles UPFG debug data aggregating
@@ -547,5 +547,5 @@ function [a] = debugAggregator(a, d)
     a.vd(i,:) = d.vd;
     a.vgop(i,:) = d.vgop;
     a.dvgo(i,:) = d.dvgo;
-    a.vgo(i,:) = d.vgo;
+    a.vgo2(i,:) = d.vgo2;
 end
