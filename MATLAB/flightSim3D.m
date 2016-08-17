@@ -55,8 +55,14 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                                             %0 - fuel deprived;
                                             %1 - running;
                                             %2 - cut as scheduled by PEG
+    elseif control.type == 3
+        %type 3 = experimental UPFG
+        target = control.target;        %whole data structure as given
+        ct = control.major;
+        lc = 0;
+        ENG = 1;
     elseif control.type == 5
-        %type 3 = coast phase (unguided free flight)
+        %type 5 = coast phase (unguided free flight)
         %strongly recommended using initial.type==1
         engT = 0;
         maxT = control.length;
@@ -88,10 +94,10 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     nav = zeros(3,3);   %KSP-style navball frame (radial, North, East)
     rnc = zeros(3,3);   %PEG-style tangential frame (radial, normal, circumferential)
     %flight angles
-    ang_p_srf = zeros(1,N); %flight pitch angle, surface related
-    ang_y_srf = zeros(1,N); %flight yaw angle, surface related
-    ang_p_obt = zeros(1,N); %flight pitch angle, orbital (absolute)
-    ang_y_obt = zeros(1,N); %flight yaw angle, orbital (absolute)
+    ang_p_srf = zeros(N,1); %flight pitch angle, surface related
+    ang_y_srf = zeros(N,1); %flight yaw angle, surface related
+    ang_p_obt = zeros(N,1); %flight pitch angle, orbital (absolute)
+    ang_y_obt = zeros(N,1); %flight yaw angle, orbital (absolute)
     
     %SIMULATION INITIALIZATION
     if initial.type==0      %launch from static site
@@ -114,12 +120,12 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     vairmag(1) = max(norm(vair(1)),1);
     vy(1) = dot(v(1,:),nav(1,:));
     vt(1) = dot(v(1,:),rnc(3,:));
-    ang_p_srf(1) = acosd(dot(vair(1,:),nav(1,:))/vairmag(1));
-    ang_y_srf(1) = acosd(dot(vair(1,:),nav(3,:))/vairmag(1));
-    ang_p_obt(1) = acosd(dot(v(1,:),nav(1,:))/vmag(1));
-    ang_y_obt(1) = acosd(dot(v(1,:),nav(3,:))/vmag(1));
+    ang_p_srf(1) = acosd(dot(unit(vair(1,:)),nav(1,:)));
+    ang_y_srf(1) = acosd(dot(unit(vair(1,:)),nav(3,:)));
+    ang_p_obt(1) = acosd(dot(unit(v(1,:)),nav(1,:)));
+    ang_y_obt(1) = acosd(dot(unit(v(1,:)),nav(3,:)));
     
-    %PEG SETUP (will be here)
+    %PEG SETUP
     if control.type==2
         dbg = zeros(N,4);   %debug log (A, B, C, T)
         p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
@@ -133,6 +139,35 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         dbg(1,:) = [A, B, C, T];
         pitch(1) = acosd(A + C);
         yaw(1) = 90-azim;
+    elseif control.type==3
+        %below 3 lines just to avoid 0 acceleration point in plots
+        p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
+        isp = (isp1-isp0)*p+isp0;
+        acc(1) = isp*g0*dm/m;
+        upfg_vehicle = struct('thrust', isp0*g0*dm, 'isp', isp0, 'mass', m);
+        upfg_state = struct('time', t(1), 'mass', m, 'radius', r(1,:), 'velocity', v(1,:));
+        %guidance initialization, Rd by projection of current R onto target plane
+        rdinit = r(1,:) - dot(r(1,:),target.normal)*target.normal;
+        ix = rdinit/norm(rdinit);
+        %rdinit = ix*target.radius;
+        iz = cross(ix,target.normal);
+        rdinit = ix+iz;
+        rdinit = rdinit/norm(rdinit);
+        rdinit = target.radius*rdinit;
+        vangle = [sind(target.angle);0;cosd(target.angle)];
+        vdinit = target.velocity*([ix;target.normal;iz]*vangle)' - v(1,:);
+        cser = struct('dtcp', 0, 'xcp', 0, 'A', 0, 'D', 0, 'E', 0);
+        upfg_internal = struct('cser', cser, 'tgo', 1, 'rbias', [0,0,0],...
+                               'rd', rdinit, 'rgrav', (mu/2)*r(1,:)/norm(r(1,:))^3,...
+                               'vgo', vdinit, 'v', v(1,:));
+        dbg = debugInitializator(floor(maxT/ct)+5);
+        for i=1:5   %TODO: implement a convergence check
+            [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
+                               upfg_vehicle, target, upfg_state, upfg_internal);
+            dbg = debugAggregator(dbg, debug);
+        end;
+        pitch(1) = guidance.pitch;
+        yaw(1) = guidance.yaw;
     end;
     
     %MAIN LOOP
@@ -166,7 +201,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         elseif control.type == 2
             %PEG pitch control
             %check if there's still fuel
-            if (t(i)-t(1) > maxT && ENG > 0)
+            if (t(i-1)-t(1) > maxT && ENG > 0)
                 ENG = 0;    %engine ran out of fuel
                 break;      %exit the main simulation loop
             end;
@@ -195,6 +230,45 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
             %pitch control (clamped to acosd domain which should never be necessary)
             pitch(i) = acosd( min(1, max(-1, A - B*lc + C)) );
             yaw(i) = 90-azim;
+        elseif control.type == 3
+            %UPFG pitch&yaw control
+            %check if there's still fuel
+            if (t(i-1)-t(1) > maxT && ENG > 0)
+                ENG = 0;    %engine ran out of fuel
+                break;      %exit the main simulation loop
+            end;
+            %check how long ago was the last PEG cycle
+            if (lc < ct)
+                %if not too long ago - increment
+                lc = lc + dt;
+            else
+                %run PEG
+                upfg_state.time     = t(i-1);
+                upfg_state.mass     = m;
+                upfg_state.radius   = r(i-1,:);
+                upfg_state.velocity = v(i-1,:);
+                [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
+                               upfg_vehicle, target, upfg_state, upfg_internal);
+                dbg = debugAggregator(dbg, debug);
+                lc = 0;
+            end;
+            %PEG-scheduled cutoff
+            if (guidance.tgo-lc < dt && ENG == 1)
+                ENG = 2;
+                break;
+            end;
+            %TEMP VELOCITY-DRIVEN CUTOFF
+            if (norm(v(i-1,:))>=target.velocity)
+                ENG = 3;
+                break;
+            end;
+            %pitch&yaw control
+            pitch(i) = guidance.pitch;
+            yaw(i)   = guidance.yaw;
+            if guidance.tgo < 20
+                pitch(i) = pitch(i-1);
+                yaw(i) = yaw(i-1);
+            end;
         end;
         
         %PHYSICS
@@ -202,7 +276,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         p = approxFromCurve((rmag(i-1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
         %enable coast flight
-        if control.type==3
+        if control.type==5
             F(i) = 0;
         else
             F(i) = isp*g0*dm;
@@ -234,17 +308,18 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         vair(i,:) = v(i,:) - surfSpeed(r(i,:), nav);
         vairmag(i) = norm(vair(i,:));
         if vairmag(i)==0    %since we later divide by this and in first iteration it can be zero
-            vairmag(i) = 1;
+            vairmag(i) = 1; %do we need this any longer, after introducint unit()
         end;
         %angles
-        ang_p_srf(i) = acosd(dot(vair(i,:),nav(1,:))/vairmag(i));
-        ang_y_srf(i) = acosd(dot(vair(i,:),nav(3,:))/vairmag(i));
-        ang_p_obt(i) = acosd(dot(v(i,:),nav(1,:))/vmag(i));
-        ang_y_obt(i) = acosd(dot(v(i,:),nav(3,:))/vmag(i));
+        ang_p_srf(i) = acosd(dot(unit(vair(i,:)),nav(1,:)));
+        ang_y_srf(i) = acosd(dot(unit(vair(i,:)),nav(3,:)));
+        ang_p_obt(i) = acosd(dot(unit(v(i,:)),nav(1,:)));
+        ang_y_obt(i) = acosd(dot(unit(v(i,:)),nav(3,:)));
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
     end;
+    
     %OUTPUT
     plots = struct('t', t(1:i-1),...
                    'r', r(1:i-1,:),...
@@ -279,7 +354,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                      'LostDrag', d_loss,...
                      'LostTotal', g_loss+d_loss,...
                      'BurnTimeLeft', maxT-t(i-1)+t(1),...
-                     'Plots', plots);
+                     'Plots', plots, 'ENG', ENG);
     [results.Apoapsis, results.Periapsis, results.Orbit.SMA,...
                     results.Orbit.ECC, results.Orbit.INC,...
                     results.Orbit.LAN, results.Orbit.AOP,...
@@ -292,12 +367,12 @@ end
 function [f] = getNavballFrame(r, v)
     %pass current position under r (1x3)
     %current velocity under v (1x3)
-    pseudo_up = [r(1) r(2) 0]/norm([r(1) r(2) 0]);
+    pseudo_up = unit([r(1) r(2) 0]);
     pseudo_north = cross([r(1) r(2) 0],[v(1) v(2) 0]);
-    pseudo_north = pseudo_north/norm(pseudo_north);
+    pseudo_north = unit(pseudo_north);
     east = cross(pseudo_north,pseudo_up);   %true East direction
-    up = r/norm(r);             %true Up direction (radial away from Earth)
-    north = cross(up, east);    %true North direction (completes frame)
+    up = unit(r);                   %true Up direction (radial away from Earth)
+    north = cross(up, east);        %true North direction (completes frame)
     f = zeros(3,3);
     %return a right-handed coordinate system base
     f(1,:) = up;
@@ -309,9 +384,9 @@ end
 function [f] = getCircumFrame(r, v)
     %pass current position under r (1x3)
     %current velocity under v (1x3)
-    radial = r/norm(r);             %Up direction (radial away from Earth)
+    radial = unit(r);               %Up direction (radial away from Earth)
     normal = cross(r, v);
-    normal = normal/norm(normal);   %Normal direction (perpendicular to orbital plane)
+    normal = unit(normal);          %Normal direction (perpendicular to orbital plane)
     circum = cross(normal, radial); %Circumferential direction (tangential to sphere, in motion plane)
     f = zeros(3,3);
     %return a left(?)-handed coordinate system base
@@ -356,4 +431,121 @@ function [rot] = surfSpeed(r, nav)
     [~,lat,~] = cart2sph(r(1), r(2), r(3));
     vel = 2*pi*R/(24*3600)*cos(lat);
     rot = vel*nav(3,:); %third componend is East vector
+end
+
+function [v] = unit(vector)
+    if norm(vector)==0
+        v = vector;
+    else
+        v = vector/norm(vector);
+    end;
+end
+
+%initializes UPFG debug data aggregator with zero vectors of appropriate sizes
+%pass expected length of the vector (number of guidance iterations, usually
+%maxT / guidance cycle + 5 should be okay)
+function [a] = debugInitializator(n)
+    a = struct('THIS', 0,...
+               'time', zeros(n,1),...
+               'dvsensed', zeros(n,3),...
+               'vgo1', zeros(n,3),...
+               'L1', zeros(n,1),...
+               'tgo', zeros(n,1),...
+               'L', zeros(n,1),...
+               'J', zeros(n,1),...
+               'S', zeros(n,1),...
+               'Q', zeros(n,1),...
+               'P', zeros(n,1),...
+               'H', zeros(n,1),...
+               'lambda', zeros(n,3),...
+               'rgrav1', zeros(n,3),...
+               'rgo1', zeros(n,3),...
+               'iz1', zeros(n,3),...
+               'rgoxy', zeros(n,3),...
+               'rgoz', zeros(n,1),...
+               'rgo2', zeros(n,3),...
+               'lambdadot', zeros(n,3),...
+               'iF', zeros(n,3),...
+               'phi', zeros(n,1),...
+               'phidot', zeros(n,1),...
+               'vthrust', zeros(n,3),...
+               'rthrust', zeros(n,3),...
+               'vbias', zeros(n,3),...
+               'rbias', zeros(n,3),...
+               'pitch', zeros(n,1),...
+               'iF_up', zeros(n,3),...
+               'iF_plane', zeros(n,3),...
+               'EAST', zeros(n,3),...
+               'yaw', zeros(n,1),...
+               'rc1', zeros(n,3),...
+               'vc1', zeros(n,3),...
+               'rc2', zeros(n,3),...
+               'vc2', zeros(n,3),...
+               'vgrav', zeros(n,3),...
+               'rgrav2', zeros(n,3),...
+               'rp', zeros(n,3),...
+               'rd', zeros(n,3),...
+               'ix', zeros(n,3),...
+               'iz2', zeros(n,3),...
+               'vd', zeros(n,3),...
+               'vgop', zeros(n,3),...
+               'dvgo', zeros(n,3),...
+               'vgo', zeros(n,3));
+end
+
+%handles UPFG debug data aggregating
+%adds debug data from a single guidance iteration into aggregated, time-based
+%struct of vectors
+%pass initialized debug structure and UPFG debug output
+function [a] = debugAggregator(a, d)
+    %we must know where to put the new results
+    i = a.THIS + 1;
+    a.THIS = i;
+    %and onto the great copy...
+    a.time(i) = d.time;
+    a.dvsensed(i,:) = d.dvsensed;
+    a.vgo1(i,:) = d.vgo1;
+    a.L1(i) = d.L1;
+    a.tgo(i) = d.tgo;
+    a.L(i) = d.L;
+    a.J(i) = d.J;
+    a.S(i) = d.S;
+    a.Q(i) = d.Q;
+    a.P(i) = d.P;
+    a.H(i) = d.H;
+    a.lambda(i,:) = d.lambda;
+    a.rgrav1(i,:) = d.rgrav1;
+    a.rgo1(i,:) = d.rgo1;
+    a.iz1(i,:) = d.iz1;
+    a.rgoxy(i,:) = d.rgoxy;
+    a.rgoz(i) = d.rgoz;
+    a.rgo2(i,:) = d.rgo2;
+    a.lambdadot(i,:) = d.lambdadot;
+    a.iF(i,:) = d.iF;
+    a.phi(i) = d.phi;
+    a.phidot(i) = d.phidot;
+    a.vthrust(i,:) = d.vthrust;
+    a.rthrust(i,:) = d.rthrust;
+    a.vbias(i,:) = d.vbias;
+    a.rbias(i,:) = d.rbias;
+    a.pitch(i) = d.pitch;
+    a.iF_up(i,:) = d.iF_up;
+    a.iF_plane(i,:) = d.iF_plane;
+    a.EAST(i,:) = d.EAST;
+    a.yaw(i) = d.yaw;
+    a.rc1(i,:) = d.rc1;
+    a.vc1(i,:) = d.vc1;
+    a.rc2(i,:) = d.rc2;
+    a.vc2(i,:) = d.vc2;
+    %a.cser(i) = d.cser;    %sorry, don't know how to handle this one :/
+    a.vgrav(i,:) = d.vgrav;
+    a.rgrav2(i,:) = d.rgrav2;
+    a.rp(i,:) = d.rp;
+    a.rd(i,:) = d.rd;
+    a.ix(i,:) = d.ix;
+    a.iz2(i,:) = d.iz2;
+    a.vd(i,:) = d.vd;
+    a.vgop(i,:) = d.vgop;
+    a.dvgo(i,:) = d.dvgo;
+    a.vgo(i,:) = d.vgo;
 end
