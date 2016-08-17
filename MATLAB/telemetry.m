@@ -19,12 +19,13 @@ function [] = telemetry(powered, coast, fid)
     for i=1:length(powered)
         x = powered(i).Plots;
         plot(x.t, x.pitch, 'b');
+        plot(x.t, x.yaw, 'y');
         plot(x.t, x.angle_ps, 'g');
         plot(x.t, x.angle_po, 'g');
     end;
     for i=1:length(coast)
         x = coast(i).Plots;
-        plot(x.t, x.pitch, 'b');
+        %plot(x.t, x.pitch, 'b');
         plot(x.t, x.angle_ps, 'g');
         plot(x.t, x.angle_po, 'g');
     end;
