@@ -289,7 +289,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         D = area*cd*q(i)/m;                         %drag-induced acceleration [m/s^2]
         d_loss = d_loss + D*dt;                     %integrate drag losses
         %absolute velocities
-        v(i,:) = v(i-1,:) + acv*dt - G*dt - D*vair(i-1,:)/vairmag(i-1)*dt;
+        v(i,:) = v(i-1,:) + acv*dt - G*dt - D*unit(vair(i-1,:))*dt;
         vmag(i) = norm(v(i,:));
         vy(i) = dot(v(i,:),nav(1,:));
         vt(i) = dot(v(i,:),rnc(3,:));
