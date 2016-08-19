@@ -28,7 +28,7 @@ function [] = trajectory(powered, coast, earth, vectors, fid)
         scale = 3000000;
     end;
     %render Earth?
-    if earth>0
+    if earth==1
         [sx,sy,sz]=sphere(20);
         if earth<2
             sx=sx(11:end,:);
@@ -37,6 +37,9 @@ function [] = trajectory(powered, coast, earth, vectors, fid)
         end;
         plot3(R*sx,R*sy,R*sz,cEarth);
         scatter3(0,0,0,cEarth);
+    elseif earth==2
+        earth_sphere('m');
+        cTrack = 'y';       %ground tracks will be easier visible in yellow
     end;
     %display powered paths
     for i=1:length(powered)
