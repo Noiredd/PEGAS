@@ -36,10 +36,12 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
                     %0 - not begun yet;
                     %1 - equaling to flight angle;
                     %2 - match flight angle
+        ENG = -1;
     elseif control.type == 1
         %type 1 = pitch program control, constant azimuth
         prog = control.program;
         azim = control.azimuth; %for now only constant, no programming
+        ENG = -1;
     elseif control.type == 2
         %type 2 = powered explicit guidance
         target = control.target*1000+R; %target orbit altitude
@@ -61,6 +63,7 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
         %strongly recommended using initial.type==1
         engT = 0;
         maxT = control.length;
+        ENG = -1;
     end;
     
     %SIMULATION SETUP
