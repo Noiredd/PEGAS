@@ -78,3 +78,6 @@ s2_expct_dv = s2_isp0*g0*log(s2_m0/(s2_m0-s2_fm))
 %cleanup
 clearvars s2_m0 s2_thrust s2_isp0 s2_isp1 s2_fm s2_A s2_engT s2_drag s2_dm;
 clearvars s2_twr s2_twf s2_expct_dv;
+
+
+disp('Note for newcomers: you can proceed right to real_test.m and see what it can do, however, you must load the pitch program from pp_prog.mat and create a variable s1_prog by transposing the former.');
