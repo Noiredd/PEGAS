@@ -1,4 +1,4 @@
-figure(1); clf;
+figure(3); clf;
 N = p_stage2.Plots.DEBUG.THIS;
 K = 173;
 t = p_stage2.Plots.DEBUG.time(6:N);

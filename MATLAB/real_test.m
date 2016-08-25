@@ -70,9 +70,16 @@ end;
 plot3(t(:,1),t(:,2),t(:,3),'m');
 plot3(ttt(:,1),ttt(:,2),ttt(:,3),'m');
 hold off;
+%calculate intersection angle (total plane error)
+inc_r = p_stage2.Orbit.INC;
+lan_r = p_stage2.Orbit.LAN;
+Rx=[1,0,0;0,cosd(inc_r),-sind(inc_r);0,sind(inc_r),cosd(inc_r)];
+Rz=[cosd(lan_r),-sind(lan_r),0;sind(lan_r),cosd(lan_r),0;0,0,1];
+reached_iy = (Rz*Rx*[0,0,-1]')';
+plane_error = acosd(dot(target_iy, reached_iy))
 
 %CLEANUP
 clearvars fs_dt fs_cycle fs_coast p_init fs_target
 clearvars Binertial vorbit vEarthrot vrotx vroty fs_azimuth
 clearvars Rx Ry Rz target_iy p_target
-clearvars t tt ttt
+clearvars t tt ttt inc_r lan_r reached_iy
