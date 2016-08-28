@@ -4,14 +4,8 @@ fs_cycle = 2;       %PEG cycle length [s]
 fs_coast = 25;      %coast between stages
 
 %INITIAL CONDITIONS
-p_init = s1_init;
-    %Kourou
-    %p_init.lat = 5.22167;
-    %p_init.lon = -52.75389;
-%KSC
-p_init.lat = 28.52406;
-p_init.lon = -80.65085;
-p_init.alt = 0;
+%p_init = struct('lat', 5.22167, 'lon', -52.75389, 'alt', 0);   %Kourou
+p_init = struct('type', 0,'lat', 28.52406, 'lon', -80.65085, 'alt', 0);   %KSC
 
 %TARGET ORBIT SETUP
 %altitude [km ASL]
@@ -46,11 +40,11 @@ p_target = struct('radius', R+fs_target*1000, 'normal', target_iy,...
 
 %SIMULATION
 if 1
-p_stage1 = flightSim3D(s1_vehicle, p_init,...
+p_stage1 = flightSim3D(oldicbm, 1, p_init,...
     struct('type',1, 'program',s1_prog, 'azimuth',fs_azimuth), fs_dt);
-p_coast1 = flightSim3D(s2_vehicle, resultsToInit(p_stage1),...
+p_coast1 = flightSim3D(oldicbm, 2, resultsToInit(p_stage1),...
     struct('type',5, 'length',fs_coast), fs_dt);
-p_stage2 = flightSim3D(s2_vehicle, resultsToInit(p_coast1),...
+p_stage2 = flightSim3D(oldicbm, 2, resultsToInit(p_coast1),...
     struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
 %p_coast2 = flightSim3D(s2_vehicle, resultsToInit(p_stage2),...
 %    struct('type',5, 'length',3000), 1);

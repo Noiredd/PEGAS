@@ -12,20 +12,19 @@
 %are assumed, engine is modelled only using thrust and Isp with no regard
 %for actual number or type of engines. RO atmosphere is modelled. No AoA or
 %lift effects are taken into account.
-function [results] = flightSim3D(vehicle, initial, control, dt)
+function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     %declare globals
     global mu; global g0; global R;
     global atmpressure; global atmtemperature;
     
     %VEHICLE UNPACK
-    m = vehicle.m0;
-    isp0 = vehicle.i0;
-    isp1 = vehicle.i1;
-    dm = vehicle.dm;
-    maxT = vehicle.mt;
-    engT = vehicle.et;
-    area = vehicle.ra;
-    drag = vehicle.dc;
+    m = vehicle(stage).m0;
+    isp0 = vehicle(stage).i0;
+    isp1 = vehicle(stage).i1;
+    dm = vehicle(stage).dm;
+    maxT = vehicle(stage).mt;
+    area = vehicle(stage).ra;
+    drag = vehicle(stage).dc;
     
     %CONTROL SETUP
     if control.type == 0
@@ -61,14 +60,11 @@ function [results] = flightSim3D(vehicle, initial, control, dt)
     elseif control.type == 5
         %type 5 = coast phase (unguided free flight)
         %strongly recommended using initial.type==1
-        engT = 0;
         maxT = control.length;
         ENG = -1;
     end;
     
     %SIMULATION SETUP
-    m = m - engT*dm;    %rocket is burning fuel while bolted to the launchpad for engT seconds before it's released
-    maxT = maxT - engT; %this results in loss of propellant mass and hence reduction of maximum burn time
     N = floor(maxT/dt)+1;%simulation steps
     t = zeros(N,1);     %simulation time
     F = zeros(N,1);     %thrust magnitude [N]
