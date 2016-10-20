@@ -31,6 +31,11 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         %type 0 = natural gravity turn simulation
         gtiP = control.p;   %initial pitchover angle for gravity turn
         gtiV = control.v;   %velocity at which the pitchover begins
+        if isfield(control, 'a')
+            azim = control.a;   %azimuth, if chosen
+        else
+            azim = 90;
+        end
         GT = 0; %gravity turn status flag:
                     %0 - not begun yet;
                     %1 - equaling to flight angle;
@@ -138,7 +143,6 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
         acc(1) = isp*g0*dm/m;
-        upfg_vehicle = struct('thrust', isp0*g0*dm, 'isp', isp0, 'mass', m);
         upfg_state = struct('time', t(1), 'mass', m, 'radius', r(1,:), 'velocity', v(1,:));
         %guidance initialization, Rd by projection of current R onto target plane
         rdinit = r(1,:) - dot(r(1,:),target.normal)*target.normal;
@@ -151,14 +155,35 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         vangle = [sind(target.angle);0;cosd(target.angle)];
         vdinit = target.velocity*([ix;target.normal;iz]*vangle)' - v(1,:);
         cser = struct('dtcp', 0, 'xcp', 0, 'A', 0, 'D', 0, 'E', 0);
-        upfg_internal = struct('cser', cser, 'tgo', 1, 'rbias', [0,0,0],...
-                               'rd', rdinit, 'rgrav', (mu/2)*r(1,:)/norm(r(1,:))^3,...
-                               'vgo', vdinit, 'v', v(1,:));
-        dbg = debugInitializator(floor(maxT/ct)+5);
-        for i=1:5   %TODO: implement a convergence check
-            [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
-                               upfg_vehicle, target, upfg_state, upfg_internal);
-            dbg = debugAggregator(dbg, debug);
+        %Create internal state for UPFG - continue from last stage if
+        %possible. First we need to make sure there's any state before we
+        %can query its genuineness.
+        if isfield(initial, 'upfg')
+            if isfield(initial.upfg, 'tgo')
+                %We run UPFG once to obtain initial guidance values.
+                upfg_internal = initial.upfg;
+                dbg = debugInitializator(floor(maxT/ct));
+                [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
+                                   vehicle(stage:length(vehicle)),...
+                                   target, upfg_state, upfg_internal);
+                dbg = debugAggregator(dbg, debug);
+            end;
+        end;
+        if ~exist('upfg_internal', 'var')
+            %If no initial state was given, a new one must be built and
+            %converged. That's also why two different initializators are
+            %needed (this one also stores convergence run results).
+            upfg_internal = struct('cser', cser, 'rbias', [0,0,0], 'rd', rdinit,...
+                                   'rgrav', (mu/2)*r(1,:)/norm(r(1,:))^3,...
+                                   'tb', 0, 'time', t(1), 'tgo', 1,...
+                                   'v', v(1,:), 'vgo', vdinit);
+            dbg = debugInitializator(floor(maxT/ct)+5);
+            for i=1:5   %TODO: implement a convergence check instead of fixed iterations
+                [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
+                                   vehicle(stage:length(vehicle)),...
+                                   target, upfg_state, upfg_internal);
+                dbg = debugAggregator(dbg, debug);
+            end;
         end;
         pitch(1) = guidance.pitch;
         yaw(1) = guidance.yaw;
@@ -188,6 +213,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                 %pitch angle matching airspeed (thrust prograde)
                 pitch(i) = ang_p_srf(i-1);
             end;
+            yaw(i) = 90-azim;
         elseif control.type == 1
             %pitch program control, with possible yaw control too
             pitch(i) = approxFromCurve(t(i-1), prog);
@@ -242,7 +268,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                 upfg_state.radius   = r(i-1,:);
                 upfg_state.velocity = v(i-1,:);
                 [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
-                               upfg_vehicle, target, upfg_state, upfg_internal);
+                               vehicle(stage:length(vehicle)),...
+                               target, upfg_state, upfg_internal);
                 dbg = debugAggregator(dbg, debug);
                 lc = 0;
             end;
@@ -313,7 +340,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
     end;
-    
+
     %OUTPUT
     plots = struct('t', t(1:i-1),...
                    'r', r(1:i-1,:),...
@@ -349,6 +376,24 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                      'LostTotal', g_loss+d_loss,...
                      'BurnTimeLeft', maxT-t(i-1)+t(1),...
                      'Plots', plots, 'ENG', ENG);
+    %Handle UPFG state persistence between stages. Turns out it is CRUCIAL
+    %for multistage guidance capability.
+    %For guided stages, stores final UPFG internal state in the results
+    %struct. For unguided ones (ie. if there is no final state), tries to
+    %save the state passed to the simulation initialization struct - this
+    %allows handling coasting between guided stages by resultsToInit
+    %(guided stage returns UPFG state, coast stage simply copies it, next
+    %guided stage continues from that state). For compatibility (in plot
+    %functions especially), all result structs must have the same set of
+    %fields, so in case no UPFG was ever called in a stage, a dummy is
+    %created to take its place.
+    if exist('upfg_internal', 'var')==1
+        results().UPFG = upfg_internal;
+    elseif isfield(initial, 'upfg')
+        results().UPFG = initial.upfg;
+    else
+        results().UPFG = struct();
+    end;
     [results.Apoapsis, results.Periapsis, results.Orbit.SMA,...
                     results.Orbit.ECC, results.Orbit.INC,...
                     results.Orbit.LAN, results.Orbit.AOP,...
@@ -441,6 +486,9 @@ end
 function [a] = debugInitializator(n)
     a = struct('THIS', 0,...
                'time', zeros(n,1),...
+               'r', zeros(n,4),...
+               'v', zeros(n,4),...
+               'm', zeros(n,1),...
                'dvsensed', zeros(n,4),...
                'vgo1', zeros(n,4),...
                'L1', zeros(n,1),...
@@ -458,6 +506,7 @@ function [a] = debugInitializator(n)
                'rgoxy', zeros(n,4),...
                'rgoz', zeros(n,1),...
                'rgo2', zeros(n,4),...
+               'lambdade', zeros(n,1),...
                'lambdadot', zeros(n,4),...
                'iF', zeros(n,4),...
                'phi', zeros(n,1),...
@@ -502,6 +551,11 @@ function [a] = debugAggregator(a, d)
     a.THIS = i;
     %and onto the great copy...
     a.time(i) = d.time;
+    a.r(i,1:3) = d.r;
+    a.r(i,4) = norm(d.r);
+    a.v(i,1:3) = d.v;
+    a.v(i,4) = norm(d.v);
+    a.m(i) = d.m;
     a.dvsensed(i,1:3) = d.dvsensed;
     a.dvsensed(i,4) = norm(d.dvsensed);
     a.vgo1(i,1:3) = d.vgo1;
@@ -527,6 +581,7 @@ function [a] = debugAggregator(a, d)
     a.rgoz(i) = d.rgoz;
     a.rgo2(i,1:3) = d.rgo2;
     a.rgo2(i,4) = norm(d.rgo2);
+    a.lambdade(i) = d.lambdade;
     a.lambdadot(i,1:3) = d.lambdadot;
     a.lambdadot(i,4) = norm(d.lambdadot);
     a.iF(i,1:3) = d.iF;
