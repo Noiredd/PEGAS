@@ -10,7 +10,7 @@
 %   0 - no vectors
 %   1 - only last powered state
 %   2 - each segment
-function [] = trajectory(powered, coast, earth, vectors, fid)
+function [] = trajectory(powered, coast, target, earth, vectors, fid)
     global R;
     figure(fid); clf; hold on;
     %color config
@@ -19,6 +19,7 @@ function [] = trajectory(powered, coast, earth, vectors, fid)
     cCoast = 'b';   %coast trajectories
     cTrack = 'k';   %ground tracks
                     %vectors defined, unfortunately, in their function
+    cTarget = 'm';  %target orbit
     %vector size (no matter if desired or not) depending on Earth presence
     if earth==0
         %for no Earth, this will suffice
@@ -86,7 +87,32 @@ function [] = trajectory(powered, coast, earth, vectors, fid)
             dirs(x.r(n,:), x.v(n,:), scale);
         end;
     end;
+    %optionally, target orbit ground track
+    if isfield(target, 'normal')
+        %normal vector first
+        t = zeros(2,3);
+        t(2,:) = target.normal*R*1.25;
+        plot3(t(:,1), t(:,2), t(:,3), cTarget);
+        %then a nice target ground track
+        t = 1:1:360;
+        tt = zeros(length(t), 3);
+        %it's a little hard cause we have to rework the matrices...
+        %http://math.stackexchange.com/a/476311/380921
+        n = target.normal;
+        a = [0 0 1];
+        v = cross(a,n);
+        s = norm(v);
+        c = dot(a,n);
+        vx = [0 -v(3) v(2); v(3) 0 -v(1); -v(2) v(1) 0];
+        Rot = [1 0 0; 0 1 0; 0 0 1];
+        Rot = Rot + vx + ((1-c)/s^2) * vx*vx;
+        for i=1:length(tt)
+            tt(i,:) = (R+100)*(Rot*[sind(t(i));cosd(t(i));0])';
+        end;
+        plot3(tt(:,1), tt(:,2), tt(:,3), cTarget);
+    end;
     axis equal; %otherwise the whole plot looks just silly
+    hold off;
 end
 
 %gets and renders direction vectors
