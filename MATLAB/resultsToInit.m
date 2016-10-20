@@ -6,4 +6,11 @@ function [init] = resultsToInit(results)
                   't', results.Plots.t(n),...
                   'r', results.Plots.r(n,:),...
                   'v', results.Plots.v(n,:));
+    %Handle UPFG state passing. Copy final state from results, create a
+    %dummy state otherwise.
+    if isfield(results, 'upfg')
+        init().UPFG = results.upfg;
+    else
+        init().UPFG = struct();
+    end;
 end
