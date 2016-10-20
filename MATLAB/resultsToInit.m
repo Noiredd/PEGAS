@@ -8,9 +8,9 @@ function [init] = resultsToInit(results)
                   'v', results.Plots.v(n,:));
     %Handle UPFG state passing. Copy final state from results, create a
     %dummy state otherwise.
-    if isfield(results, 'upfg')
-        init().UPFG = results.upfg;
+    if isfield(results, 'UPFG')
+        init().upfg = results.UPFG;
     else
-        init().UPFG = struct();
+        init().upfg = struct();
     end;
 end
