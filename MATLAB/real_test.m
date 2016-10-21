@@ -54,40 +54,67 @@ inc_r = p_stage2.Orbit.INC;
 lan_r = p_stage2.Orbit.LAN;
 end
 
-s = 0;
-if s    %this is for demo Shuttle
-evSTS
-sts1 = flightSim3D(vehicle, 1, p_init,...
-   struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
-stsc = flightSim3D(vehicle, 1, resultsToInit(sts1),...
-    struct('type',5, 'length',5), fs_dt);
-sts2 = flightSim3D(vehicle, 2, resultsToInit(stsc),...
-    struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-telemetry([sts1, sts2], stsc, 1);
-trajectory([sts1, sts2], stsc, p_target, 2, 1, 2);
-dbgIntegrals(sts2, 3);
-inc_r = sts2.Orbit.INC;
-lan_r = sts2.Orbit.LAN;
+v3d = 0;    %set 1 to quickly enable all 3D trajectory plots
+s = 100;
+if ~s       %this is for demo Shuttle
+    evSTS
+    sts1_1 = flightSim3D(vehicle, 1, p_init,...
+        struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
+    sts1_c = flightSim3D(vehicle, 1, resultsToInit(sts1_1),...
+        struct('type',5, 'length',5), fs_dt);
+    sts1_2 = flightSim3D(vehicle, 2, resultsToInit(sts1_c),...
+        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
+    telemetry([sts1_1, sts1_2], sts1_c, 1);
+    if v3d
+        trajectory([sts1_1, sts1_2], sts1_c, p_target, 2, 1, 2);
+    end;
+    dbgIntegrals(sts1_2, 3);
+    inc_r = sts1_2.Orbit.INC;
+    lan_r = sts1_2.Orbit.LAN;
+elseif s<100  %this is for virtual 3-stage Shuttle
+    evSTS2
+    sts2_1 = flightSim3D(vehicle, 1, p_init,...
+        struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
+    sts2_c1 = flightSim3D(vehicle, 1, resultsToInit(sts2_1),...
+        struct('type',5, 'length',5), fs_dt);
+    sts2_2 = flightSim3D(vehicle, 2, resultsToInit(sts2_c1),...
+        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
+    sts2_c2 = flightSim3D(vehicle, 2, resultsToInit(sts2_2),...
+        struct('type',5, 'length',5), fs_dt);
+    sts2_3 = flightSim3D(vehicle, 3, resultsToInit(sts2_c2),...
+        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
+    telemetry([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], 4);
+    if v3d
+        trajectory([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], p_target, 2, 1, 5);
+    end;
+    dbgIntegrals([sts2_2, sts2_3], 6);
+    inc_r = sts2_3.Orbit.INC;
+    lan_r = sts2_3.Orbit.LAN;
+else        %this is for virtual 4-stage Shuttle
+    evSTS3
+    sts3_1 = flightSim3D(vehicle, 1, p_init,...
+        struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
+    sts3_c1 = flightSim3D(vehicle, 1, resultsToInit(sts3_1),...
+        struct('type',5, 'length',5), fs_dt);
+    sts3_2 = flightSim3D(vehicle, 2, resultsToInit(sts3_c1),...
+        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
+    sts3_c2 = flightSim3D(vehicle, 2, resultsToInit(sts3_2),...
+        struct('type',5, 'length',5), fs_dt);
+    sts3_3 = flightSim3D(vehicle, 3, resultsToInit(sts3_c2),...
+        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
+    sts3_c3 = flightSim3D(vehicle, 3, resultsToInit(sts3_3),...
+        struct('type',5, 'length',5), fs_dt);
+    sts3_4 = flightSim3D(vehicle, 4, resultsToInit(sts3_c3),...
+        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
+    telemetry([sts3_1, sts3_2, sts3_3], [sts3_c1, sts3_c2, sts3_c3], 7);
+    if v3d
+        trajectory([sts3_1, sts3_2, sts3_3, sts3_4], [sts3_c1, sts3_c2, sts3_c3], p_target, 2, 1, 8);
+    end;
+    dbgIntegrals([sts3_2, sts3_3], 9);
+    inc_r = sts3_4.Orbit.INC;
+    lan_r = sts3_4.Orbit.LAN;
 end
-if ~s   %this is for virtual 3-stage Shuttle
-evSTS2
-sts1 = flightSim3D(vehicle, 1, p_init,...
-   struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
-stsc1 = flightSim3D(vehicle, 1, resultsToInit(sts1),...
-    struct('type',5, 'length',5), fs_dt);
-sts2 = flightSim3D(vehicle, 2, resultsToInit(stsc1),...
-    struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-stsc2 = flightSim3D(vehicle, 2, resultsToInit(sts2),...
-    struct('type',5, 'length',5), fs_dt);
-sts3 = flightSim3D(vehicle, 3, resultsToInit(stsc2),...
-    struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-telemetry([sts1, sts2, sts3], [stsc1, stsc2], 4);
-trajectory([sts1, sts2, sts3], [stsc1, stsc2], p_target, 2, 1, 5);
-dbgIntegrals([sts2, sts3], 6);
-inc_r = sts3.Orbit.INC;
-lan_r = sts3.Orbit.LAN;
-end
-clearvars s
+clearvars s v3d
 
 %POSTPROCESS
 %calculate intersection angle (total plane error)
