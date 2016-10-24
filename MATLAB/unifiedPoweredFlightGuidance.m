@@ -132,6 +132,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
             tgoi(i) = tgoi(i-1) + tb(i);
         end
     end
+    %Li'
+    %tgoi'
     L1 = Li(1);
     tgo = tgoi(1);
     

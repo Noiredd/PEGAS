@@ -11,7 +11,7 @@ p_init = struct('type', 0,'lat', 28.52406, 'lon', -80.65085, 'alt', 0);   %KSC
 %altitude [km ASL]
 fs_target = 200;
 %inclination (ISS)
-inc = 51.65;
+inc = 51.65-20;
 %launch azimuth calculation
 Binertial = asind( cosd(inc)/cosd(p_init.lat) );    %launch azimuth with no regard for Earth rotation
 vorbit = sqrt(mu/(R+fs_target*1000));               %orbital velocity magnitude
@@ -55,7 +55,7 @@ lan_r = p_stage2.Orbit.LAN;
 end
 
 v3d = 0;    %set 1 to quickly enable all 3D trajectory plots
-s = 100;
+s = 0;
 if ~s       %this is for demo Shuttle
     evSTS
     sts1_1 = flightSim3D(vehicle, 1, p_init,...
@@ -66,9 +66,9 @@ if ~s       %this is for demo Shuttle
         struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
     telemetry([sts1_1, sts1_2], sts1_c, 1);
     if v3d
-        trajectory([sts1_1, sts1_2], sts1_c, p_target, 2, 1, 2);
+        trajectory([sts1_1, sts1_2], sts1_c, p_target, 2, 1, 3);
     end;
-    dbgIntegrals(sts1_2, 3);
+    dbgIntegrals(sts1_2, 2);
     inc_r = sts1_2.Orbit.INC;
     lan_r = sts1_2.Orbit.LAN;
 elseif s<100  %this is for virtual 3-stage Shuttle
@@ -85,9 +85,9 @@ elseif s<100  %this is for virtual 3-stage Shuttle
         struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
     telemetry([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], 4);
     if v3d
-        trajectory([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], p_target, 2, 1, 5);
+        trajectory([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], p_target, 2, 1, 6);
     end;
-    dbgIntegrals([sts2_2, sts2_3], 6);
+    dbgIntegrals([sts2_2, sts2_3], 5);
     inc_r = sts2_3.Orbit.INC;
     lan_r = sts2_3.Orbit.LAN;
 else        %this is for virtual 4-stage Shuttle
@@ -106,11 +106,11 @@ else        %this is for virtual 4-stage Shuttle
         struct('type',5, 'length',5), fs_dt);
     sts3_4 = flightSim3D(vehicle, 4, resultsToInit(sts3_c3),...
         struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    telemetry([sts3_1, sts3_2, sts3_3], [sts3_c1, sts3_c2, sts3_c3], 7);
+    telemetry([sts3_1, sts3_2, sts3_3, sts3_4], [sts3_c1, sts3_c2, sts3_c3], 7);
     if v3d
-        trajectory([sts3_1, sts3_2, sts3_3, sts3_4], [sts3_c1, sts3_c2, sts3_c3], p_target, 2, 1, 8);
+        trajectory([sts3_1, sts3_2, sts3_3, sts3_4], [sts3_c1, sts3_c2, sts3_c3], p_target, 2, 1, 9);
     end;
-    dbgIntegrals([sts3_2, sts3_3], 9);
+    dbgIntegrals([sts3_2, sts3_3, sts3_4], 8);
     inc_r = sts3_4.Orbit.INC;
     lan_r = sts3_4.Orbit.LAN;
 end
