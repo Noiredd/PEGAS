@@ -103,26 +103,34 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %Current vehicle parameters have already been obtained in block 1, the
     %only thing different is a_T,k which should be calculated from current
     %mass instead of initial, and subsequently tu,k.
-    %This is done according to theory on pages 33-34 and block diagrams on 56-57.
+    %This is done according to theory on pages 33-34 and block diagrams on
+    %56-57, although with a small change: original document for the Space
+    %Shuttle assumed that standard ascent will be finalized with a
+    %predetermined OMS burn (Orbiter's SSMEs burning fuel from ET will only
+    %take it so far, then the ET is jettisoned and vehicle coasts for a
+    %predetermined amount of time (tc), after which the last burn phase
+    %circularizes). Therefore, active guidance did not calculate the
+    %integral Li(n). Stages 1..n-2 were assumed to burn out completely
+    %(hence the logarithmic expression for them), and stage n-1 has burn
+    %time set accordingly, so the total delta-v expended equals vgo.
+    %In this application however, there is no such thing as a predetermined
+    %final stage velocity. Therefore, stages n-1 are assumed to burn out
+    %completely, and the last one is adjusted, so it burns out only as long
+    %as needed.
     aT(1) = fT(1) / m;
     tu(1) = ve(1) / aT(1);
     L = 0;
     Li = zeros(n,1);
-    for i=1:n-2
+    for i=1:n-1
         Li(i) = ve(i)*log(tu(i) / (tu(i)-tb(i)));
         L = L + Li(i);
     end
-    if n>1
-        Li(n-1) = norm(vgo) - L - Li(n);
-    else
-        Li(n) = norm(vgo);
+    if Li(i)<=0
+        Li(i) = 0;
     end
-    %The above made sense for the Space Shuttle, whose last stage was post
-    %ET jettison orbit circularisation on OMS, which apparently had a
-    %predetermined amount of delta-v. So the Li array was not initialized
-    %fully with zeros, but the n-th element was this predetermined d-v. I
-    %left the subtraction (line right after "if n>1") because it does no
-    %harm here.
+    Li(n) = norm(vgo) - L;
+    %Now for each stage its remaining time of burn is calculated (tbi) and
+    %in the same pass accumulated into a total time-to-go of the maneuver.
     tgoi = zeros(n,1);
     for i=1:n
         tb(i) = tu(i)*(1-exp(-Li(i)/ve(i)));
@@ -132,10 +140,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
             tgoi(i) = tgoi(i-1) + tb(i);
         end
     end
-    %Li'
-    %tgoi'
     L1 = Li(1);
-    tgo = tgoi(1);
+    tgo = tgoi(n);
     
     %BLOCK 4
     L = 0;
@@ -144,15 +150,19 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     Q = 0; Qi = zeros(n,1);
     H = 0;
     P = 0; Pi = zeros(n,1);
-    %Major loop of the whole block
+    %Major loop of the whole block, almost exactly as in the block diagrams.
     for i=1:n
-        Ji(i) = tu(i)*Li(i) - ve(i)*tb(i);
-        Si(i) = -Ji(i) + tb(i)*Li(i);
+        %Variable tgoi1 represents t_go,i-1 only is determined in a safe
+        %way (as to not exceed the array).
         if i==1
             tgoi1 = 0;
         else
             tgoi1 = tgoi(i-1);
         end
+        
+        %Only constant thrust mode integrals for now.
+        Ji(i) = tu(i)*Li(i) - ve(i)*tb(i);
+        Si(i) = -Ji(i) + tb(i)*Li(i);
         Qi(i) = Si(i)*(tu(i)+tgoi1) - (1/2)*ve(i)*tb(i)^2;
         Pi(i) = Qi(i)*(tu(i)+tgoi1) - (1/2)*ve(i)*tb(i)^2 * ((1/3)*tb(i)+tgoi1);
         
@@ -161,7 +171,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
         Qi(i) = Qi(i) + J*tb(i);
         Pi(i) = Pi(i) + H*tb(i);
         
-        %no pre-last stage coast period
+        %No coast period before the last stage.
+        
         L = L + Li(i);
         J = J + Ji(i);
         S = S + Si(i);
@@ -192,7 +203,7 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     vbias = vgo-vthrust;
     rbias = rgo-rthrust;
     
-    %BLOCK 6
+    %BLOCK 6 - original document does not contain any implementation
     %TODO - pitch and yaw RATES
     pitch = acosd(dot(iF,unit(r)));         %angle between thrust vector and local UP
     iF_up = dot(iF,unit(r))*unit(r);        %thrust component in UP direction

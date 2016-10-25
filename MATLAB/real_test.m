@@ -11,7 +11,7 @@ p_init = struct('type', 0,'lat', 28.52406, 'lon', -80.65085, 'alt', 0);   %KSC
 %altitude [km ASL]
 fs_target = 200;
 %inclination (ISS)
-inc = 51.65-20;
+inc = 51.65;
 %launch azimuth calculation
 Binertial = asind( cosd(inc)/cosd(p_init.lat) );    %launch azimuth with no regard for Earth rotation
 vorbit = sqrt(mu/(R+fs_target*1000));               %orbital velocity magnitude
@@ -55,7 +55,7 @@ lan_r = p_stage2.Orbit.LAN;
 end
 
 v3d = 0;    %set 1 to quickly enable all 3D trajectory plots
-s = 0;
+s = 110;
 if ~s       %this is for demo Shuttle
     evSTS
     sts1_1 = flightSim3D(vehicle, 1, p_init,...
