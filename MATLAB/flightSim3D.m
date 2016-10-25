@@ -162,6 +162,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
             if isfield(initial.upfg, 'tgo')
                 %We run UPFG once to obtain initial guidance values.
                 upfg_internal = initial.upfg;
+                upfg_internal.tb = 0;
                 dbg = debugInitializator(floor(maxT/ct));
                 [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
                                    vehicle(stage:length(vehicle)),...
