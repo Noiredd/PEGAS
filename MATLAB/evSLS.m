@@ -1,0 +1,59 @@
+%experimental vehicle creation model
+clearvars vehicle
+payload = 50000;
+%first stage SLS: core with 2 boosters
+stage_m0 = 1464000+1094000+141300+payload+8000; %launch mass [kg]   SLS: boosters, core, EUS, payload, 8t fairing
+stage_thrust = 32300000+4*1860000;              %thrust ASL [N]     SLS: boosters+core
+stage_isp1 = 258.4;                             %ISP ASL [s]        SLS: combined boosters+core
+stage_isp0 = 289.9;                             %ISP VAC [s]        SLS: combined boosters+core assuming 2330kN core
+stage_time = 122;                               %burn time [s]      SLS: fixed
+stage_area = 88;                                %cross section [m2]
+stage_drag = [ 0.0  0.08;
+               250  0.08;
+               343  1.00;
+               999  0.50;
+               9999 0.40; ];                    %drag curve, randomly interpolated from maccolo's notes
+stage_dm = stage_thrust/(stage_isp1*g0);        %mass flow rate [kg/s]
+stage = struct('m0', stage_m0,...
+               'dm', stage_dm,...
+               'i0', stage_isp0,...
+               'i1', stage_isp1,...
+               'mt', stage_time,...
+               'ra', stage_area,...
+               'dc', stage_drag);
+vehicle(1) = stage;
+%second stage: core, EUS, payload
+stage_m0 = 1094000-253000+141300+payload+8000;  %core, EUS, payload, fairing
+stage_thrust = 4*1860000;
+stage_isp1 = 366;
+stage_isp0 = 453;
+stage_time = 347;                               %calculated manually
+stage_area = 57;
+stage_drag = [999 0.5; 9999 0.4; ];             %it will mostly run in VAC anyway
+stage_dm = stage_thrust/(stage_isp1*g0);
+stage = struct('m0', stage_m0,...
+               'dm', stage_dm,...
+               'i0', stage_isp0,...
+               'i1', stage_isp1,...
+               'mt', stage_time,...
+               'ra', stage_area,...
+               'dc', stage_drag);
+vehicle(2) = stage;
+%third stage: EUS
+stage_m0 = 141300+payload;                      %EUS + payload
+stage_thrust = 444000;
+stage_isp0 = 462;
+stage_isp1 = 462;
+stage_time = 1280;                              %no this is not a mistake. lol
+stage_area = 57;
+stage_drag = [999 0.5; 9999 0.4; ];             %copied over from s2, won't matter anyway
+stage_dm = stage_thrust/(stage_isp1*g0);
+stage = struct('m0', stage_m0,...
+               'dm', stage_dm,...
+               'i0', stage_isp0,...
+               'i1', stage_isp1,...
+               'mt', stage_time,...
+               'ra', stage_area,...
+               'dc', stage_drag);
+vehicle(3) = stage;
+clearvars payload stage_m0 stage_thrust stage_isp0 stage_isp1 stage_time stage_area stage_drag stage_dm stage
