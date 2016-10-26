@@ -55,64 +55,47 @@ lan_r = p_stage2.Orbit.LAN;
 end
 
 v3d = 0;    %set 1 to quickly enable all 3D trajectory plots
-s = 110;
-if ~s       %this is for demo Shuttle
+s = 5500;
+if ~s           %this is for demo Shuttle
     evSTS
-    sts1_1 = flightSim3D(vehicle, 1, p_init,...
-        struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
-    sts1_c = flightSim3D(vehicle, 1, resultsToInit(sts1_1),...
-        struct('type',5, 'length',5), fs_dt);
-    sts1_2 = flightSim3D(vehicle, 2, resultsToInit(sts1_c),...
-        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    telemetry([sts1_1, sts1_2], sts1_c, 1);
+    sts1 = flightManager(vehicle, p_init, p_target, fs_dt, struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_cycle, 5);
+    telemetry(sts1.powered, sts1.coast, 1);
+    dbgIntegrals(sts1.powered(2:sts1.n), 2);
     if v3d
-        trajectory([sts1_1, sts1_2], sts1_c, p_target, 2, 1, 3);
+        trajectory(sts1.powered, sts1.coast, p_target, 2, 1, 3);
     end;
-    dbgIntegrals(sts1_2, 2);
-    inc_r = sts1_2.Orbit.INC;
-    lan_r = sts1_2.Orbit.LAN;
-elseif s<100  %this is for virtual 3-stage Shuttle
+    inc_r = sts1.powered(sts1.n).Orbit.INC;
+    lan_r = sts1.powered(sts1.n).Orbit.LAN;
+elseif s<100    %this is for virtual 3-stage Shuttle
     evSTS2
-    sts2_1 = flightSim3D(vehicle, 1, p_init,...
-        struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
-    sts2_c1 = flightSim3D(vehicle, 1, resultsToInit(sts2_1),...
-        struct('type',5, 'length',5), fs_dt);
-    sts2_2 = flightSim3D(vehicle, 2, resultsToInit(sts2_c1),...
-        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    sts2_c2 = flightSim3D(vehicle, 2, resultsToInit(sts2_2),...
-        struct('type',5, 'length',5), fs_dt);
-    sts2_3 = flightSim3D(vehicle, 3, resultsToInit(sts2_c2),...
-        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    telemetry([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], 4);
+    sts2 = flightManager(vehicle, p_init, p_target, fs_dt, struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_cycle, 5);
+    telemetry(sts2.powered, sts2.coast, 4);
+    dbgIntegrals(sts2.powered(2:sts2.n), 5);
     if v3d
-        trajectory([sts2_1, sts2_2, sts2_3], [sts2_c1, sts2_c2], p_target, 2, 1, 6);
+        trajectory(sts2.powered, sts2.coast, p_target, 2, 1, 6);
     end;
-    dbgIntegrals([sts2_2, sts2_3], 5);
-    inc_r = sts2_3.Orbit.INC;
-    lan_r = sts2_3.Orbit.LAN;
-else        %this is for virtual 4-stage Shuttle
+    inc_r = sts2.powered(sts2.n).Orbit.INC;
+    lan_r = sts2.powered(sts2.n).Orbit.LAN;
+elseif s<1000   %this is for virtual 4-stage Shuttle
     evSTS3
-    sts3_1 = flightSim3D(vehicle, 1, p_init,...
-        struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_dt);
-    sts3_c1 = flightSim3D(vehicle, 1, resultsToInit(sts3_1),...
-        struct('type',5, 'length',5), fs_dt);
-    sts3_2 = flightSim3D(vehicle, 2, resultsToInit(sts3_c1),...
-        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    sts3_c2 = flightSim3D(vehicle, 2, resultsToInit(sts3_2),...
-        struct('type',5, 'length',5), fs_dt);
-    sts3_3 = flightSim3D(vehicle, 3, resultsToInit(sts3_c2),...
-        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    sts3_c3 = flightSim3D(vehicle, 3, resultsToInit(sts3_3),...
-        struct('type',5, 'length',5), fs_dt);
-    sts3_4 = flightSim3D(vehicle, 4, resultsToInit(sts3_c3),...
-        struct('type',3, 'target',p_target, 'major',fs_cycle), fs_dt);
-    telemetry([sts3_1, sts3_2, sts3_3, sts3_4], [sts3_c1, sts3_c2, sts3_c3], 7);
+    sts3 = flightManager(vehicle, p_init, p_target, fs_dt, struct('type',0, 'p',10, 'v',50, 'a',90-fs_azimuth), fs_cycle, 5);
+    telemetry(sts3.powered, sts3.coast, 7);
+    dbgIntegrals(sts3.powered(2:sts3.n), 8);
     if v3d
-        trajectory([sts3_1, sts3_2, sts3_3, sts3_4], [sts3_c1, sts3_c2, sts3_c3], p_target, 2, 1, 9);
+        trajectory(sts3.powered, sts3.coast, p_target, 2, 1, 9);
     end;
-    dbgIntegrals([sts3_2, sts3_3, sts3_4], 8);
-    inc_r = sts3_4.Orbit.INC;
-    lan_r = sts3_4.Orbit.LAN;
+    inc_r = sts3.powered(sts3.n).Orbit.INC;
+    lan_r = sts3.powered(sts3.n).Orbit.LAN;
+else        %finally, an option for an experimental SLS
+    evSLS
+    sls = flightManager(vehicle, p_init, p_target, fs_dt, struct('type',0, 'p',5, 'v',50, 'a',90-fs_azimuth), fs_cycle, 5);
+    telemetry(sls.powered, sls.coast, 10);
+    dbgIntegrals(sls.powered(2:sls.n), 11);
+    if v3d
+        trajectory(sls.powered, sls.coast, p_target, 2, 1, 12);
+    end;
+    inc_r = sls.powered(sls.n).Orbit.INC;
+    lan_r = sls.powered(sls.n).Orbit.LAN;
 end
 clearvars s v3d
 
