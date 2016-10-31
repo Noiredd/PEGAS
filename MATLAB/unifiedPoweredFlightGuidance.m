@@ -136,9 +136,12 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
             Li(i) = aL(i)*tb(i);
         end;
         L = L + Li(i);
-    end
-    if Li(i)<=0
-        Li(i) = 0;
+        %If we have more stages than we need to get to orbit, redo the
+        %whole calculation but skip the last stage.
+        if L>norm(vgo)
+            [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle(1:n-1), target, state, previous);
+            return;
+        end
     end
     Li(n) = norm(vgo) - L;
     %Now for each stage its remaining time of burn is calculated (tbi) and

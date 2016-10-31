@@ -14,6 +14,13 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
     for i=2:n
         coast(i-1) = flightSim3D(vehicle, i, resultsToInit(powered(i-1)), coast_control, dt);
         powered(i) = flightSim3D(vehicle, i, resultsToInit(coast(i-1)), upfg_control, dt);
+        %If a powered stage was cut off by the guidance algorithm - do not
+        %simulate any more stages.
+        if powered(i).ENG>1
+            n = length(powered);
+            disp('Used less stages than available.');
+            break;
+        end
     end
     %Output a struct
     flight = struct('powered', powered, 'coast', coast, 'n', n);
