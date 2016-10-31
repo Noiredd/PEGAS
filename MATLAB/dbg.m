@@ -1,12 +1,12 @@
 figure(9); clf;
-stage = sts3;%p_stage2;
+stage = STS.powered(3);
 N = stage.Plots.DEBUG.THIS;
-K = 25;
+K = 5;
 t = stage.Plots.DEBUG.time(1:N);
 
-a = stage.Plots.DEBUG.tgo(1:N,:);
-b = stage.Plots.DEBUG.vgo2(1:N,:);
-c = stage.Plots.DEBUG.L(1:N,:);
+a = stage.Plots.DEBUG.L(1:N,:);
+b = stage.Plots.DEBUG.J(1:N,:);
+c = stage.Plots.DEBUG.S(1:N,:);
 
 show = 1;   %how many items to show? 1 or 2
 dims = 1;   %1 shows linear plot (of norm, if passed a 4D item), 3 shows 3D plot
