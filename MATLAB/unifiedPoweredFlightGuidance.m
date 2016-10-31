@@ -63,6 +63,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     
     %BLOCK 1
     n  = length(vehicle);   %total number of stages
+    SM = ones(n,1);         %thrust mode (1=const thrust, 2=const acc)
+    aL = zeros(n,1);        %acceleration limit for SM=2
     md = zeros(n,1);        %mass flow rate
     ve = zeros(n,1);        %effective exhaust velocity
     fT = zeros(n,1);        %thrust
@@ -72,6 +74,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
                             %to calculate t_go,i from that, just sum all
                             %the way from 1 to i
     for i=1:n
+        SM(i) = vehicle(i).SM;
+        aL(i) = vehicle(i).aL;
         md(i) = vehicle(i).dm;
         ve(i) = vehicle(i).i0 * g0;
         fT(i) = md(i) * ve(i);
@@ -117,12 +121,20 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %final stage velocity. Therefore, stages n-1 are assumed to burn out
     %completely, and the last one is adjusted, so it burns out only as long
     %as needed.
-    aT(1) = fT(1) / m;
+    if SM(1)==1
+        aT(1) = fT(1) / m;
+    elseif SM(1)==2
+        aT(1) = aL(1);
+    end;
     tu(1) = ve(1) / aT(1);
     L = 0;
     Li = zeros(n,1);
     for i=1:n-1
-        Li(i) = ve(i)*log(tu(i) / (tu(i)-tb(i)));
+        if SM(i)==1
+            Li(i) = ve(i)*log(tu(i) / (tu(i)-tb(i)));
+        elseif SM(i)==2
+            Li(i) = aL(i)*tb(i);
+        end;
         L = L + Li(i);
     end
     if Li(i)<=0
@@ -133,7 +145,11 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %in the same pass accumulated into a total time-to-go of the maneuver.
     tgoi = zeros(n,1);
     for i=1:n
-        tb(i) = tu(i)*(1-exp(-Li(i)/ve(i)));
+        if SM(i)==1
+            tb(i) = tu(i)*(1-exp(-Li(i)/ve(i)));
+        elseif SM(i)==2
+            tb(i) = Li(i) / aL(i);
+        end;
         if i==1
             tgoi(i) = tb(i);
         else
@@ -160,12 +176,20 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
             tgoi1 = tgoi(i-1);
         end
         
-        %Only constant thrust mode integrals for now.
-        Ji(i) = tu(i)*Li(i) - ve(i)*tb(i);
-        Si(i) = -Ji(i) + tb(i)*Li(i);
-        Qi(i) = Si(i)*(tu(i)+tgoi1) - (1/2)*ve(i)*tb(i)^2;
-        Pi(i) = Qi(i)*(tu(i)+tgoi1) - (1/2)*ve(i)*tb(i)^2 * ((1/3)*tb(i)+tgoi1);
+        %Constant thrust vs constant acceleration mode
+        if SM(i)==1
+            Ji(i) = tu(i)*Li(i) - ve(i)*tb(i);
+            Si(i) = -Ji(i) + tb(i)*Li(i);
+            Qi(i) = Si(i)*(tu(i)+tgoi1) - (1/2)*ve(i)*tb(i)^2;
+            Pi(i) = Qi(i)*(tu(i)+tgoi1) - (1/2)*ve(i)*tb(i)^2 * ((1/3)*tb(i)+tgoi1);
+        elseif SM(i)==2
+            Ji(i) = 0.5*Li(i)*tb(i);
+            Si(i) = Ji(i);
+            Qi(i) = Si(i)*((1/3)*tb(i) + tgoi1);
+            Pi(i) = (1/6)*Si(i)*(tgoi(i)^2 + 2*tgoi(i)*tgoi1 + 3*tgoi1^2);
+        end
         
+        %Common for both modes
         Ji(i) = Ji(i) + Li(i)*tgoi1;
         Si(i) = Si(i) + L*tb(i);
         Qi(i) = Qi(i) + J*tb(i);

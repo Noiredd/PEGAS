@@ -18,7 +18,9 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     global atmpressure; global atmtemperature;
     
     %VEHICLE UNPACK
+    MODE = vehicle(stage).SM;
     m = vehicle(stage).m0;
+    aLim = vehicle(stage).aL;
     isp0 = vehicle(stage).i0;
     isp1 = vehicle(stage).i1;
     dm = vehicle(stage).dm;
@@ -139,10 +141,14 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         pitch(1) = acosd(A + C);
         yaw(1) = 90-azim;
     elseif control.type==3
-        %below 3 lines just to avoid 0 acceleration point in plots
+        %below 7 lines just to avoid 0 acceleration point in plots
         p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
-        acc(1) = isp*g0*dm/m;
+        if MODE==1
+            acc(1) = isp*g0*dm/m;
+        elseif MODE==2
+            acc(1) = aLim;
+        end
         upfg_state = struct('time', t(1), 'mass', m, 'radius', r(1,:), 'velocity', v(1,:));
         %guidance initialization, Rd by projection of current R onto target plane
         rdinit = r(1,:) - dot(r(1,:),target.normal)*target.normal;
@@ -192,7 +198,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     
     %MAIN LOOP
     for i=2:N
-        %PITCH CONTROL
+        %GUIDANCE
         if control.type == 0
             %natural, lock-prograde gravity turn
             %state control
@@ -297,6 +303,11 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         %thrust/acceleration
         p = approxFromCurve((rmag(i-1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
+        %thrust mode: constant-thrust vs constant-acceleration
+        if MODE==2
+            %gradually reduce mass flow rate to limit acceleration
+            dm = aLim*m / (isp*g0);
+        end;
         %enable coast flight
         if control.type==5
             F(i) = 0;
