@@ -220,11 +220,11 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                 %pitch angle matching airspeed (thrust prograde)
                 pitch(i) = ang_p_srf(i-1);
             end;
-            yaw(i) = 90-azim;
+            yaw(i) = azim;
         elseif control.type == 1
             %pitch program control, with possible yaw control too
             pitch(i) = approxFromCurve(t(i-1), prog);
-            yaw(i) = 90-azim;
+            yaw(i) = azim;
         elseif control.type == 2
             %PEG pitch control
             %check if there's still fuel
