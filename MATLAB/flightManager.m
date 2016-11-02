@@ -16,7 +16,7 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
         powered(i) = flightSim3D(vehicle, i, resultsToInit(coast(i-1)), upfg_control, dt);
         %If a powered stage was cut off by the guidance algorithm - do not
         %simulate any more stages.
-        if powered(i).ENG>1
+        if powered(i).ENG>1 & i<n
             n = length(powered);
             disp('Used less stages than available.');
             break;
