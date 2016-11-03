@@ -53,13 +53,13 @@ function [] = dbgIntegrals(stages, fid)
     
     subplot(2,4,4); hold on;
     for i=1:length(stages)
-        plot(stages(i).Plots.DEBUG.time(2:maxes(i)), stages(i).Plots.DEBUG.vgo1(2:maxes(i),4), colors(i));
+        plot(stages(i).Plots.DEBUG.time(2:maxes(i)), stages(i).Plots.DEBUG.vgo2(2:maxes(i),4), colors(i));
     end
-    title('Vgo 1');
+    title('Vgo (2)');
     
     subplot(2,4,8); hold on;
     for i=1:length(stages)
-        plot(stages(i).Plots.DEBUG.time(2:maxes(i)), stages(i).Plots.DEBUG.vgo2(2:maxes(i),4), colors(i));
+        plot(stages(i).Plots.DEBUG.time(2:maxes(i)), stages(i).Plots.DEBUG.tgo(2:maxes(i)), colors(i));
     end
-    title('Vgo 2');
+    title('Tgo');
     hold off;
