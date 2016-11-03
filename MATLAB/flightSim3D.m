@@ -179,18 +179,16 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         if ~exist('upfg_internal', 'var')
             %If no initial state was given, a new one must be built and
             %converged. That's also why two different initializators are
-            %needed (this one also stores convergence run results).
+            %needed.
             upfg_internal = struct('cser', cser, 'rbias', [0,0,0], 'rd', rdinit,...
                                    'rgrav', (mu/2)*r(1,:)/norm(r(1,:))^3,...
                                    'tb', 0, 'time', t(1), 'tgo', 1,...
                                    'v', v(1,:), 'vgo', vdinit);
             dbg = debugInitializator(floor(maxT/ct)+5);
-            for i=1:15   %TODO: implement a convergence check instead of fixed iterations
-                [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
-                                   vehicle(stage:length(vehicle)),...
-                                   target, upfg_state, upfg_internal);
-                dbg = debugAggregator(dbg, debug);
-            end;
+            [upfg_internal, guidance, debug] = convergeUPFG(vehicle(stage:length(vehicle)),...
+                                                            target, upfg_state, upfg_internal,...
+                                                            50, 0.01);
+            dbg = debugAggregator(dbg, debug);
         end;
         pitch(1) = guidance.pitch;
         yaw(1) = guidance.yaw;
@@ -649,4 +647,23 @@ function [a] = debugAggregator(a, d)
     a.dvgo(i,4) = norm(d.dvgo);
     a.vgo2(i,1:3) = d.vgo2;
     a.vgo2(i,4) = norm(d.vgo2);
+end
+
+%handles UPFG convergence by running it in loop until tgo stabilizes
+function [internal, guidance, debug] = convergeUPFG(vehicle, target, state, internal, maxIters, criterion)
+    fail = 1;
+    [internal, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, internal);
+    for i=1:maxIters
+        t1 = internal.tgo;
+        [internal, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, internal);
+        t2 = internal.tgo;
+        if abs( (t1-t2)/t1 ) < criterion
+            fprintf('UPFG converged after %d iterations (tgo=%d).\n', i, t2);
+            fail = 0;
+            break;
+        end
+    end
+    if fail
+        fprintf('UPFG failed to converge in %d iterations!\n', i);
+    end
 end
