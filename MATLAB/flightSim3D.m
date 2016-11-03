@@ -187,7 +187,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
             dbg = debugInitializator(floor(maxT/ct)+5);
             [upfg_internal, guidance, debug] = convergeUPFG(vehicle(stage:length(vehicle)),...
                                                             target, upfg_state, upfg_internal,...
-                                                            50, 0.01);
+                                                            50);
             dbg = debugAggregator(dbg, debug);
         end;
         pitch(1) = guidance.pitch;
@@ -276,6 +276,14 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                                vehicle(stage:length(vehicle)),...
                                target, upfg_state, upfg_internal);
                 dbg = debugAggregator(dbg, debug);
+                %handle divergence possibility
+                if dbg.diverge(dbg.THIS) && ~dbg.diverge(dbg.THIS-1)
+                    fprintf('UPFG started to diverge at t+%f\n', t(i-1));
+                end
+                %also make sure we don't get back to a converged state
+                if ~dbg.diverge(dbg.THIS) && dbg.diverge(dbg.THIS-1)
+                    dbg.diverge(dbg.THIS) = 1;
+                end
                 lc = 0;
             end;
             %PEG-scheduled cutoff
@@ -548,7 +556,8 @@ function [a] = debugInitializator(n)
                'vd', zeros(n,4),...
                'vgop', zeros(n,4),...
                'dvgo', zeros(n,4),...
-               'vgo2', zeros(n,4));
+               'vgo2', zeros(n,4),...
+               'diverge', zeros(n,1));
 end
 
 %handles UPFG debug data aggregating
@@ -647,17 +656,19 @@ function [a] = debugAggregator(a, d)
     a.dvgo(i,4) = norm(d.dvgo);
     a.vgo2(i,1:3) = d.vgo2;
     a.vgo2(i,4) = norm(d.vgo2);
+    a.diverge(i) = d.diverge;
 end
 
 %handles UPFG convergence by running it in loop until tgo stabilizes
-function [internal, guidance, debug] = convergeUPFG(vehicle, target, state, internal, maxIters, criterion)
+function [internal, guidance, debug] = convergeUPFG(vehicle, target, state, internal, maxIters)
+    global convergenceCriterion;
     fail = 1;
     [internal, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, internal);
     for i=1:maxIters
         t1 = internal.tgo;
         [internal, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, internal);
         t2 = internal.tgo;
-        if abs( (t1-t2)/t1 ) < criterion
+        if abs( (t1-t2)/t1 ) < convergenceCriterion
             fprintf('UPFG converged after %d iterations (tgo=%d).\n', i, t2);
             fail = 0;
             break;

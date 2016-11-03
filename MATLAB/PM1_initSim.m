@@ -4,6 +4,7 @@
 global g0; g0 = 9.80665;           %std gravity asl [m/s2]
 global mu; mu = 398600441800000;   %std gravity param for Earth [m3/s2]
 global R; R = 6371000;             %earth radius [m]
+global convergenceCriterion; convergenceCriterion = 0.01;   %for UPFG
 %altitude [km] vs pressure [atm]
 global atmpressure; atmpressure = zeros(2, 150);
 atmpressure = [ 0.0                  1.0                    ;

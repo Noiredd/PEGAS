@@ -44,7 +44,7 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %           see end of this function for details
     
     %"BLOCK 0"
-    global g0;
+    global g0; global convergenceCriterion;
     gamma	= target.angle;
     iy      = target.normal;
     rdval   = target.radius;
@@ -272,6 +272,19 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     
     guidance = struct('pitch', pitch, 'yaw', yaw, 'pitchdot', 0, 'yawdot', 0, 'tgo', tgo);
     
+    %Divergence check:
+    diverge = 0;
+    if current.tb > 60 && n==1 && ...                   %late into the burn
+       abs(previous.tgo-current.tgo)/previous.tgo...
+                > convergenceCriterion                  %tgo may try to diverge again
+    %and if it happens on the last stage, this means we might be getting
+    %really close to our destination. Simulation should receive a warning
+    %of this situation so it can issue some countermeasuring action. We
+    %include a special flag in the debug struct, 'diverge', which is set to
+    %1 in such case.
+        diverge = 1;
+    end
+    
     debug = struct('time', t,...
                'r', r,...
                'v', v,...
@@ -321,7 +334,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
                'vd', vd,...
                'vgop', vgop,...
                'dvgo', dvgo,...
-               'vgo2', vgo);
+               'vgo2', vgo,...
+               'diverge', diverge);
 end
 
 function [v] = unit(vector)
