@@ -104,7 +104,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     if initial.type==0      %launch from static site
         %btw, wonder what would happen if one wanted to launch from the North Pole :D
         [r(1,1),r(1,2),r(1,3)] = sph2cart(degtorad(initial.lon), degtorad(initial.lat), R+initial.alt);
-        v(1,:) = surfSpeedInit(r(1,:));
+        nav = getNavballFrame(r(1,:));
+        v(1,:) = surfSpeed(r(1,:), nav);
     elseif initial.type==1  %vehicle already in flight
         t(1) = initial.t;
         r(1,:) = initial.r;
@@ -115,7 +116,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     end;
     rmag(1) = norm(r(1,:));
     vmag(1) = norm(v(1,:));
-    nav = getNavballFrame(r(1,:), v(1,:));
+    nav = getNavballFrame(r(1,:));
     rnc = getCircumFrame(r(1,:), v(1,:));
     vair(1,:) = v(1,:) - surfSpeed(r(1,:), nav);
     vairmag(1) = max(norm(vair(1)),1);
@@ -150,17 +151,18 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
             acc(1) = aLim;
         end
         upfg_state = struct('time', t(1), 'mass', m, 'radius', r(1,:), 'velocity', v(1,:));
-        %guidance initialization, Rd by projection of current R onto target plane
-        rdinit = r(1,:) - dot(r(1,:),target.normal)*target.normal;
-        ix = rdinit/norm(rdinit);
-        %rdinit = ix*target.radius;
-        iz = cross(ix,target.normal);
-        rdinit = ix+iz;
-        rdinit = rdinit/norm(rdinit);
-        rdinit = target.radius*rdinit;
-        vangle = [sind(target.angle);0;cosd(target.angle)];
-        vdinit = target.velocity*([ix;target.normal;iz]*vangle)' - v(1,:);
         cser = struct('dtcp', 0, 'xcp', 0, 'A', 0, 'D', 0, 'E', 0);
+        %guidance initialization:
+        %project initial position direction unit vector onto target plane,
+        %rotate with Rodrigues' formula about 20 degrees prograde and
+        %extend to target length; then calculate velocity at this point
+        %https://en.wikipedia.org/wiki/Rodrigues'_rotation_formula
+        rdinit = unit(r(1,:));
+        rdinit = rdinit - dot(rdinit,target.normal)*target.normal;
+        rdinit = rdinit*cosd(20) + cross(-target.normal,rdinit)*sind(20) - target.normal*dot(-target.normal,rdinit)*(1-cosd(20));
+        rdinit = rdinit * target.radius;
+        vdinit = target.velocity*unit(cross(-target.normal,rdinit));
+        vdinit = vdinit - v(1,:);
         %Create internal state for UPFG - continue from last stage if
         %possible. First we need to make sure there's any state before we
         %can query its genuineness.
@@ -181,8 +183,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
             %converged. That's also why two different initializators are
             %needed.
             upfg_internal = struct('cser', cser, 'rbias', [0,0,0], 'rd', rdinit,...
-                                   'rgrav', (mu/2)*r(1,:)/norm(r(1,:))^3,...
-                                   'tb', 0, 'time', t(1), 'tgo', 1,...
+                                   'rgrav', -(mu/2)*r(1,:)/norm(r(1,:))^3,...
+                                   'tb', 0, 'time', t(1), 'tgo', 0,...
                                    'v', v(1,:), 'vgo', vdinit);
             dbg = debugInitializator(floor(maxT/ct)+5);
             [upfg_internal, guidance, debug] = convergeUPFG(vehicle(stage:length(vehicle)),...
@@ -199,24 +201,27 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         %GUIDANCE
         if control.type == 0
             %natural, lock-prograde gravity turn
-            %state control
+            %First if-set controls current state - initial is GT==0 which
+            %means vehicle is going straight up, building speed. GT==1
+            %means it's going fast enough and starts pitching over in the
+            %given direction OR that it already reached max allowed pitch
+            %and is waiting for velocity vector to align with it. GT==2
+            %means velocity vector has aligned and vehicle will now lock on
+            %prograde direction.
             if dot(v(i-1,:), nav(1,:)) >= gtiV && GT == 0
-                %vertical velocity condition matched
                 GT = 1;
-            elseif ang_p_srf(i-1) > gtiP && GT == 1
-                %(surface) initial pitch angle reached
+            elseif (ang_p_srf(i-1) > gtiP && GT == 1)
                 GT = 2;
             end;
-            %pitch control depending on state
+            %Second if-set controls what to do depending on current state.
             if GT == 0
-                %vertical flight, velocity buildup
                 pitch(i) = 0;
             elseif GT == 1
-                %pitching over to a given angle
-                pitch(i) = min(pitch(i-1)+dt, gtiP);    %hardcoded 1deg/s change (to simulate real, not instantaneous pitchover)
+                %pitching over to a given angle at a hardcoded 1deg/s
+                pitch(i) = min(pitch(i-1)+dt, gtiP);
             else
-                %pitch angle matching airspeed (thrust prograde)
                 pitch(i) = ang_p_srf(i-1);
+                %ADD YAW CONTROL HERE TOO
             end;
             yaw(i) = azim;
         elseif control.type == 1
@@ -322,8 +327,12 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         end;
         acc(i) = F(i)/m;
         acv = acc(i)*makeVector(nav, pitch(i), yaw(i));
+        %fprintf('acv = %.2f %.2f %.2f\n', acv(1), acv(2), acv(3));
+        if exist('dbg','var')
+            acv=acc(i)*dbg.iF(dbg.THIS,1:3);
+        end;
         %gravity
-        G = mu*r(i-1,:)/norm(r(i-1,:))^3;           %acceleration [m/s^2]
+        G = mu*r(i-1,:)/rmag(i-1)^3;                %acceleration [m/s^2]
         g_loss = g_loss + norm(G)*dt;               %integrate gravity losses
         %drag
         cd = approxFromCurve(vairmag(i-1), drag);   %drag coefficient
@@ -341,7 +350,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         r(i,:) = r(i-1,:) + v(i,:)*dt;
         rmag(i) = norm(r(i,:));
         %local reference frames
-        nav = getNavballFrame(r(i,:), v(i,:));
+        nav = getNavballFrame(r(i,:));
         rnc = getCircumFrame(r(i,:), v(i,:));
         %surface velocity (must be here because needs reference frames)
         vair(i,:) = v(i,:) - surfSpeed(r(i,:), nav);
@@ -351,9 +360,9 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         end;
         %angles
         ang_p_srf(i) = acosd(dot(unit(vair(i,:)),nav(1,:)));
-        ang_y_srf(i) = acosd(dot(unit(vair(i,:)),nav(3,:)));
+        ang_y_srf(i) = acosd(dot(unit(vair(i,:)),nav(3,:)));%% look below
         ang_p_obt(i) = acosd(dot(unit(v(i,:)),nav(1,:)));
-        ang_y_obt(i) = acosd(dot(unit(v(i,:)),nav(3,:)));
+        ang_y_obt(i) = acosd(dot(unit(v(i,:)),nav(3,:)));%%%%% these are most likely wrong (shouldn't we cast the velocities onto a tangent plane first?)
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
@@ -372,6 +381,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                    'q', q(1:i-1),...
                    'pitch', pitch(1:i-1),...
                    'yaw', yaw(1:i-1),...
+                   'vair', vair(1:i-1,:),...
+                   'vairmag', vairmag(1:i-1),...
                    'angle_ps', ang_p_srf(1:i-1),...
                    'angle_ys', ang_y_srf(1:i-1),...
                    'angle_po', ang_p_obt(1:i-1),...
@@ -421,20 +432,16 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
 end
 
 %constructs a local reference frame, KSP-navball style
-function [f] = getNavballFrame(r, v)
+function [f] = getNavballFrame(r)
     %pass current position under r (1x3)
-    %current velocity under v (1x3)
-    pseudo_up = unit([r(1) r(2) 0]);
-    pseudo_north = cross([r(1) r(2) 0],[v(1) v(2) 0]);
-    pseudo_north = unit(pseudo_north);
-    east = cross(pseudo_north,pseudo_up);   %true East direction
     up = unit(r);                   %true Up direction (radial away from Earth)
+    east = cross([0,0,1],up);       %true East direction
     north = cross(up, east);        %true North direction (completes frame)
     f = zeros(3,3);
     %return a right-handed coordinate system base
     f(1,:) = up;
-    f(2,:) = north;
-    f(3,:) = east;
+    f(2,:) = unit(north);
+    f(3,:) = unit(east);
 end
 
 %constructs a local reference frame in style of PEG coordinate base
@@ -442,8 +449,7 @@ function [f] = getCircumFrame(r, v)
     %pass current position under r (1x3)
     %current velocity under v (1x3)
     radial = unit(r);               %Up direction (radial away from Earth)
-    normal = cross(r, v);
-    normal = unit(normal);          %Normal direction (perpendicular to orbital plane)
+    normal = unit(cross(r, v));     %Normal direction (perpendicular to orbital plane)
     circum = cross(normal, radial); %Circumferential direction (tangential to sphere, in motion plane)
     f = zeros(3,3);
     %return a left(?)-handed coordinate system base
@@ -471,18 +477,7 @@ function [v] = makeVector(frame, p, y)
     v = V(1,:) + V(2,:) + V(3,:);
 end
 
-%finds Earth's rotation velocity vector at given cartesian location using
-%no velocity vector (meant for rotational velocity initilization)
-function [rot] = surfSpeedInit(r)
-%    global R;
-    %create temporary frame by generating a dummy velocity vector
-    t = r*[0 1 0; -1 0 0; 0 0 1];   %90 degrees counterclockwise around Z axis, looking down
-    f = getNavballFrame(r, t);      %temp frame
-    rot = surfSpeed(r, f);          %use a standard function
-end
-
 %finds Earth's rotation velocity vector at given cartesian location
-%assuming a navball reference frame is available
 function [rot] = surfSpeed(r, nav)
     global R;
     [~,lat,~] = cart2sph(r(1), r(2), r(3));

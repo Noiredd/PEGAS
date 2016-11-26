@@ -210,16 +210,17 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     
     %BLOCK 5
     lambda = unit(vgo);
+    rgrav1 = rgrav;
     if previous.tgo~=0
-        rgrav = (tgo/previous.tgo)^2 * rgrav; rgrav1 = rgrav;
+        rgrav = (tgo/previous.tgo)^2 * rgrav;
     end;
     rgo = rd - (r + v*tgo + rgrav); rgo1 = rgo;
     iz = unit(cross(rd,iy)); iz1 = iz;
     rgoxy = rgo - dot(iz,rgo)*iz;
     rgoz = (S - dot(lambda,rgoxy)) / dot(lambda,iz);
     rgo = rgoxy + rgoz*iz + rbias;
-    lambdadot = (rgo - S*lambda) / (Q - S*J/L);
-        lambdade = Q - S*J/L;
+    lambdade = Q - S*J/L;
+    lambdadot = (rgo - S*lambda) / lambdade;
     iF = unit(lambda - lambdadot*J/L);
     phi = acos(dot(iF,lambda));
     phidot = -phi*L/J;
@@ -250,6 +251,7 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     
     %BLOCK 8
     rp = r + v*tgo + rgrav + rthrust;
+    rp = rp - dot(rp,iy)*iy;
     rd = rdval*unit(rp);
     ix = unit(rd);
     iz = cross(ix,iy);
