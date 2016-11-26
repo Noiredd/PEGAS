@@ -327,10 +327,6 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         end;
         acc(i) = F(i)/m;
         acv = acc(i)*makeVector(nav, pitch(i), yaw(i));
-        %fprintf('acv = %.2f %.2f %.2f\n', acv(1), acv(2), acv(3));
-        if exist('dbg','var')
-            acv=acc(i)*dbg.iF(dbg.THIS,1:3);
-        end;
         %gravity
         G = mu*r(i-1,:)/rmag(i-1)^3;                %acceleration [m/s^2]
         g_loss = g_loss + norm(G)*dt;               %integrate gravity losses

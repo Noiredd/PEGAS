@@ -233,13 +233,15 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     
     %BLOCK 6 - original document does not contain any implementation
     %TODO - pitch and yaw RATES
-    pitch = acosd(dot(iF,unit(r)));         %angle between thrust vector and local UP
-    iF_up = dot(iF,unit(r))*unit(r);        %thrust component in UP direction
+    UP = unit(r);
+    pitch = acosd(dot(iF, UP));             %angle between thrust vector and local UP
+    iF_up = dot(iF, UP)*UP;                 %thrust component in UP direction
     iF_plane = unit(iF - iF_up);            %sphere-tangential plane component of thrust
-    EAST = cross([0,0,1],unit(r));          %local EAST direction
-    NORTH = cross(unit(r),EAST);            %local NORTH
-    yaw = 90-acosd(dot(iF_plane,NORTH));    %yaw is between in-plane thrust and NORTH
-                                            %but zeroes at full EAST direction
+    EAST = unit(cross([0,0,1], UP));        %local EAST direction
+    yaw = acosd(dot(iF_plane, EAST));       %yaw is between in-plane thrust and EAST
+    if dot(UP, cross(iF_plane, EAST)) > 0   %this corrects for direction of the angle
+        yaw = -yaw;
+    end;
     
     %BLOCK 7 - this calls the Conic State Extrapolation Routine
     rc1 = r - 0.1*rthrust - (1/30)*vthrust*tgo;
