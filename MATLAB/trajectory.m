@@ -88,7 +88,7 @@ function [] = trajectory(powered, coast, target, earth, vectors, fid)
         end;
     end;
     %optionally, target orbit ground track
-    if isfield(target, 'normal')
+    if isfield(target, 'normal') && earth>0
         %normal vector first
         t = zeros(2,3);
         t(2,:) = target.normal*R*1.25;

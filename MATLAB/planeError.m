@@ -5,4 +5,4 @@ function [error] = planeError(results, target)
     Rx=[1,0,0;0,cosd(inc),-sind(inc);0,sind(inc),cosd(inc)];
     Rz=[cosd(lan),-sind(lan),0;sind(lan),cosd(lan),0;0,0,1];
     reached = (Rz*Rx*[0,0,-1]')';
-    error = acosd(dot(target.normal, reached))
+    error = acosd(dot(target.normal, reached));

@@ -18,7 +18,7 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
         %simulate any more stages.
         if powered(i).ENG>1 & i<n
             n = length(powered);
-            disp('Used less stages than available.');
+            fprintf('Used less stages than available (%d).\n', i);
             break;
         end
     end
