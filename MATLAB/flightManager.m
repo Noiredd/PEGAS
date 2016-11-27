@@ -12,8 +12,14 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
     coast_control = struct('type', 5, 'length', coastLength);
     %Handle the rest of the flight in a loop
     for i=2:n
-        coast(i-1) = flightSim3D(vehicle, i, resultsToInit(powered(i-1)), coast_control, dt);
-        powered(i) = flightSim3D(vehicle, i, resultsToInit(coast(i-1)), upfg_control, dt);
+        %Things work a bit differently if zero coast period was specified.
+        if coastLength>0
+            coast(i-1) = flightSim3D(vehicle, i, resultsToInit(powered(i-1)), coast_control, dt);
+            powered(i) = flightSim3D(vehicle, i, resultsToInit(coast(i-1)), upfg_control, dt);
+        else
+            coast = [];
+            powered(i) = flightSim3D(vehicle, i, resultsToInit(powered(i-1)), upfg_control, dt);
+        end
         %If a powered stage was cut off by the guidance algorithm - do not
         %simulate any more stages.
         if powered(i).ENG>1 & i<n

@@ -12,7 +12,7 @@ inc = 51.65;
 
 stage1 = struct('type', 0, 'p', 10, 'v', 50, 'a', azm);
 
-STS = flightManager(vehicle, site, target, 0.2, stage1, 2, 5);
+STS = flightManager(vehicle, site, target, 0.2, stage1, 2, 0);
 
 telemetry(STS.powered, STS.coast, 1);
 dbgIntegrals(STS.powered(2:STS.n), 2);
