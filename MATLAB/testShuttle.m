@@ -1,3 +1,4 @@
+initSimulation
 SpaceShuttle
 
 %site = struct('type', 0, 'lat', 5.15972, 'lon', -52.65028, 'alt', 0);    %Kourou
@@ -19,4 +20,4 @@ trajectory(STS.powered, STS.coast, target, 2, 1, 3);
 
 fprintf('angle %d\tecc %d\talt %d\n', planeError(STS, target), STS.powered(length(STS.powered)).Orbit.ECC, abs(alt-STS.powered(length(STS.powered)).Altitude));
 
-clearvars site lan azm target stage1
+clearvars site alt inc lan azm target stage1

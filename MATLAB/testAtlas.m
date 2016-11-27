@@ -1,3 +1,4 @@
+initSimulation
 AtlasV531
 
 %site = struct('type', 0, 'lat', 5.15972, 'lon', -52.65028, 'alt', 0);    %Kourou
