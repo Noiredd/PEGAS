@@ -476,8 +476,9 @@ end
 %finds Earth's rotation velocity vector at given cartesian location
 function [rot] = surfSpeed(r, nav)
     global R;
+    global period;
     [~,lat,~] = cart2sph(r(1), r(2), r(3));
-    vel = 2*pi*R/(24*3600)*cos(lat);
+    vel = 2*pi*R/period * cos(lat);
     rot = vel*nav(3,:); %third componend is East vector
 end
 

@@ -7,8 +7,11 @@ g0 = 9.80665;
 global mu;          %std gravity param for Earth [m3/s2]
 mu = 398600441800000;
 
-global R;           %earth radius [m]
+global R;           %Earth radius [m]
 R = 6371000;
+
+global period;      %Earth rotation period [s]
+period = 24*3600;
 
 global convergenceCriterion;    %for UPFG
 convergenceCriterion = 0.01;
