@@ -234,14 +234,10 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %BLOCK 6 - original document does not contain any implementation
     %TODO - pitch and yaw RATES
     UP = unit(r);
-    pitch = acosd(dot(iF, UP));             %angle between thrust vector and local UP
-    iF_up = dot(iF, UP)*UP;                 %thrust component in UP direction
-    iF_plane = unit(iF - iF_up);            %sphere-tangential plane component of thrust
-    EAST = unit(cross([0,0,1], UP));        %local EAST direction
-    yaw = acosd(dot(iF_plane, EAST));       %yaw is between in-plane thrust and EAST
-    if dot(UP, cross(iF_plane, EAST)) > 0   %this corrects for direction of the angle
-        yaw = -yaw;
-    end;
+    EAST = unit(cross([0,0,1], UP));
+    frame = [UP;[0,0,1];EAST];
+    pitch = getAngleFromFrame(iF, frame, 'pitch');
+    yaw = getAngleFromFrame(iF, frame, 'yaw');
     
     %BLOCK 7 - this calls the Conic State Extrapolation Routine
     rc1 = r - 0.1*rthrust - (1/30)*vthrust*tgo;
@@ -276,19 +272,6 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     
     guidance = struct('pitch', pitch, 'yaw', yaw, 'pitchdot', 0, 'yawdot', 0, 'tgo', tgo);
     
-    %Divergence check:
-    diverge = 0;
-    if current.tb > 60 && n==1 && ...                   %late into the burn
-       abs(previous.tgo-current.tgo)/previous.tgo...
-                > convergenceCriterion                  %tgo may try to diverge again
-    %and if it happens on the last stage, this means we might be getting
-    %really close to our destination. Simulation should receive a warning
-    %of this situation so it can issue some countermeasuring action. We
-    %include a special flag in the debug struct, 'diverge', which is set to
-    %1 in such case.
-        diverge = 1;
-    end
-    
     debug = struct('time', t,...
                'r', r,...
                'v', v,...
@@ -320,8 +303,6 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
                'vbias', vbias,...
                'rbias', rbias,...
                'pitch', pitch,...
-               'iF_up', iF_up,...
-               'iF_plane', iF_plane,...
                'EAST', EAST,...
                'yaw', yaw,...
                'rc1', rc1,...
@@ -339,5 +320,5 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
                'vgop', vgop,...
                'dvgo', dvgo,...
                'vgo2', vgo,...
-               'diverge', diverge);
+               'diverge', 0);
 end

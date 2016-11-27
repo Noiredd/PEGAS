@@ -49,21 +49,18 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         azim = control.azimuth; %for now only constant, no programming
         ENG = -1;
     elseif control.type == 2
-        %type 2 = powered explicit guidance
-        target = control.target*1000+R; %target orbit altitude
-        azim = control.azimuth;         %YAW CONTROL COMING SOON
-        ct = control.major;             %length of the major loop
-        lc = 0;                         %time since last PEG cycle
-        ENG = 1;                        %engine state flag:
-                                            %0 - fuel deprived;
-                                            %1 - running;
-                                            %2 - cut as scheduled by PEG
+        fprintf('Powered Explicit Guidance mode for 3D simulation is deprecated! Use UPFG instead (type 3).\n');
+        return;
     elseif control.type == 3
-        %type 3 = experimental UPFG
-        target = control.target;        %whole data structure as given
+        %type 3 = Unified Powered Flight Guidance
+        target = control.target;
         ct = control.major;
         lc = 0;
-        ENG = 1;
+        ENG = 1;    %engine state flag:
+                        %0 - fuel deprived;
+                        %1 - running;
+                        %2 - cut as scheduled by PEG
+                        %3 - cut exceptionally by a velocity limit
     elseif control.type == 5
         %type 5 = coast phase (unguided free flight)
         %strongly recommended using initial.type==1
@@ -122,26 +119,13 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     vairmag(1) = max(norm(vair(1)),1);
     vy(1) = dot(v(1,:),nav(1,:));
     vt(1) = dot(v(1,:),rnc(3,:));
-    ang_p_srf(1) = acosd(dot(unit(vair(1,:)),nav(1,:)));
-    ang_y_srf(1) = acosd(dot(unit(vair(1,:)),nav(3,:)));
-    ang_p_obt(1) = acosd(dot(unit(v(1,:)),nav(1,:)));
-    ang_y_obt(1) = acosd(dot(unit(v(1,:)),nav(3,:)));
+    ang_p_srf(1) = getAngleFromFrame(vair(1,:), nav, 'pitch');
+    ang_y_srf(1) = getAngleFromFrame(vair(1,:), nav, 'yaw');
+    ang_p_obt(1) = getAngleFromFrame(v(1,:), nav, 'pitch');
+    ang_y_obt(1) = getAngleFromFrame(v(1,:), nav, 'yaw');
     
     %PEG SETUP
-    if control.type==2
-        dbg = zeros(N,4);   %debug log (A, B, C, T)
-        p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
-        isp = (isp1-isp0)*p+isp0;
-        ve = isp*g0;
-        acc(1) = ve*dm/m;
-        [A, B, C, T] = poweredExplicitGuidance(...
-                        0,...
-                        rmag(1), vt(1), vy(1), target,...
-                        acc(1), ve, 0, 0, maxT);
-        dbg(1,:) = [A, B, C, T];
-        pitch(1) = acosd(A + C);
-        yaw(1) = 90-azim;
-    elseif control.type==3
+    if control.type==3
         %below 7 lines just to avoid 0 acceleration point in plots
         p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
         isp = (isp1-isp0)*p+isp0;
@@ -216,50 +200,19 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
             %Second if-set controls what to do depending on current state.
             if GT == 0
                 pitch(i) = 0;
+                yaw(i) = azim;
             elseif GT == 1
                 %pitching over to a given angle at a hardcoded 1deg/s
                 pitch(i) = min(pitch(i-1)+dt, gtiP);
+                yaw(i) = azim;
             else
                 pitch(i) = ang_p_srf(i-1);
-                %ADD YAW CONTROL HERE TOO
+                yaw(i) = ang_y_srf(i-1);
             end;
-            yaw(i) = azim;
         elseif control.type == 1
             %pitch program control, with possible yaw control too
             pitch(i) = approxFromCurve(t(i-1), prog);
             yaw(i) = azim;
-        elseif control.type == 2
-            %PEG pitch control
-            %check if there's still fuel
-            if (t(i-1)-t(1) > maxT && ENG > 0)
-                ENG = 0;    %engine ran out of fuel
-                break;      %exit the main simulation loop
-            end;
-            %check how long ago was the last PEG cycle
-            if (lc < ct-dt)
-                %if not too long ago - increment
-                lc = lc + dt;
-            else
-                %run PEG
-                [A, B, C, T] = poweredExplicitGuidance(...
-                                0,...
-                                rmag(i-1), vt(i-1), vy(i-1), target,...
-                                acc(i-1), ve, A, B, T); %passing old T instead of T-dt IS CORRECT
-                lc = 0; %TODO: bypass resetting this one if PEG skipped AB recalculation
-            end;
-            %PEG debug logs
-            dbg(i,1) = A;
-            dbg(i,2) = B;
-            dbg(i,3) = C;
-            dbg(i,4) = T;
-            %PEG-scheduled cutoff
-            if (T-lc < dt && ENG == 1)
-                ENG = 2;
-                break;
-            end;
-            %pitch control (clamped to acosd domain which should never be necessary)
-            pitch(i) = acosd( min(1, max(-1, A - B*lc + C)) );
-            yaw(i) = 90-azim;
         elseif control.type == 3
             %UPFG pitch&yaw control
             %check if there's still fuel
@@ -268,11 +221,9 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                 break;      %exit the main simulation loop
             end;
             %check how long ago was the last PEG cycle
-            if (lc < ct-dt)
-                %if not too long ago - increment
+            if (lc < ct-dt) %not too long ago - increment
                 lc = lc + dt;
-            else
-                %run PEG
+            else %run guidance
                 upfg_state.time     = t(i-1);
                 upfg_state.mass     = m;
                 upfg_state.radius   = r(i-1,:);
@@ -281,7 +232,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                                vehicle(stage:length(vehicle)),...
                                target, upfg_state, upfg_internal);
                 dbg = debugAggregator(dbg, debug);
-                %handle divergence possibility
+                %handle divergence possibility - deferred (will never
+                %happen because UPFG no longer checks for that)
                 if dbg.diverge(dbg.THIS) && ~dbg.diverge(dbg.THIS-1)
                     fprintf('UPFG started to diverge at t+%f\n', t(i-1));
                 end
@@ -296,7 +248,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                 ENG = 2;
                 break;
             end;
-            %TEMP VELOCITY-DRIVEN CUTOFF
+            %velocity-driven cutoff (in case UPFG went crazy, this will cut
+            %off the engine when absolute target velocity is reached)
             if (norm(v(i-1,:))>=target.velocity)
                 ENG = 3;
                 break;
@@ -304,25 +257,19 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
             %pitch&yaw control
             pitch(i) = guidance.pitch;
             yaw(i)   = guidance.yaw;
-            if guidance.tgo < -20
-                pitch(i) = pitch(i-1);
-                yaw(i) = yaw(i-1);
-            end;
         end;
         
         %PHYSICS
-        %thrust/acceleration
+        %Thrust: zero for coast flight, different calculations for constant
+        %thrust and constant acceleration modes.
         p = approxFromCurve((rmag(i-1)-R)/1000, atmpressure);
-        isp = (isp1-isp0)*p+isp0;
-        %thrust mode: constant-thrust vs constant-acceleration
-        if MODE==2
-            %gradually reduce mass flow rate to limit acceleration
-            dm = aLim*m / (isp*g0);
-        end;
-        %enable coast flight
         if control.type==5
             F(i) = 0;
         else
+            isp = (isp1-isp0)*p+isp0;
+            if MODE==2
+                dm = aLim*m / (isp*g0);
+            end;
             F(i) = isp*g0*dm;
         end;
         acc(i) = F(i)/m;
@@ -351,14 +298,11 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         %surface velocity (must be here because needs reference frames)
         vair(i,:) = v(i,:) - surfSpeed(r(i,:), nav);
         vairmag(i) = norm(vair(i,:));
-        if vairmag(i)==0    %since we later divide by this and in first iteration it can be zero
-            vairmag(i) = 1; %do we need this any longer, after introducint unit()
-        end;
         %angles
-        ang_p_srf(i) = acosd(dot(unit(vair(i,:)),nav(1,:)));
-        ang_y_srf(i) = acosd(dot(unit(vair(i,:)),nav(3,:)));%% look below
-        ang_p_obt(i) = acosd(dot(unit(v(i,:)),nav(1,:)));
-        ang_y_obt(i) = acosd(dot(unit(v(i,:)),nav(3,:)));%%%%% these are most likely wrong (shouldn't we cast the velocities onto a tangent plane first?)
+        ang_p_srf(i) = getAngleFromFrame(vair(i,:), nav, 'pitch');
+        ang_y_srf(i) = getAngleFromFrame(vair(i,:), nav, 'yaw');
+        ang_p_obt(i) = getAngleFromFrame(v(i,:), nav, 'pitch');
+        ang_y_obt(i) = getAngleFromFrame(v(i,:), nav, 'yaw');
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
@@ -518,8 +462,6 @@ function [a] = debugInitializator(n)
                'vbias', zeros(n,4),...
                'rbias', zeros(n,4),...
                'pitch', zeros(n,1),...
-               'iF_up', zeros(n,4),...
-               'iF_plane', zeros(n,4),...
                'EAST', zeros(n,4),...
                'yaw', zeros(n,1),...
                'rc1', zeros(n,4),...
@@ -600,10 +542,6 @@ function [a] = debugAggregator(a, d)
     a.rbias(i,1:3) = d.rbias;
     a.rbias(i,4) = norm(d.rbias);
     a.pitch(i) = d.pitch;
-    a.iF_up(i,1:3) = d.iF_up;
-    a.iF_up(i,4) = norm(d.iF_up);
-    a.iF_plane(i,1:3) = d.iF_plane;
-    a.iF_plane(i,4) = norm(d.iF_plane);
     a.EAST(i,1:3) = d.EAST;
     a.EAST(i,4) = norm(d.EAST);
     a.yaw(i) = d.yaw;
