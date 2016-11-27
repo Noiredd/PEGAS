@@ -7,6 +7,7 @@ Right now PEGAS is undergoing a major rework: previously it implemented an old v
 Since kOS is not a tool for algorithm design, PEGAS is being coded and tested in MATLAB. Hence, its code comes in two parts:
 * MATLAB code - all of the most recent advances are to be found here,
 * kOS code - right now contains only the old version of PEGAS (it should be working, but it's largely undocumented; so go ahead and give it a try but I will not provide any help on it now, as it will soon be replaced by an all-new implementation).
+
 These parts are not interdependent - MATLAB is just a prototype, and obviously you need the software to run it, while kOS (is meant to be) a ready product you can plug into your game folder and send missions with.
 
 ### Current kOS version
@@ -24,6 +25,7 @@ PEGAS now uses a very general guidance algorithm, the Unified Powered Flight Gui
 * easier first stage guidance - pitch programming possible, but a simple "pitch over and hold prograde" also supported
 * automatically estimated launch window basing on launch site position and target orbit
 * no complicated pre-flight analysis needed - as long as the vehicle has enough power, missing the window slightly will not affect insertion precision
+
 Please note that those are only features of MATLAB prototype that is still under final phases of development.
 
 ### Credits
