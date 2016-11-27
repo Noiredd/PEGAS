@@ -481,14 +481,6 @@ function [rot] = surfSpeed(r, nav)
     rot = vel*nav(3,:); %third componend is East vector
 end
 
-function [v] = unit(vector)
-    if norm(vector)==0
-        v = vector;
-    else
-        v = vector/norm(vector);
-    end;
-end
-
 %initializes UPFG debug data aggregator with zero vectors of appropriate sizes
 %pass expected length of the vector (number of guidance iterations, usually
 %maxT / guidance cycle + 5 should be okay)

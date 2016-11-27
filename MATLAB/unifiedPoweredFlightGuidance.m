@@ -341,11 +341,3 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
                'vgo2', vgo,...
                'diverge', diverge);
 end
-
-function [v] = unit(vector)
-    if norm(vector)==0
-        v = vector;
-    else
-        v = vector/norm(vector);
-    end;
-end

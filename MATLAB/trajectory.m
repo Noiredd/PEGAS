@@ -133,9 +133,8 @@ end
 function [f] = getCircumFrame(r, v)
     %pass current position under r (1x3)
     %current velocity under v (1x3)
-    radial = r/norm(r);             %Up direction (radial away from Earth)
-    normal = cross(r, v);
-    normal = normal/norm(normal);   %Normal direction (perpendicular to orbital plane)
+    radial = unit(r);               %Up direction (radial away from Earth)
+    normal = unit(cross(r, v));     %Normal direction (perpendicular to orbital plane)
     circum = cross(normal, radial); %Circumferential direction (tangential to sphere, in motion plane)
     f = zeros(3,3);
     %return a left(?)-handed coordinate system base
