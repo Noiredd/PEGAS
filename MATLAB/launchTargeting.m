@@ -4,10 +4,10 @@
 %the time of launch and builds targeting structure for UPFG with a desired
 %LAN slip.
 function [lan, azimuth, target] = launchTargeting(launchSite, altitude, inclination, slip)
-    global mu; global R;
+    global mu; global R; global period;
     Binertial = asind( cosd(inclination)/cosd(launchSite.lat) );%launch azimuth with no regard for Earth rotation
     vorbit = sqrt(mu/(R+altitude*1000));                        %orbital velocity magnitude
-    vEarthrot = 465.101*cosd(launchSite.lat);                   %v gained from Earth rotation
+    vEarthrot = (2*pi*R/period)*cosd(launchSite.lat);           %v gained from Earth rotation
     vrotx = vorbit*sind(Binertial)-vEarthrot;
     vroty = vorbit*cosd(Binertial);
     azimuth = atan2d(vroty, vrotx);                             %corrected launch azimuth
