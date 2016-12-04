@@ -207,7 +207,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                 yaw(i) = azim;
             else
                 pitch(i) = ang_p_srf(i-1);
-                yaw(i) = ang_y_srf(i-1);
+                yaw(i) = azim;
             end;
         elseif control.type == 1
             %pitch program control, with possible yaw control too

@@ -5,9 +5,9 @@
 function [angle] = getAngleFromFrame(vector, frame, type)
     vector = unit(vector);
     if strcmp(type,'pitch')
-        angle = acosd(dot(vector, frame(1,:)));
+        angle = safeAcosd(dot(vector, frame(1,:)));
     elseif strcmp(type,'yaw')
-        angle = acosd(dot(vector, frame(3,:)));
+        angle = safeAcosd(dot(vector, frame(3,:)));
         %correct for direction of the angle
         if dot(frame(1,:), cross(vector, frame(3,:))) > 0
             angle = -angle;
@@ -16,4 +16,13 @@ function [angle] = getAngleFromFrame(vector, frame, type)
         disp('Unknown parameter (getAngleFromFrame).\n');
         angle = 0;
     end
+    if abs(imag(angle))>0
+        disp('-');
+    end
+end
+
+function [a] = safeAcosd(angle)
+    angle = min(angle, 1);
+    angle = max(angle,-1);
+    a = acosd(angle);
 end
