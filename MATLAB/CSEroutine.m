@@ -21,7 +21,7 @@ function [r, v, last] = CSEroutine(r0, v0, dt, last)
     D = last.D;
     E = last.E;
     %Program constants
-    kmax = 15;      %U1 series iterator maximum value
+    kmax = 10;      %U1 series iterator maximum value
     imax = 10;      %Kepler iterator maximum values
     global mu;
     
@@ -74,13 +74,13 @@ function [r, v, last] = CSEroutine(r0, v0, dt, last)
             xlast = xlast-xP;
         end
     else
-        dtmax = KTTI(xmax, sigma0s, alphas, kmax);
+        [dtmax, ~, ~, ~] = KTTI(xmax, sigma0s, alphas, kmax);
         if dtmax<dts
             while dtmax>=dts
                 dtmin = dtmax;
                 xmin = xmax;
                 xmax = 2*xmax;
-                dtmax = KTTI(xmax, sigma0s, alphas, kmax);
+                [dtmax, ~, ~, ~] = KTTI(xmax, sigma0s, alphas, kmax);
             end
         end
     end
@@ -94,7 +94,7 @@ function [r, v, last] = CSEroutine(r0, v0, dt, last)
    
     if dts<dtguess
         if xguess<xlast && xlast<xmax && dtguess<dtlast && dtlast<dtmax
-            xmin = xlast;
+            xmax = xlast;
             dtmax = dtlast;
         end
     else
@@ -145,8 +145,7 @@ function [t, A, D, E] = KTTI(xarg, s0s, a, kmax)
     
     zs = 2*u1;  %z with the silly dash
     E = 1 - 0.5*a*zs^2;
-    w = sqrt(0.5+E/2);
-    w = real(w);%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    w = sqrt( max(0.5+E/2,0) ); %added safety check against sqrt from negative value
     D = w*zs;
     A = D^2;
     B = 2*(E+s0s*D);
@@ -213,7 +212,7 @@ function [xguess, dtguess, A, D, E] = KIL(imax, dts, xguess, dtguess, xmin, dtmi
     while i<imax
         dterror = dts-dtguess;
         
-        if abs(dterror)<0.1   %some arbitrary number, TODO try and look for hints in the paper
+        if abs(dterror)<10^-6   %some arbitrary number, TODO try and look for hints in the paper
             break;
         end
         
@@ -241,7 +240,7 @@ end
 function [dxs, xmin, dtmin, xmax, dtmax] = SI(dterror, xguess, dtguess, xmin, dtmin, xmax, dtmax)
     %5.3.5 ROUTINE - Secant Iterator
     %skips passing one convergence criterion, instead define it here
-    etp = 0.1;
+    etp = 10^-6;
     %PLATE 5-15 (p37)
     dtminp = dtguess-dtmin; %delta tmin prim
     dtmaxp = dtguess-dtmax;

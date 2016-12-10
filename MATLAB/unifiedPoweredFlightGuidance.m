@@ -242,8 +242,8 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %BLOCK 7 - this calls the Conic State Extrapolation Routine
     rc1 = r - 0.1*rthrust - (1/30)*vthrust*tgo;
     vc1 = v + 1.2*rthrust/tgo - 0.1*vthrust;
-    %[rc2, vc2, cser] = CSEroutine(rc1, vc1, tgo, cser);
-    [rc2, vc2, cser] = easyCSE(rc1, vc1, tgo, cser);
+    [rc2, vc2, cser] = CSEroutine(rc1, vc1, tgo, cser);
+    %[rc2, vc2, cser] = easyCSE(rc1, vc1, tgo, cser);
     vgrav = vc2 - vc1;
     rgrav = rc2 - rc1 - vc1*tgo;
     
