@@ -58,12 +58,12 @@ We will write them in the following form:
 
 The first constraint can be easily and uniquely written in XYZ form as a vector normal to the target plane (we can use Euler formulas to calculate it knowing INC and LAN angles), explicitly describing where the orbit will be and what will be the direction of motion.
 Next three describe what the orbit will look like: knowing altitude (radius) and corresponding velocity and angle, we can draw an ellipse in a unique way.
-There's just one thing we cannot define: how will the orbit be rotated within the target plane (or, if we set the flight path angle to zero, assuming we burn out in perigee, what's our srgument of periapsis).
+There's just one thing we cannot define: how will the orbit be rotated within the target plane (or, if we set the flight path angle to zero, assuming we burn out in perigee, what's our argument of periapsis).
 If the rocket takes longer to reach orbit, it'll cover more downrange distance from the launch site, and hence the AoP will be larger (than for a rocket getting to the same orbit faster from the same launch site).
 
 ##### Linear Tangent Guidance
 Now we can start formulating the math.
-This section is meant more as an intuitive explanation than a mathematically rigorous paper, so we will not write any equations here (these can be found below in the Literature section).
+This section is meant more as an intuitive explanation than a mathematically rigorous paper, so we will not write any equations here (these can be found below in the [literature](#literature) section).
 
 As mentioned in the first paragraph on difficulties, there are two forces acting on the vehicle: gravity and thrust.
 We model gravity with Newton's inverse square function of position and thrust acceleration with Tsiolkovsky's rocket equation.
@@ -81,7 +81,7 @@ Parametrizing steering with Linear Tangent function has one large advantage: if 
 There is a more general version of LTG called Bilinear Tangent Guidance, in which the tangent of each angle is a *ratio* of two linear functions (`pitch=atan((At+B)/(Ct+D))`).
 Both these parametrizations are optimal depending on the approximations made (citation needed) and provide closed-form integrals with constant gravity.
 Obviously, the flat Earth approximation introduces a potentially large error, which is the more of a problem the longer the burn takes.
-Whitcombe (down in the [literature](#literature) section) says however, that there exist "fixes" for that approximation.
+Whitcombe (see [literature](#literature)) says however, that there exist "fixes" for that approximation.
 Indeed, UPFG also contains an ingenious fix that allows it to benefit from integration simplicity of (a somewhat upgraded) LTG while getting rid of the gross approximation of constant gravity.
 This makes it an algorithm of choice even for long-duration maneuvers like Shuttle deorbit burn.
 
@@ -93,10 +93,11 @@ That means, for a known current state (position, velocity) some guidance (pitch,
 An important notion here is that we're optimizing two things simultaneously: first, we're looking for a future state that will meet the constraints (desired state); second, we're looking for a guidance that will make the vehicle reach this state from the current one.
 
 Some terminology will be introduced now:
+* `V` and `R`: current vehicle state (velocity and position),
 * `Vd` and `Rd`: desired velocity and position - we want those to meet the constraints set above,
 * `Vgrav` and `Rgrav`: changes to vehicle state over the burn trajectory purely due to gravity - purely means: as if the vehicle was coasting,
 * `Vgo` and `Rgo`: velocity and position that *need* to be gained due to thrust alone - **required** effect of thrust,
-* `Vthrust` and `Rthrust`: velocity and distance that *will be* gained purely due to thrust alone given some steering constants - **predicted** effect of thrust,
+* `Vthrust` and `Rthrust`: velocity and distance that *will be* gained due to thrust alone given some steering constants - **predicted** effect of thrust,
 * `Vbias` and `Rbias`: error (*bias*) terms between required (`Vgo`, `Rgo`) and predicted velocity/position change (`Vthrust`, `Rthrust`) - these measure how good our guidance is,
 * `Tgo`: time to the end of maneuver - important thing to mention is that in each call, the algorithm assumes the time is zero; hence, `Tgo` should be continuously and stably decreasing, and when it reaches zero thrust should be cut off.
 
@@ -117,13 +118,13 @@ Block 5 (**turning rate**) is where things start to get really interesting.
 The main goal here is to calculate the thrust vector and its turning rate and predict its immediate effects.
 First, `Rgo` is calculated between current and desired states, taking into account the gravity effect vector (`Rgrav`) as well as previous position error (`Rbias`).
 Thrust vector and its turning rate are then explicitly calculated from LTG relationships, using `Vgo`.
-Next, change to position and *velocity* due to thrust vector - `Rthrust` and `Vthrust` - is calculated using integrals from the previous block.
+Next, change to position and *velocity* due to this thrust vector - `Rthrust` and `Vthrust` - is calculated using integrals from the previous block.
 Finally, a check is made how well this trajectory matches the required one: ideally `Rgo` should equal `Rthrust` (which would mean: if this thrust vector and turning rate are maintained, the change of position due to it will exactly cover the difference between the current and desired, countering the gravity pull on the way; the same should be true for velocity).
 Difference of those values is stored as an error (`Rbias`, `Vbias`) for the next iteration.
 
 Block 7 (**gravity effects**) integrates the effects of a central gravity field on the thrust trajectory.
 The idea is to find displacement and velocity change (`Rgrav`, `Vgrav`) between the current state and the future state (in `Tgo` seconds from "now"), knowing the state change due to thrust alone.
-Was there no thrust and the vehicle was freely moving in a gravity field, a precise calculation would be possible - UPFG uses the *Conic State Extrapolation* routine to determine the final state.
+Was there no thrust and the vehicle was freely moving in a gravity field, an exact calculation would be possible - UPFG uses the *Conic State Extrapolation* routine to determine the final state.
 However, it is still problematic to incorporate gravity into a powered trajectory without approximating it with a constant vector; a different, more sophisticated but more accurate approximation is made.
 In this approach, the actual powered trajectory is replaced with an approximate coast trajectory.
 By changing the initial conditions in a special way (using thrust effect integrals `Rthrust`, `Vthrust`) we can generate a coast trajectory that minimizes the average position error between it and the actual powered one.
@@ -136,6 +137,7 @@ Block 8 (**velocity-to-be-gained**) corrects the desired states (`Vd`, `Rd`), fo
 First the actual cutoff position is predicted (`Rp` - "p" for prediction) simply by summing already obtained vectors: current state (`R` and `V` times `Tgo`), gravity effects, thrust effects.
 Then, to obtain a new desired state `Rd`, the magnitude of this vector is corrected to meet the desired altitude - note how this will result in a `Rbias` term change in block 5 in the next iteration.
 Finally, an entirely new desired velocity `Vd` is calculated at this position: all remaining constraints are satisfied in this step (normal vector, velocity magnitude, flight path angle).
+*Important notice: for some reason, the target plane normal vector* `iY` *in UPFG is oriented opposite to the orbital angular velocity vector.*
 `Vgo` is then updated as a difference between this desired velocity and the current one, keeping in mind that the gravity will also affect the vehicle's motion (`Vgrav`) and propagating a remaining velocity error (`Vbias`) for the next iteration.
 
 ##### Convergence
@@ -157,7 +159,7 @@ PEGAS implementation contains a custom logic to generate an initial guess on thi
 It follows from an (empirically confirmed) assumption that if this guess is reasonable enough, UPFG will be able to correct for the guess error and converge on a true value.
 The reasoning behind the guess is the fact that the vehicle is already in motion in some direction - so it is only possible that the cutoff position will be somewhere that way.
 Just how far ahead (in terms of downrange distance) is a matter of vehicle performance: for example, low-thrust upper stages can make very long burn arcs.
-PEGAS generates the initial guess by rotating the initial position vector in the direction of motion by a constant angle and correcting the resulting vector so that it meets plane and altitude constraints.
+PEGAS generates the initial guess by rotating the initial position vector in the direction of motion by an arbitrary angle and correcting the resulting vector so that it meets plane and altitude constraints.
 Then `Vd` is calculated for this position following the equation in block 8; `Vgo` is initialized very simply as `Vd` minus initial `V`.
 It turns out that these values result in UPFG convergence within 2-3 iterations (for a reference Space Shuttle mission, convergence criterion: change in `Tgo` between iterations less than 1%).
 
