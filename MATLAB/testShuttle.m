@@ -1,10 +1,7 @@
 initSimulation
 SpaceShuttle
 
-%site = struct('type', 0, 'lat', 5.15972, 'lon', -52.65028, 'alt', 0);    %Kourou
-site = struct('type', 0, 'lat', 28.52406, 'lon', -80.65085, 'alt', 0);   %KSC
-%site = struct('type', 0, 'lat', 34.75083, 'lon', -120.49778, 'alt', 0);  %Vandenberg
-%site = struct('type', 0, 'lat', 62.960, 'lon', 40.683, 'alt', 0);        %Plesetsk
+site = createLaunchSite('Kennedy');
 
 alt = 200;
 inc = 51.65;
