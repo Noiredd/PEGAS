@@ -20,10 +20,11 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     %VEHICLE UNPACK
     MODE = vehicle(stage).SM;
     m = vehicle(stage).m0;
-    aLim = vehicle(stage).aL;
-    isp0 = vehicle(stage).i0;
-    isp1 = vehicle(stage).i1;
-    dm = vehicle(stage).dm;
+    %aLim = vehicle(stage).aL;
+    %isp0 = vehicle(stage).i0;
+    %isp1 = vehicle(stage).i1;
+    %dm = vehicle(stage).dm;
+    engs = vehicle(stage).EN;
     maxT = vehicle(stage).mt;
     area = vehicle(stage).ra;
     drag = vehicle(stage).dc;
@@ -126,14 +127,9 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     
     %PEG SETUP
     if control.type==3
-        %below 7 lines just to avoid 0 acceleration point in plots
+        %below 2 lines just to avoid 0 acceleration point in plots
         p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
-        isp = (isp1-isp0)*p+isp0;
-        if MODE==1
-            acc(1) = isp*g0*dm/m;
-        elseif MODE==2
-            acc(1) = aLim;
-        end
+        acc(1) = getThrust(engs, p, t(1))/m;
         upfg_state = struct('time', t(1), 'mass', m, 'radius', r(1,:), 'velocity', v(1,:));
         cser = struct('dtcp', 0, 'xcp', 0, 'A', 0, 'D', 0, 'E', 0);
         %guidance initialization:
@@ -266,11 +262,10 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         if control.type==5
             F(i) = 0;
         else
-            isp = (isp1-isp0)*p+isp0;
-            if MODE==2
-                dm = aLim*m / (isp*g0);
-            end;
-            F(i) = isp*g0*dm;
+            %if MODE==2
+            %    dm = aLim*m / (isp*g0);
+            %end;
+            [F(i), dm] = getThrust(engs, p, t(i-1));
         end;
         acc(i) = F(i)/m;
         acv = acc(i)*makeVector(nav, pitch(i), yaw(i));
@@ -369,6 +364,27 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                     results.Orbit.TAN] = getOrbitalElements(r(i-1,:), v(i-1,:));
     [results.maxQt, results.maxQv] = getMaxValue(q');   %get time and value of maxQ
     results.maxQt = t(results.maxQt);                   %format maxQ time to seconds
+end
+
+function [F, dm] = getThrust(engines, pressure, time)
+    global g0;
+    n = length(engines);
+    p = pressure;
+    t = time;
+    F = 0;
+    dm = 0;
+    for i=1:n
+        isp1 = engines(i).isp1;
+        isp0 = engines(i).isp0;
+        isp = (isp1-isp0)*p+isp0;
+        if engines(i).mode==1
+            dm_ = engines(i).mflo;
+        elseif engines(i).mode==2
+            dm_ = approxFromCurve(t, engines(i).data) * engines(i).mflo;
+        end
+        dm = dm + dm_;
+        F = F + isp*dm_*g0;
+    end
 end
 
 %constructs a local reference frame, KSP-navball style
