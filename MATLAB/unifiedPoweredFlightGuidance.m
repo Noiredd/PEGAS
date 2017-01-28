@@ -74,14 +74,13 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
                             %to calculate t_go,i from that, just sum all
                             %the way from 1 to i
     for i=1:n
-        SM(i) = vehicle(i).SM;
-        aL(i) = vehicle(i).aL;
-        md(i) = vehicle(i).dm;
-        ve(i) = vehicle(i).i0 * g0;
-        fT(i) = md(i) * ve(i);
+        SM(i) = vehicle(i).MODE;
+        aL(i) = vehicle(i).gLim * g0;
+        [fT(i), md(i), ve(i)] = getThrust(vehicle(i).engines, 0, 0);
+        ve(i) = ve(i) * g0;
         aT(i) = fT(i) / vehicle(i).m0;
         tu(i) = ve(i) / aT(i);
-        tb(i) = vehicle(i).mt;
+        tb(i) = vehicle(i).maxT;
     end
     
     %BLOCK 2

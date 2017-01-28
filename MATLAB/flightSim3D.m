@@ -18,16 +18,13 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     global atmpressure; global atmtemperature;
     
     %VEHICLE UNPACK
-    MODE = vehicle(stage).SM;
+    MODE = vehicle(stage).MODE;
     m = vehicle(stage).m0;
-    %aLim = vehicle(stage).aL;
-    %isp0 = vehicle(stage).i0;
-    %isp1 = vehicle(stage).i1;
-    %dm = vehicle(stage).dm;
-    engs = vehicle(stage).EN;
-    maxT = vehicle(stage).mt;
-    area = vehicle(stage).ra;
-    drag = vehicle(stage).dc;
+    gLim = vehicle(stage).gLim;
+    engines = vehicle(stage).engines;
+    maxT = vehicle(stage).maxT;
+    area = vehicle(stage).area;
+    drag = vehicle(stage).drag;
     
     %CONTROL SETUP
     if control.type == 0
@@ -129,7 +126,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
     if control.type==3
         %below 2 lines just to avoid 0 acceleration point in plots
         p = approxFromCurve((rmag(1)-R)/1000, atmpressure);
-        acc(1) = getThrust(engs, p, t(1))/m;
+        [temp, ~, ~] = getThrust(engines, p, t(1));
+        acc(1) = temp/m;
         upfg_state = struct('time', t(1), 'mass', m, 'radius', r(1,:), 'velocity', v(1,:));
         cser = struct('dtcp', 0, 'xcp', 0, 'A', 0, 'D', 0, 'E', 0);
         %guidance initialization:
@@ -262,10 +260,17 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         if control.type==5
             F(i) = 0;
         else
-            %if MODE==2
-            %    dm = aLim*m / (isp*g0);
-            %end;
-            [F(i), dm] = getThrust(engs, p, t(i-1));
+            %calculate default 100% thrust
+            [F(i), dm, ~] = getThrust(engines, p, t(i-1));
+            %adjust for constant acceleration if necessary
+            if MODE==2
+                desiredThrust = gLim*g0 * m;
+                desiredThrottle = desiredThrust/F(i);
+                desiredThrottle = min(desiredThrottle,engines(1).data(2));  %minimum throttle clamp
+                desiredThrottle = max(desiredThrottle,engines(1).data(1));  %maximum throttle clamp
+                F(i) = F(i) * desiredThrottle;
+                dm = dm * desiredThrottle;
+            end
         end;
         acc(i) = F(i)/m;
         acv = acc(i)*makeVector(nav, pitch(i), yaw(i));
@@ -364,27 +369,6 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
                     results.Orbit.TAN] = getOrbitalElements(r(i-1,:), v(i-1,:));
     [results.maxQt, results.maxQv] = getMaxValue(q');   %get time and value of maxQ
     results.maxQt = t(results.maxQt);                   %format maxQ time to seconds
-end
-
-function [F, dm] = getThrust(engines, pressure, time)
-    global g0;
-    n = length(engines);
-    p = pressure;
-    t = time;
-    F = 0;
-    dm = 0;
-    for i=1:n
-        isp1 = engines(i).isp1;
-        isp0 = engines(i).isp0;
-        isp = (isp1-isp0)*p+isp0;
-        if engines(i).mode==1
-            dm_ = engines(i).mflo;
-        elseif engines(i).mode==2
-            dm_ = approxFromCurve(t, engines(i).data) * engines(i).mflo;
-        end
-        dm = dm + dm_;
-        F = F + isp*dm_*g0;
-    end
 end
 
 %constructs a local reference frame, KSP-navball style
