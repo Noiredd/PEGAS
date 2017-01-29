@@ -1,9 +1,10 @@
 %launchTargeting
-%For a launch from given site into specified inclination and altitude,
+%For a launch from given site into specified inclination and apsis
+%(altitude - MECO altitude and one apsis, opposingApsis - self explanatory)
 %calculates launch azimuth, LAN of orbit passing directly over the site at
 %the time of launch and builds targeting structure for UPFG with a desired
 %LAN slip.
-function [lan, azimuth, target] = launchTargeting(launchSite, altitude, inclination, slip)
+function [lan, azimuth, target] = launchTargeting(launchSite, altitude, opposingApsis, inclination, slip)
     global mu; global R; global period;
     Binertial = asind( cosd(inclination)/cosd(launchSite.lat) );%launch azimuth with no regard for Earth rotation
     vorbit = sqrt(mu/(R+altitude*1000));                        %orbital velocity magnitude
@@ -25,5 +26,8 @@ function [lan, azimuth, target] = launchTargeting(launchSite, altitude, inclinat
         sind(lan),cosd(lan),0;
         0,0,1];                                                 %about z for node
     target_plane_normal = (Rz*Rx*[0,0,-1]')';
+    target_velocity = 2 / (R+altitude*1000);
+    target_velocity = target_velocity - 1 / (R+(altitude+opposingApsis)*1000/2);
+    target_velocity = sqrt( mu*target_velocity );               %target velocity in steps from vis-viva equation
     target = struct('radius', R+altitude*1000, 'normal', target_plane_normal,...
-                    'angle', 0, 'velocity', sqrt(mu/(R+altitude*1000)));
+                    'angle', 0, 'velocity', target_velocity);

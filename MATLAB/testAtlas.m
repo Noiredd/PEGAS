@@ -5,7 +5,7 @@ site = createLaunchSite('Plesetsk');
 
 alt = 200;
 inc = 90;
-[lan, azm, target] = launchTargeting(site, alt, inc, 2.0);
+[lan, azm, target] = launchTargeting(site, alt, alt, inc, 2.0);
 
 stage1 = struct('type', 0, 'p', 10, 'v', 50, 'a', azm);
 
