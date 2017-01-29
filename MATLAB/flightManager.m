@@ -7,13 +7,19 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
     n = length(vehicle);
     %Handle first stage first, as it's guided with a separate scheme and outputs different results struct.
     powered(1) = flightSim3D(vehicle, 1, init, s1guidance, dt);
-    %Create UPFG and coast handlers
+    %Create UPFG handler
     upfg_control = struct('type', 3, 'target', target, 'major', upfgCycle);
-    coast_control = struct('type', 5, 'length', coastLength);
     %Handle the rest of the flight in a loop
     for i=2:n
         %Things work a bit differently if zero coast period was specified.
         if coastLength>0
+            %Even more differently if an array of coast lengths was passed.
+            %This way different coast lenghts per phase are possible.
+            if length(coastLength)>1
+                coast_control = struct('type', 5, 'length', coastLength(i-1));
+            else
+                coast_control = struct('type', 5, 'length', coastLength);
+            end
             coast(i-1) = flightSim3D(vehicle, i, resultsToInit(powered(i-1)), coast_control, dt);
             powered(i) = flightSim3D(vehicle, i, resultsToInit(coast(i-1)), upfg_control, dt);
         else
