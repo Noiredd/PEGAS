@@ -254,8 +254,8 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         end;
         
         %PHYSICS
-        %Crash detection
-        if rmag(i-1)<=R
+        %Crash detection (10 meter tolerance)
+        if rmag(i-1) <= (R-10)
             ENG = -100;
             break;
         end

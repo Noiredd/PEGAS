@@ -54,16 +54,16 @@ function [] = trajectory(powered, coast, target, earth, vectors, fid)
     %display ground tracks for all
     for i=1:length(powered)
         x = powered(i).Plots;
-        gt = zeros(length(x.r),3);
-        for j=1:length(x.r)
+        gt = zeros(length(x.r(:,1)),3);
+        for j=1:length(x.r(:,1))
             gt(j,:) = R*x.r(j,:)/x.rmag(j);
         end;
         plot3(gt(:,1), gt(:,2), gt(:,3), cTrack);
     end;
     for i=1:length(coast)
         x = coast(i).Plots;
-        gt = zeros(length(x.r),3);
-        for j=1:length(x.r)
+        gt = zeros(length(x.r(:,1)),3);
+        for j=1:length(x.r(:,1))
             gt(j,:) = R*x.r(j,:)/x.rmag(j);
         end;
         plot3(gt(:,1), gt(:,2), gt(:,3), cTrack);
@@ -73,17 +73,17 @@ function [] = trajectory(powered, coast, target, earth, vectors, fid)
         if vectors>1
             for i=1:length(powered)
                 x = powered(i).Plots;
-                n = length(x.r);
+                n = length(x.r(:,1));
                 dirs(x.r(n,:), x.v(n,:), scale);
             end;
             for i=1:length(coast)
                 x = coast(i).Plots;
-                n = length(x.r);
+                n = length(x.r(:,1));
                 dirs(x.r(n,:), x.v(n,:), scale);
             end;
         else
             x = powered(length(powered)).Plots;
-            n = length(x.r);
+            n = length(x.r(:,1));
             dirs(x.r(n,:), x.v(n,:), scale);
         end;
     end;
