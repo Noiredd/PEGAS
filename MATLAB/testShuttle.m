@@ -3,11 +3,11 @@ SpaceShuttle
 
 site = createLaunchSite('Kennedy');
 
-alt = 200;
+alt = 100;
 inc = 51.65;
 [lan, azm, target] = launchTargeting(site, alt, inc, 2.0);
 
-stage1 = struct('type', 0, 'p', 10, 'v', 50, 'a', azm);
+stage1 = struct('type', 0, 'p', 8.5, 'v', 50, 'a', azm);
 
 STS = flightManager(vehicle, site, target, 0.2, stage1, 2, 0);
 

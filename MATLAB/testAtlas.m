@@ -7,7 +7,7 @@ alt = 200;
 inc = 90;
 [lan, azm, target] = launchTargeting(site, alt, inc, 2.0);
 
-stage1 = struct('type', 0, 'p', 10, 'v', 5, 'a', azm);
+stage1 = struct('type', 0, 'p', 10, 'v', 50, 'a', azm);
 
 AV5 = flightManager(vehicle, site, target, 0.2, stage1, 2, 5);
 
