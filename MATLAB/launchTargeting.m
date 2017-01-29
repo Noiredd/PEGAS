@@ -6,13 +6,18 @@
 %LAN slip.
 function [lan, azimuth, target] = launchTargeting(launchSite, altitude, opposingApsis, inclination, slip)
     global mu; global R; global period;
-    Binertial = asind( cosd(inclination)/cosd(launchSite.lat) );%launch azimuth with no regard for Earth rotation
-    vorbit = sqrt(mu/(R+altitude*1000));                        %orbital velocity magnitude
-    vEarthrot = (2*pi*R/period)*cosd(launchSite.lat);           %v gained from Earth rotation
-    vrotx = vorbit*sind(Binertial)-vEarthrot;
-    vroty = vorbit*cosd(Binertial);
-    azimuth = atan2d(vroty, vrotx);                             %corrected launch azimuth
-
+    if inclination<launchSite.lat
+        fprintf('Target inclination below launch site latitude. Assuming you know what youre doing - returning 0 azimuth.\n');
+        azimuth = 0;
+    else
+        Binertial = asind( cosd(inclination)/cosd(launchSite.lat) );%launch azimuth with no regard for Earth rotation
+        vorbit = sqrt(mu/(R+altitude*1000));                        %orbital velocity magnitude
+        vEarthrot = (2*pi*R/period)*cosd(launchSite.lat);           %v gained from Earth rotation
+        vrotx = vorbit*sind(Binertial)-vEarthrot;
+        vroty = vorbit*cosd(Binertial);
+        azimuth = atan2d(vroty, vrotx);                             %corrected launch azimuth
+    end
+    
     lan = launchSite.lon - asind(min(1,tand(90-inclination)*tand(launchSite.lat)));
     lan = mod(lan + 360 + slip, 360);                           %add slip and reduce result into 0-360 range
     
