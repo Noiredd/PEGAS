@@ -22,11 +22,19 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
         end
         %If a powered stage was cut off by the guidance algorithm - do not
         %simulate any more stages.
-        if powered(i).ENG>1 & i<n
+        if powered(i).ENG>1 && i<n
             n = length(powered);
             fprintf('Used less stages than available (%d).\n', i);
             break;
         end
+        %Support crash detection
+        if powered(i).ENG<-10
+            fprintf('Critical mission failure. Vehicle crashed (stage %d).\n', i);
+            break;
+        end
+    end
+    if ~exist('coast','var')
+        coast = [];
     end
     %Output a struct
     flight = struct('powered', powered, 'coast', coast, 'n', n);

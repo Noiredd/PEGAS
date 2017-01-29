@@ -33,3 +33,4 @@ if exist('scaleTo','var')
         thrustProfile(i,1) = thrustProfile(i,1) * scale_;
     end
 end
+clearvars scale_

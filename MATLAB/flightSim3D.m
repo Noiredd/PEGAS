@@ -254,11 +254,17 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         end;
         
         %PHYSICS
+        %Crash detection
+        if rmag(i-1)<=R
+            ENG = -100;
+            break;
+        end
         %Thrust: zero for coast flight, different calculations for constant
         %thrust and constant acceleration modes.
         p = approxFromCurve((rmag(i-1)-R)/1000, atmpressure);
         if control.type==5
             F(i) = 0;
+            dm = 0;
         else
             %calculate default 100% thrust
             [F(i), dm, ~] = getThrust(engines, p, t(i-1));

@@ -16,6 +16,12 @@ period = 24*3600;
 global convergenceCriterion;    %for UPFG
 convergenceCriterion = 0.01;
 
+%Thrust profiles are done somewhat globally, basing on STS SRB profile.
+%Generator function checks for scaleTo variable to automatically scale the
+%profile in time if we want to make a faster or slower burning SRB.
+%Once set, this variable might affect other vehicles, so best to delete it.
+clearvars scaleTo
+
 %altitude [km] vs pressure [atm]
 if ~exist('atmpressure', 'var')
     global atmpressure;
