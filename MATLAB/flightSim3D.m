@@ -134,10 +134,7 @@ function [results] = flightSim3D(vehicle, stage, initial, control, dt)
         %project initial position direction unit vector onto target plane,
         %rotate with Rodrigues' formula about 20 degrees prograde and
         %extend to target length; then calculate velocity at this point
-        %https://en.wikipedia.org/wiki/Rodrigues'_rotation_formula
-        rdinit = unit(r(1,:));
-        rdinit = rdinit - dot(rdinit,target.normal)*target.normal;
-        rdinit = rdinit*cosd(20) + cross(-target.normal,rdinit)*sind(20) - target.normal*dot(-target.normal,rdinit)*(1-cosd(20));
+        rdinit = rodrigues(unit(r(1,:)), -target.normal, 20);
         rdinit = rdinit * target.radius;
         vdinit = target.velocity*unit(cross(-target.normal,rdinit));
         vdinit = vdinit - v(1,:);
@@ -412,15 +409,13 @@ function [alpha] = rnc2nav(rnc, nav)
     alpha = dot(rnc(3,:), nav(3,:));
 end
 
-%constructs a unit vector in the global frame for a given azimuth/elevation
-%angles in a given frame (first angle ('p') rotates from frame's first
-%towards second vector, second ('y') rotates from second towards third)
+%constructs a unit vector in the global frame for a given pitch and yaw
+%understanding frame as a 3x3 matrix of vectors 'up', 'north', 'east',
+%rotates the 'up' vector towards the 'east' by 'p' degrees (pitch), and
+%then rotates this about the 'up' axis by 'y' degrees towards 'north' (yaw)
 function [v] = makeVector(frame, p, y)
-    V = zeros(3,3);
-    V(1,:) = cosd(p)*frame(1,:);
-    V(2,:) = sind(p)*sind(y)*frame(2,:);
-    V(3,:) = sind(p)*cosd(y)*frame(3,:);
-    v = V(1,:) + V(2,:) + V(3,:);
+    v = rodrigues(frame(1,:), frame(2,:), p);
+    v = rodrigues(v, frame(1,:), y);
 end
 
 %finds Earth's rotation velocity vector at given cartesian location

@@ -4,12 +4,15 @@
 %rows of a 3x3 matrix). Returns degrees.
 function [angle] = getAngleFromFrame(vector, frame, type)
     vector = unit(vector);
-    if strcmp(type,'pitch')
+    if strcmp(type, 'pitch')
         angle = safeAcosd(dot(vector, frame(1,:)));
-    elseif strcmp(type,'yaw')
-        angle = safeAcosd(dot(vector, frame(3,:)));
+    elseif strcmp(type, 'yaw')
+        inplane = vector - frame(1,:)*dot(vector, frame(1,:));
+        inplane = unit(inplane);
+        angle = safeAcosd(dot(inplane, frame(3,:)));
         %correct for direction of the angle
-        if dot(frame(1,:), cross(vector, frame(3,:))) > 0
+        tangential = cross(frame(1,:), frame(3,:));
+        if dot(inplane, tangential) < 0
             angle = -angle;
         end;
     else
