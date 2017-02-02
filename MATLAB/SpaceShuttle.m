@@ -10,7 +10,9 @@ clearvars vehicle
 %   http://www.astronautix.com/s/srb.html
 %   https://en.wikipedia.org/wiki/Space_Shuttle_orbiter#Shuttle_Orbiter_Specifications_.28OV-105.29
 orbiter = 79135;        %OV-105 Endeavour, full OMS/RCS fuel tanks
-payload = 25000;        %max for Endeavour
+if ~exist('payload', 'var')
+    payload = 25000;        %max for Endeavour
+end
 SpaceShuttleThrustProfile
 
 %SRB+SSME

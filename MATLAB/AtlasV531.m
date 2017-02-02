@@ -7,7 +7,9 @@ clearvars vehicle
 %   http://spaceflight101.com/spacerockets/atlas-v-531/
 %   http://www.spacelaunchreport.com/atlas5.html#components
 %   http://www.astronautix.com/a/atlasv.html    (when in doubt)
-payload = 14000;    %certified max to LEO = 15575kg
+if ~exist('payload', 'var')
+    payload = 14000;    %certified max to LEO = 15575kg
+end
 scaleTo = 97;
 SpaceShuttleThrustProfile               %use time-scaled STS SRB thrust profile
 

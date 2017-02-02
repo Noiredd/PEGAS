@@ -22,6 +22,9 @@ convergenceCriterion = 0.01;
 %Once set, this variable might affect other vehicles, so best to delete it.
 clearvars scaleTo
 
+%Payloads are done in a similar way, so...
+clearvars payload
+
 %altitude [km] vs pressure [atm]
 if ~exist('atmpressure', 'var')
     global atmpressure;
