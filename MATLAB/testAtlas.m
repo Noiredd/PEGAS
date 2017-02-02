@@ -9,7 +9,7 @@ inc = 90;
 
 stage1 = struct('type', 0, 'p', 10, 'v', 50, 'a', azm);
 
-AV5 = flightManager(vehicle, site, target, 0.2, stage1, 2, 5);
+AV5 = flightManager(vehicle, site, target, 0.2, stage1, 2, 5, []);
 
 telemetry(AV5.powered, AV5.coast, 1);
 dbgIntegrals(AV5.powered(2:AV5.n), 2);

@@ -12,7 +12,7 @@
 %are assumed, engine is modelled only using thrust and Isp with no regard
 %for actual number or type of engines. RO atmosphere is modelled. No AoA or
 %lift effects are taken into account.
-function [results] = flightSim3D(vehicle, stage, initial, control, dt)
+function [results] = flightSim3D(vehicle, stage, initial, control, jettison, dt)
     %declare globals
     global mu; global g0; global R;
     global atmpressure; global atmtemperature;
