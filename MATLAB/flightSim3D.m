@@ -147,9 +147,12 @@ function [results] = flightSim3D(vehicle, stage, initial, control, jettison, dt)
                 upfg_internal = initial.upfg;
                 upfg_internal.tb = 0;
                 dbg = debugInitializator(floor(maxT/ct));
-                [upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
-                                   vehicle(stage:length(vehicle)),...
-                                   target, upfg_state, upfg_internal);
+                %[upfg_internal, guidance, debug] = unifiedPoweredFlightGuidance(...
+                %                   vehicle(stage:length(vehicle)),...
+                %                   target, upfg_state, upfg_internal);
+                [upfg_internal, guidance, debug] = convergeUPFG(vehicle(stage:length(vehicle)),...
+                                                                target, upfg_state, upfg_internal,...
+                                                                0, 50);
                 dbg = debugAggregator(dbg, debug);
             end;
         end;
@@ -161,10 +164,10 @@ function [results] = flightSim3D(vehicle, stage, initial, control, jettison, dt)
                                    'rgrav', -(mu/2)*r(1,:)/norm(r(1,:))^3,...
                                    'tb', 0, 'time', t(1), 'tgo', 0,...
                                    'v', v(1,:), 'vgo', vdinit);
-            dbg = debugInitializator(floor(maxT/ct)+5);
+            dbg = debugInitializator(floor(maxT/ct));%+5);
             [upfg_internal, guidance, debug] = convergeUPFG(vehicle(stage:length(vehicle)),...
                                                             target, upfg_state, upfg_internal,...
-                                                            50);
+                                                            t(1), 50);
             dbg = debugAggregator(dbg, debug);
         end;
         pitch(1) = guidance.pitch;
@@ -309,6 +312,18 @@ function [results] = flightSim3D(vehicle, stage, initial, control, jettison, dt)
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
+        %if a jettison was scheduled, execute
+        [js, ~] = size(jettison);
+        if js>0
+            for j=1:js
+                %for each event check if it should be executed now
+                if jettison(j,1) <= t(i)
+                    %if so, execute and mark as zero, so we don't have to worry anymore
+                    m = m - jettison(j,2);
+                    jettison(j,2) = 0;
+                end
+            end
+        end
     end;
 
     %OUTPUT
@@ -583,7 +598,7 @@ function [a] = debugAggregator(a, d)
 end
 
 %handles UPFG convergence by running it in loop until tgo stabilizes
-function [internal, guidance, debug] = convergeUPFG(vehicle, target, state, internal, maxIters)
+function [internal, guidance, debug] = convergeUPFG(vehicle, target, state, internal, time, maxIters)
     global convergenceCriterion;
     fail = 1;
     [internal, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, internal);
@@ -592,7 +607,9 @@ function [internal, guidance, debug] = convergeUPFG(vehicle, target, state, inte
         [internal, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, internal);
         t2 = internal.tgo;
         if abs( (t1-t2)/t1 ) < convergenceCriterion
-            fprintf('UPFG converged after %d iterations (tgo=%d).\n', i, t2);
+            if time>0
+                fprintf('UPFG converged after %d iterations, predicted insertion time: T+%.1fs (tgo=%.1f).\n', i, time+t2, t2);
+            end
             fail = 0;
             break;
         end

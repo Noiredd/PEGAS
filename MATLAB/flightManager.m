@@ -57,5 +57,11 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
     if ~exist('coast','var')
         coast = [];
     end
-    %Output a struct
+    %Output a struct and do some printouts
     flight = struct('powered', powered, 'coast', coast, 'n', n);
+    if powered(n).ENG > 1
+        fprintf('Successful insertion at T+%.1f into %.1fx%.1fkm, %.1f° orbit\n', max(flight.powered(n).Plots.t), flight.powered(n).Periapsis, flight.powered(n).Apoapsis, flight.powered(n).Orbit.INC);
+        fprintf('Final conditions error: %.3d (angle), %.3d (eccentricity), %.3d (altitude)\n', planeError(flight, target), flight.powered(n).Orbit.ECC, abs( (target.radius-R)/1000 - flight.powered(n).Altitude));
+    else
+        fprintf('Mission failure with ENG code %d.\n', flight.powered(n).ENG);
+    end

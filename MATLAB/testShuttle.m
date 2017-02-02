@@ -5,8 +5,8 @@ site = createLaunchSite('Kennedy');
 
 periapsis = 100;
 apoapsis = 250;
-inc = 51.65;
-[lan, azm, target] = launchTargeting(site, periapsis, apoapsis, inc, 2.0);
+inclination = 51.65;
+[lan, azm, target] = launchTargeting(site, periapsis, apoapsis, inclination, 2.0);
 
 stage1 = struct('type', 0, 'p', 8.5, 'v', 50, 'a', azm);
 
@@ -16,7 +16,4 @@ telemetry(STS.powered, STS.coast, 1);
 dbgIntegrals(STS.powered(2:STS.n), 2);
 trajectory(STS.powered, STS.coast, target, 2, 1, 3);
 
-fprintf('injection at t+%.1f into %.1fx%.1fkm orbit\n', max(STS.powered(STS.n).Plots.t), STS.powered(STS.n).Apoapsis, STS.powered(STS.n).Periapsis);
-fprintf('angle %d\tecc %d\talt %d\n', planeError(STS, target), STS.powered(STS.n).Orbit.ECC, abs(periapsis-STS.powered(STS.n).Altitude));
-
-clearvars site alt inc lan azm target stage1
+clearvars site periapsis apoapsis inclination lan azm target stage1
