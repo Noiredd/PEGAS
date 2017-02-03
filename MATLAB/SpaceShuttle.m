@@ -90,5 +90,5 @@ stage = struct('MODE', 1,...
 stage.maxT = vehicleTools('tgo', stage, 1, 8174+13486); %mass of MMH and N2O4 in OMS/RCS pods
 vehicle(4) = stage;
 
-clearvars orbiter payload
-clearvars stage_mode stage_m0 stage_thrust stage_isp0 stage_isp1 stage_time stage_area stage_drag stage_dm stage_fuel stage_engines stage
+clearvars orbiter payload thrustProfile
+clearvars stage_m0 stage_time stage_area stage_drag stage_fuel stage_engines stage

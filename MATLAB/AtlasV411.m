@@ -95,4 +95,4 @@ vehicle(4) = stage;
 
 clearvars payload
 clearvars scaleTo thrustProfile
-clearvars stage_m0 stage_time stage_area stage_drag stage_engines stage
+clearvars stage_m0 stage_time stage_area stage_drag burnt_fuel stage_engines stage
