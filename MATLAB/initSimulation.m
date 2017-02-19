@@ -1,6 +1,8 @@
-%PM1_initSim.m
-%Initialization module. Sets up orbiting body (Earth) parameters and
-%atmosphere curves (data from RealSolarSystem\RSSKopernicus.cfg).
+%initSimulation.m
+%Initialization module. Cleans up some vehicle-related variables, sets up
+%orbiting body (Earth) parameters and atmosphere curves (data from
+%RealSolarSystem\RSSKopernicus.cfg).
+
 global g0;          %std gravity asl [m/s2]
 g0 = 9.80665;
 
