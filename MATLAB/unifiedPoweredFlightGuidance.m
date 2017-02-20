@@ -1,47 +1,25 @@
-%unifiedPoweredFlightGuidance.m
-%Implementation of Unified Powered Flight Guidance in Standard Ascent Mode
-%as described by Brand, Brown and Higgins in Space Shuttle GN&C Equation Document 24.
 function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, target, state, previous)
-    %INPUT
-    %vehicle    array of struct, defines vehicle performance data stage-by-stage
-    %           see PM2 file for definition
-    %           UPFG expects a list of stages from currently flown up (so
-    %           for a 4-stage-total vehicle, currently flying the 3rd
-    %           stage, only pass stages 3:4)
-    %target     struct, defines desired insertion parameters
-    % .radius   value in meters (from origin, not surface)
-    % .velocity value in meters per second, magnitude of vector
-    % .angle    value in degrees, flight path angle
-    % .normal   unit 3-vector normal to target orbital plane
-    %state      struct, defines current vehicle physical state
-    % .time     value in seconds, current time
-    % .mass     value in kilograms, current vehicle mass
-    % .radius   3-vector in meters, current vehicle position (cartesian)
-    % .velocity 3-vector in meters per second, current vehicle velocity
-    %previous   struct, contains results of previous iteration
-    % .cser     struct, contains state of CSE routine (see file for details)
-    % .rbias    3-vector in meters, calculated correction for effects of
-    %           rotating thrust vector
-    % .rd       3-vector in meters, calculated desired cutoff position
-    % .rgrav    3-vector in meters, calculated second integral of effects
-    %           of central gravity field
-    % .tb       value in seconds, elapsed time of this burn phase
-    % .time     value in seconds, previous iteration time
-    % .tgo      value in seconds, calculated time-to-go
-    % .v        3-vector in meters per second, stored velocity state from
-    %           previous iteration
-    % .vgo      3-vector in meters per second, calculated velocity-to-go
-    %OUTPUT
-    %current    struct, contains results of this iteration for use with the
-    %           next one; fields are exactly the same as in 'previous'
-    %guidance   struct, contains extracted guidance data
-    % .pitch    value in degrees, calculated pitch angle
-    % .pitchdot value in degrees per second, calculated pitch change rate
-    % .yaw      value in degrees, calculated yaw angle
-    % .yawdot   value in degrees per second, calculated yaw change rate
-    % .tgo      value in seconds, time to cutoff
-    %debug      struct, contains raw values of produced vectors and scalars
-    %           see end of this function for details
+%[current, guidance, debug] = UNIFIEDPOWEREDFLIGHTGUIDANCE(vehicle,
+%                                                  target, state, previous)
+%Implementation of Unified Powered Flight Guidance in Standard Ascent Mode
+%as described by Brand, Brown and Higgins in Space Shuttle GN&C Equation
+%Document 24.
+%
+%REQUIRES
+%    g0         Global variable, standard gravity acceleration.
+%
+%INPUT
+%    vehicle    (Array of) struct defining vehicle performance stage by
+%               stage. First element of the array should be the currently
+%               flown stage.
+%    target     Struct defining desired insertion conditions.
+%    state      Struct defining current vehicle physical state.
+%    previous   UPFG internal struct containing results of previous iteration.
+%
+%OUTPUT
+%    current    UPFG internal struct containing results of this iteration.
+%    guidance   Struct containing calculated guidance parameters.
+%    debug      Struct containing raw values of produced vectors and scalars.
     
     %"BLOCK 0"
     global g0; global convergenceCriterion;
@@ -64,15 +42,14 @@ function [current, guidance, debug] = unifiedPoweredFlightGuidance(vehicle, targ
     %BLOCK 1
     n  = length(vehicle);   %total number of stages
     SM = ones(n,1);         %thrust mode (1=const thrust, 2=const acc)
-    aL = zeros(n,1);        %acceleration limit for SM=2
+    aL = zeros(n,1);        %acceleration limit for const acceleration mode
     md = zeros(n,1);        %mass flow rate
     ve = zeros(n,1);        %effective exhaust velocity
     fT = zeros(n,1);        %thrust
-    aT = zeros(n,1);        %acceleration at the beginning of phase
+    aT = zeros(n,1);        %acceleration at the beginning of stage
     tu = zeros(n,1);        %"time to burn as if the whole stage was fuel"
     tb = zeros(n,1);        %remaining burn time of each stage
-                            %to calculate t_go,i from that, just sum all
-                            %the way from 1 to i
+    
     for i=1:n
         SM(i) = vehicle(i).MODE;
         aL(i) = vehicle(i).gLim * g0;
