@@ -10,7 +10,7 @@ apoapsis = 181;
 inclination = 28.5;
 [lan, azm, target] = launchTargeting(site, periapsis, apoapsis, inclination, 2.0);
 
-stage1 = struct('type', 0, 'p', 8, 'v', 45, 'a', 1);
+stage1 = struct('type', 0, 'pitch', 8, 'velocity', 45, 'azimuth', 1);
 
 AV4 = flightManager(vehicle, site, target, 0.2, stage1, 2, [0 0 10], [139 4000; 267 2127]);
 
