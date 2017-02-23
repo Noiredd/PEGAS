@@ -341,15 +341,23 @@ function [results] = flightSim3D(vehicle, stage, initial, control, jettison, dt)
         %MASS&TIME
         m = m - dm*dt;
         t(i) = t(i-1) + dt;
-        %if a jettison was scheduled, execute
+        %Handle minor jettison events, if there are any.
         [js, ~] = size(jettison);
         if js>0
             for j=1:js
-                %for each event check if it should be executed now
-                if jettison(j,1) <= t(i)
-                    %if so, execute and mark as zero, so we don't have to worry anymore
+                %For each event check whether it hasn't been scheduled for
+                %a previous burn phase (its time set before the current
+                %phase begun). If this isn't checked, all older jettisons
+                %would be repeated in this phase.
+                %Then check whether it is already time to execute the event.
+                %Reduce the vehicle's mass by scheduled amount and set the
+                %event's time to negative (so that it never passes the
+                %first check again).
+                if jettison(j,1) < t(1)
+                    continue
+                elseif jettison(j,1) <= t(i)
                     m = m - jettison(j,2);
-                    jettison(j,2) = 0;
+                    jettison(j,1) = -1;
                 end
             end
         end
