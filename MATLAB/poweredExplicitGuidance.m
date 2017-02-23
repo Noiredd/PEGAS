@@ -1,19 +1,42 @@
-%poweredExplicitGuidance.m
-%Implementation of Powered Explicit Guidance major loop.
+function [A, B, C, T] = poweredExplicitGuidance(cycle,   alt, vt, vr, tgt,   acc, ve,   oldA, oldB, oldT)
+%[A, B, C, T] = POWEREDEXPLICITGUIDANCE(cycle, alt, vt, vr, target,
+%                                                acc, ve, oldA, oldB, oldT)
+%LEGACY implementation of Powered Explicit Guidance as described by Teren
+%in Explicit Guidance Equations for Multistage Boost Trajectories.
 %http://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19660006073.pdf
 %http://www.orbiterwiki.org/wiki/Powered_Explicit_Guidance
-function [A, B, C, T] = poweredExplicitGuidance(cycle,   alt, vt, vr, tgt,   acc, ve,   oldA, oldB, oldT)
-    %cycle  - length of the major computer cycle (time between PEG calculations) [s]
-    %alt    - current altitude as distance from body center [m]
-    %vt     - tangential velocity (horizontal - orbital) [m/s]
-    %vr     - radial velocity (veritcal - away from the Earth) [m/s]
-    %tgt    - target altitude (measured as current) [m]
-    %acc    - current vehicle acceleration [m/s^2]
-    %ve     - effective exhaust velocity (isp*g0) [m/s]
-    %basing on current state vector, vehicle params and given ABT estimates
-    %new A and B, and calculates new T from them
-    %also outputs a C component for the purposes of guidance
-    %passing A=B=0 causes estimation of those directly from the given oldT
+%Only a single-stage capability is implemented with no yaw control.
+%If time to cutoff is less than 7.5 seconds, will cease solving the matrix
+%for A and B and return old values (only updating T).
+%
+%REQUIRES
+%    mu         Global variable, standard gravity parameter of the body;
+%               gravity constant * mass of the body (kg).
+%
+%INPUT
+%    cycle      Length of the major cycle (time between PEG calls) (s).
+%    alt        Current altitude relative to body center (m).
+%    vt     	Tangential (horizontal) velocity (m/s).
+%    vr         Radial (vertical) velocity (m/s).
+%    tgt    	Target altitude relative to body center (m).
+%    acc    	Current vehicle acceleration (m/s^2).
+%    ve         Effective exhaust velocity (Isp*g0) (m/s).
+%    oldA       Previous value of A.
+%    oldB       Previous value of B. If oldA==oldB==0, those will be
+%               estimated from oldT (this needs to be a "reasonable guess"
+%               in this case). Otherwise (ie. if the algorithm is converged
+%               or converging), previously obtained values need to be passed.
+%    oldT       Previous value of T (s).
+%
+%OUTPUT
+%    A          Steering constant, cosine of pitch angle right now.
+%    B          Steering constant corresponding to pitch rate, ie. pitch
+%               after t seconds from when these values were calculated
+%               should equal acosd(A+B*t).
+%    C          Portion of vehicle acceleration used to counteract gravity
+%               and centrifugal force (unitless).
+%    T          Time to go (until the end of burn) (s).
+
     global mu;
     tau = ve / acc;
     if oldA==0 && oldB==0

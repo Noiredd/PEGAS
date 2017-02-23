@@ -1,10 +1,17 @@
-%linearFit.m
-%Fits n linear sections into 'data' vector (2xN). Outputs section boundary
-%points in 'fit' vector (2xn).
-%Credits:
-%   Andrey Rubshtein, http://stackoverflow.com/users/817452/andrey-rubshtein
-%   Nikolai Golovchenko, http://golovchenko.org
 function [fit] = linearFit(data, n)
+%fit = LINEARFIT(data, n)
+%Approximates a given 2D curve with linear sections in an optimal way.
+%Credits:
+%    Andrey Rubshtein, http://stackoverflow.com/users/817452/andrey-rubshtein
+%    Nikolai Golovchenko, http://golovchenko.org
+%
+%INPUT
+%    data       2D curve given by list of points, array of shape (2,N).
+%    n          Number of segments to approximate the curve with (int).
+%
+%OUTPUT
+%    fit        List of linear sections boundary points, array of shape (2,n).
+
     x = data(1,:);
     y = data(2,:);
     %Adaptive section lengths, thanks to Andrey Rubshtein.

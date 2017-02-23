@@ -1,5 +1,9 @@
 function [r, v, last] = easyCSE(r0, v0, t, last)
-    %naive integration
+%[r, v, cser] = EASYCSE(r0, v0, time, cser)
+%Naive gravity integration, legacy code from the times where CSE had
+%issues. This works exactly the same (except 'cser' is unused).
+%See also CSEROUTINE.
+
     global mu;
     dt = 0.5;
     N = ceil(t/dt);

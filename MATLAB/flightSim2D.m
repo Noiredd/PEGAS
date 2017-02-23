@@ -1,23 +1,38 @@
-%flightSim2D.m
-%2DOF atmospheric ascent simulation. Supports pure gravity turn (lock on
-%prograde) simulation, pitch control via pitch-time table (pitch program)
-%and Powered Explicit Guidance control. Pass vehicle parameters in
-%'vehicle' struct. Pass initial conditions in 'initial' struct (see section
-%'initialize simulation' for details). Pass control parameters in 'control'
-%struct (see section 'define control type' for details). Pass simulation
-%step time in 'dt'.
-%Vehicle is modelled as a point mass with drag. Simulation is located in a
-%rotating frame of reference, so a centrifugal force appears. Vehicle is
-%assumed to only have one engine and fuel tank. RO atmosphere (pressure and
-%temperature) is modelled to calculate accurate air density. No AoA or lift
-%effects are taken into account.
-%Dependencies:
-%   approxFromCurve.m
-%   calculateAirDensity.m
-%   getMaxValue.m
-%   getOrbital.m
-%   poweredExplicitGuidance.m
 function [results] = flightSim2D(vehicle, initial, control, dt)
+%results = FLIGHTSIM2D(vehicle, initial, control, dt)
+%OBSOLETE 2DoF flight simulation. Left in repository for future purposes of
+%atmospheric ascent optimalization (2DoF is potentially faster than 3DoF).
+%Vehicle is modelled as a point mass with drag. Simulation is located in a
+%rotating frame of reference, so a centrifugal force appears. Uses OBSOLETE
+%vehicle structure (expects to receive only one stage of an array, does not
+%understand new engine struct). Atmosphere is modelled from RO data, but
+%only direct drag effects are modelled (no AoA or lift).
+%
+%REQUIRES
+%    mu         Global variable, standard gravity parameter of the body;
+%               gravity constant * mass of the body (kg).
+%    g0         Global variable, standard gravity acceleration (m/s).
+%    R          Global variable, radius of the body (m).
+%    atmpressure    Global variable, atmospheric pressure as a function of
+%               altitude; array of size (n,2), altitude (kilometres above
+%               sea level) in first column, pressure (atmospheres) in second.
+%    atmtemperature Global variable, atmospheric temperature as a function
+%               of altitude; array of size (n,2), altitude (kilometres above
+%               sea level) in first column, temperature (Kelvins) in second.
+%
+%INPUT
+%    vehicle    Single struct of the obsolete vehicle type.
+%    initial    Struct of initial conditions type.
+%    control    Struct defining method of controlling the current stage.
+%               Supports gravity turn, pitch program or PEG (type==3).
+%    dt         Simulation precision in seconds.
+%
+%OUTPUT
+%    results    Struct containing packed results of the simulation, from
+%               short summary to orbital parameters and plots.
+%               NO GUARANTEE THAT THOSE WILL BE COMPATIBLE WITH THE REST OF
+%               THE PROGRAM.
+
     %declare globals
     global mu; global g0; global R;
     global atmpressure;  global atmtemperature;

@@ -1,7 +1,22 @@
-%getOrbital.m
-%Calculates apoapsis, periapsis and eccentricity of a 2D orbit defined by
-%velocity vector and altitude (and globally defined body).
 function [Ap, Pe, Ecc] = getOrbital(vx, vy, alt)
+%[Ap, Pe, Ecc] = GETORBITAL(vx, vy, alt)
+%Calculates orbital elements of a 2D orbit. Currently unused feature.
+%
+%REQUIRES
+%    mu         Global variable, standard gravity parameter of the body;
+%               gravity constant * mass of the body (kg).
+%    R          Global variable, radius of the body (m).
+%
+%INPUT
+%    vx         Horizontal velocity (m/s).
+%    vy         Vertical velocity (m/s).
+%    alt        Altitude from Earth's center (m).
+%
+%OUTPUT
+%    Ap         Apoapsis from the body's surface (km).
+%    Pe         Periapsis from the body's surface (km).
+%    Ecc        Eccentricity
+
     global mu; global R;
     %at any given point on the ellipse: v = sqrt( mu*( 2/r-1/a ) )
     v = sqrt(vx^2 + vy^2);
