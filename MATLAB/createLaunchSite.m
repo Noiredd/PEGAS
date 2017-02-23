@@ -1,14 +1,24 @@
 function [ls] = createLaunchSite(name)
-%   createLaunchSite outputs a properly formatted struct from a given string
-%   Supported launch sites and corresponding name strings:
-%       Kennedy Space Center                KSC, Kennedy
-%       Vandenberg Air Force Base           Vandenberg
-%       Guiana Space Centre                 Kourou
-%       Baikonur Cosmodrome                 Baikonur
-%       Plesetsk Cosmodrome                 Plesetsk
-%       Uchinoura Space Center              Uchinoura
-%       RAAF Woomera Test Range             Woomera
-%       Jiuquan Satellite Launch Center     Jiuquan
+%site = CREATELAUNCHSITE(name)
+%Outputs a properly formatted init struct from a given string representing
+%a launch site name.
+%
+%INPUT
+%    name       Short name of a launch site. Supported choices:
+%                full name                           short name
+%               ------------------------------------------------
+%               Kennedy Space Center                KSC, Kennedy
+%               Vandenberg Air Force Base           Vandenberg
+%               Guiana Space Centre                 Kourou
+%               Baikonur Cosmodrome                 Baikonur
+%               Plesetsk Cosmodrome                 Plesetsk
+%               Uchinoura Space Center              Uchinoura
+%               RAAF Woomera Test Range             Woomera
+%               Jiuquan Satellite Launch Center     Jiuquan
+%
+%OUTPUT
+%    site       Init struct of type 0 containing longitude, latitude and
+%               altitude of a selected launch site.
     switch name
         case 'KSC'
             ls = struct('type', 0, 'lat', 28.52406, 'lon', -80.65085, 'alt', 0);

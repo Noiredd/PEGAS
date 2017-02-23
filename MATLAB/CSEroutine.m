@@ -1,15 +1,35 @@
 function [r, v, last] = CSEroutine(r0, v0, dt, last)
-    %Conic State Extrapolation Routine
-    %Calculates vehicle state (position & velocity) after dt seconds from
-    %current state (given by r0 and v0) in central gravity field with no
-    %other forces present.
-    %This function has been simulation-proven to give correct results!
-    %Structure 'last' is used to store previous integration results to
-    %speed up convergence and improve stability in next iterations:
-    %   dtcp        delta tc prim; previous converged value of transfer
-    %               time interval
-    %   xcp         xc prim, previous converged value of x corresponding to tc
-    %   A, D, E     Un function values
+%[r, v, cser] = CSEROUTINE(r0, v0, time, cser)
+%Implementation of Conic State Extrapolation Routine as described by
+%Shepperd and Robertson in Space Shuttle GN&C Equation Document 25.
+%Starting from the given vehicle state, extrapolates its state into the
+%future assuming only central gravity field with no other forces present.
+%This implementation has been simulation-proven to give correct results!
+%
+%REQUIRES
+%    mu         Global variable, standard gravity parameter of the body;
+%               gravity constant * mass of the body (kg).
+%
+%INPUT
+%    r0         Initial position relative to center of the Earth, XYZ
+%               vector (m).
+%    v0         Initial velocity, XYZ vector (m/s).
+%    time       Time of extrapolation - finds state so far into the future
+%               (seconds).
+%    cser       Results of previous calculation (needs to be a correct
+%               struct, can be filled with zeros if this is the first call).
+%
+%OUTPUT
+%    r          Future position (units like r0).
+%    v          Future velocity (units like v0).
+%    cser       Updated cser struct.
+
+%Reference on cser struct:
+%   dtcp        delta tc prim; previous converged value of transfer
+%               time interval
+%   xcp         xc prim, previous converged value of x corresponding to tc
+%   A, D, E     Un function values
+
     if last.dtcp==0
         dtcp = dt;
     else
@@ -44,18 +64,18 @@ function [r, v, last] = CSEroutine(r0, v0, dt, last)
     f6 = f0*sqrt(r0m);
     
     ir0 = r0/r0m;
-    v0s = f1*v0;   %v0 vector with the silly dash on top
+    v0s = f1*v0;        %v0 vector with the silly dash on top
     sigma0s = dot(ir0,v0s); %sigma0 with the silly dash
     b0 = dot(v0s,v0s)-1;
-    alphas = 1-b0;  %alpha with the silly dash
+    alphas = 1-b0;      %alpha with the silly dash
     
     %PLATE 5-3 (p25)
     xguess = f5*x;
     xlast = f5*xcp;
     xmin = 0;
-    dts = f3*dt;    %delta t with the silly dash
+    dts = f3*dt;        %delta t with the silly dash
     dtlast = f3*dtcp;   %delta tlast with the silly dash
-    dtmin = 0;      %delta tmin with the silly dash
+    dtmin = 0;          %delta tmin with the silly dash
     
     %assuming sqrt(alphas) is never smaller than epsilon alpha
     %means orbit is not parabolic (why would it be?)

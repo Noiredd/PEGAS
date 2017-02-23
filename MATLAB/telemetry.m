@@ -1,10 +1,32 @@
-%telemetry.m
-%Flight data postprocessing and plots. Can separate powered ascent and
-%coast flights. Pass target figure ID in 'fid'.
-%Able to handle legacy simulation results from flightSim2D, although the
-%downrange distance plot will only display results from first powered phase
-%and no other.
 function [] = telemetry(powered, coast, fid)
+%TELEMETRY(powered, coast, figure)
+%Plots basic flight data in 6 subplots in a given figure:
+%   pitch and yaw commands with flight path angle (orbital and surface)
+%   altitude
+%   vertical velocity
+%   acceleration
+%   downrange distance
+%   horizontal velocity
+%Has some basic support for legacy results from flightSim2D.
+%
+%REQUIRES
+%    g0         Global variable, standard gravity acceleration (m/s).
+%    R          Global variable, radius of the body (m).
+%
+%INPUT
+%    powered    Array of struct of type results, as output by flightSim3D,
+%               corresponding to powered phases.
+%    coast      Array of struct of type results, as output by flightSim3D,
+%               corresponding to coast phases.
+%               Best to just extract the respective fields from a combined
+%               results struct as output by flightManager.
+%    figure     ID of a figure in which to plot.
+%
+%OUTPUT
+%    (none)
+%
+%See also FLIGHTSIM3D, FLIGHTMANAGER.
+
     global R;
     global g0;
     %if no coast periods are to be shown, don't distinguish
@@ -82,6 +104,7 @@ function [] = telemetry(powered, coast, fid)
     ylabel('Acceleration [g]');
     hold off;
     %downrange distance - HANDLE LEGACY RESULTS (flightSim2D.m)
+    %For legacy results will only display results from first powered phase.
     subplot(2,3,5); hold on;
     if isfield(powered(1).Plots, 'rad')
         %this returns true for legacy structure
@@ -94,6 +117,9 @@ function [] = telemetry(powered, coast, fid)
             x = powered(i).Plots;
             dd = zeros(length(x.r(:,1)),1);
             for j=1:length(x.r(:,1))
+                %Calculates angular distance from launch site, then length
+                %of the arc on the surface of the Earth. Therefore this is
+                %NOT the total length of the burn arc!
                 dd(j) = dot(zero,x.r(j,:))/(1*x.rmag(j));
                 dd(j) = acosd( min(max(dd(j),-1),1) );
                 dd(j) = 2*pi*R*dd(j)/360;
