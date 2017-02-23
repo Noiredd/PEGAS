@@ -1,4 +1,15 @@
 function [error] = planeError(results, target)
+%angle = PLANEERROR(results, target)
+%Computes angle between target orbital plane and actually achieved plane.
+%
+%INPUT
+%    results    Results struct as output by flightManager (NOT flightSim3D).
+%    target     Target struct as output by launchTargeting.
+%
+%OUTPUT
+%    angle      Angle between the two orbital planes.
+%
+%See also FLIGHTMANAGER, LAUNCHTARGETING.
     inc = results.powered(results.n).Orbit.INC;
     lan = results.powered(results.n).Orbit.LAN;
     

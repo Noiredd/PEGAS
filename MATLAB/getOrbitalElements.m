@@ -1,17 +1,30 @@
-%getOrbitalElements.m
-%Given the craft's position and velocity vectors (1x3) calculates its
-%Keplerian orbital elements and returns them in order:
-%   apoapsis
-%   periapsis (bonus)
-%   semi-major axis
-%   eccentricity
-%   inclination
-%   longitude of the ascending node
-%   argument of periapsis
-%   true anomaly
+function [ap, pe, sma, ecc, inc, lan, aop, tan] = getOrbitalElements(r, v)
+%[ap, pe, sma, ecc, inc, lan, aop, tan] = GETORBITALELEMENTS(r, v)
+%Calculates complete set of Keplerian elements of a 3D orbit given by
+%position and velocity vectors. Equations taken from:
 %https://en.wikibooks.org/wiki/Astrodynamics/Classical_Orbit_Elements
 %http://space.stackexchange.com/a/1919
-function [ap, pe, sma, ecc, inc, lan, aop, tan] = getOrbitalElements(r, v)
+%
+%REQUIRES
+%    mu         Global variable, standard gravity parameter of the body;
+%               gravity constant * mass of the body (kg).
+%    R          Global variable, radius of the body (m).
+%
+%INPUT
+%    r          Position XYZ vector relative to the center of reference
+%               frame (m).
+%    v          Velocity XYZ vector (m/s).
+%
+%OUTPUT
+%    ap         Apoapsis from the body's surface (km).
+%    pe         Periapsis from the body's surface (km).
+%    sma        Semi-major axis (m).
+%    ecc        Eccentricity
+%    inc        Inclination (deg).
+%    lan        Longitude of ascending node (deg).
+%    aop        Argument of periapsis (deg).
+%    tan        True anomaly (deg).
+
     global mu; global R;
     %angular momentum
     h = cross(r, v);

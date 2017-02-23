@@ -1,4 +1,22 @@
 function [F, dm, isp] = getThrust(engines, pressure, time)
+%[F, dm, Isp] = GETTHRUST(engines, pressure, time)
+%Calculates thrust and closely related parameters for the given set of
+%engines at given pressure. Supports engines with constant thrust (eg.
+%liquid) and those with thrust profile (eg. solid rocket motors).
+%
+%REQUIRES
+%    g0         Global variable, standard gravity acceleration (m/s).
+%
+%INPUT
+%    engines    Array of struct of type engine.
+%    pressure   Atmospheric pressure (Pascals).
+%    time       Time since ignition of the engines (seconds).
+%
+%OUTPUT
+%    F          Combined thrust (Newtons).
+%    dm         Combined mass flow rate (kg/s).
+%    Isp        Combined specific impulse (seconds).
+
     global g0;
     n = length(engines);
     p = pressure;

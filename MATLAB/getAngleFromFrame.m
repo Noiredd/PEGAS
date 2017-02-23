@@ -1,8 +1,19 @@
-%getAngleFromFrame.m
-%Calculates pitch or yaw angle (depending on type) for a given vector in a
-%given reference frame (consisting of UP, NORTH, and EAST unit vectors in
-%rows of a 3x3 matrix). Returns degrees.
 function [angle] = getAngleFromFrame(vector, frame, type)
+%angle = GETANGLEFROMFRAME(vector, frame, type)
+%Calculates pitch or yaw angle of a vector in a given reference frame.
+%
+%INPUT
+%    vector     XYZ vector
+%    frame      3x3 matrix of unit basis vectors given row-wise in the
+%               following order:
+%                   local "up" (direction of zero pitch)
+%                   local "north" (direction of 90 degree yaw)
+%                   local "east" (direction of zero yaw)
+%    type       string, either 'pitch' or 'yaw'
+%
+%OUTPUT
+%   angle       requested angle in degrees
+
     vector = unit(vector);
     if strcmp(type, 'pitch')
         angle = safeAcosd(dot(vector, frame(1,:)));

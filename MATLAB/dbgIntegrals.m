@@ -1,4 +1,16 @@
 function [] = dbgIntegrals(stages, fid)
+%DBGINTEGRALS(results, figure)
+%Plots UPFG thrust integrals from up to 4 given stages.
+%
+%INPUT
+%    results    Array of struct of type results (as output by flightSim3D).
+%               Each must contain a field 'Plots' being a struct with a
+%               field 'DEBUG'.
+%    figure     ID of a figure in which to plot.
+%
+%OUTPUT
+%    (none)
+
     figure(fid), clf;
     colors = ['b', 'r', 'g', 'y'];
     
