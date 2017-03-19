@@ -214,7 +214,7 @@ vgo      | m/s    | Calculated velocity-to-go, see [upfg.md](upfg.md)
 Only `unifiedPoweredFlightGuidance` uses and returns it, but `flightSim3D` creates it for the first time.
 
 #### CSER
-Current logical state of the CSE routine, see [CSEroutine.m](CSEroutine.m).
+Current logical state of the CSE routine, see [CSEroutine.m](../MATLAB/CSEroutine.m).
 
 Field    | Unit   | Meaning
 ---      | ---    | ---

@@ -109,7 +109,7 @@ Those results can be now fed to one of three functions for display.
 `telemetry()` draws plots of simulation history in the form of a following table:
 
 pitch & yaw steering | altitude | vertical velocity
---- | --- | ---
+:---: | :---: | :---:
 **acceleration** | **downrange distance** | **horizontal velocity**
 
 `trajectory()` draws a 3D plot of the vehicle's powered trajectory.
