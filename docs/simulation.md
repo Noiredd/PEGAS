@@ -14,6 +14,8 @@ Instead, it is divided into small pieces (which will be referred to as "simulati
 By this design, each stage of a vehicle must be flown in an individual simulation, and the final condition of each of them becomes the initial condition for the subsequent.
 For this reason, each stage of a vehicle must be a complete, self-sufficient description of a vehicle.
 Additionally, a "stage" does not necessarily have to be a physical stage - shift of a control scheme (eg. from an atmosphere-optimized method to precise orbit targetting algorithm) also must be handled by staging.
+Another consequence of this setup is that guidance (control) is closely tied with the physical design of the vehicle - control algorithm changes can only be made when the vehicle stages.
+So if such a change is required during an active burn, an artificial staging event has to be created (which requires a redefinition of a vehicle itself).
 
 Another crucial difference is a physics setting, which is stripped down to the necessary bones.
 At all times, only one body is simulated: the vehicle.
@@ -258,30 +260,30 @@ LostDrag     | -        | m/s  | Velocity lost due to atmospheric drag.
 LostTotal    | -        | m/s  | Combined velocity losses.
 BurnTimeLeft | -        | s    | Fuel left in this stage's tank after cut off, measured by remaining burn time. Larger number for the same mission = better efficiency.
 Orbit        | SMA      | m    | Semi-major axis of the orbit (due to the math behind this, this and other orbital parameters will be calculated with no regard to whether the vehicle actually is in orbit or not.)
-             | ECC      | -    | Eccentricity.
-             | INC      | deg  | Inclination.
-             | LAN      | deg  | Longitude of ascending node.
-             | AOP      | deg  | Argument of periapsis.
-             | TAN      | deg  | True anomaly.
+.            | ECC      | -    | Eccentricity.
+.            | INC      | deg  | Inclination.
+.            | LAN      | deg  | Longitude of ascending node.
+.            | AOP      | deg  | Argument of periapsis.
+.            | TAN      | deg  | True anomaly.
 Plots        | t        | s    | Mission elapsed time in each simulation step, (n,1) array.
-             | r        | m    | Vehicle position in each simulation step, (n,3) array.
-             | rmag     | m    | Vehicle position magnitude (distance from origin), (n,1) array.
-             | v        | m/s  | Vehicle velocity, (n,3) array.
-             | vy       | m/s  | Vehicle vertical velocity magnitude, (n,1) array.
-             | vt       | m/s  | Vehicle tangential velocity magnitude, (n,1) array.
-             | vmag     | m/s  | Vehicle total velocity magnitude, (n,1) array.
-             | F        | N    | Vehicle thrust magnitude, (n,1) array.
-             | a        | m/s^2| Vehicle acceleration magnitude, (n,1) array.
-             | q        | Pa   | Dynamic pressure, (n,1) array.
-             | pitch    | deg  | Pitch command log, (n,1) array.
-             | yaw      | deg  | Yaw command log, (n,1) array.
-             | vair     | m/s  | Vehicle surface-relative velocity, (n,3) array.
-             | vairmag  | m/s  | Vehicle surface-relative velocity magni tude, (n,1) array.
-             | angle_ps | deg  | Surface-relative flight path angle (angle to "up").
-             | angle_ys | deg  | Surface-relative flight "yaw" (angle from "east" as measured towards "north").
-             | angle_po | deg  | Absolute (orbital) flight path angle.
-             | angle_yo | deg  | Absolute (orbital) flight "yaw" angle.
-             | DEBUG    | (struct) | Debug data from UPFG calls. Too long to document exactly.
+.            | r        | m    | Vehicle position in each simulation step, (n,3) array.
+.            | rmag     | m    | Vehicle position magnitude (distance from origin), (n,1) array.
+.            | v        | m/s  | Vehicle velocity, (n,3) array.
+.            | vy       | m/s  | Vehicle vertical velocity magnitude, (n,1) array.
+.            | vt       | m/s  | Vehicle tangential velocity magnitude, (n,1) array.
+.            | vmag     | m/s  | Vehicle total velocity magnitude, (n,1) array.
+.            | F        | N    | Vehicle thrust magnitude, (n,1) array.
+.            | a        | m/s^2| Vehicle acceleration magnitude, (n,1) array.
+.            | q        | Pa   | Dynamic pressure, (n,1) array.
+.            | pitch    | deg  | Pitch command log, (n,1) array.
+.            | yaw      | deg  | Yaw command log, (n,1) array.
+.            | vair     | m/s  | Vehicle surface-relative velocity, (n,3) array.
+.            | vairmag  | m/s  | Vehicle surface-relative velocity magni tude, (n,1) array.
+.            | angle_ps | deg  | Surface-relative flight path angle (angle to "up").
+.            | angle_ys | deg  | Surface-relative flight "yaw" (angle from "east" as measured towards "north").
+.            | angle_po | deg  | Absolute (orbital) flight path angle.
+.            | angle_yo | deg  | Absolute (orbital) flight "yaw" angle.
+.            | DEBUG    | (struct) | Debug data from UPFG calls. Too long to document exactly.
 ENG          | -        | -    | Flag informing of state of the engine at end of stage: **-1** - most likely error, **0** - engine fuel deprived, **1** - engine still running, **2** - cutoff as scheduled by UPFG, **3** - emergency cutoff (UPFG most likely went crazy).
 
 Generators:  
