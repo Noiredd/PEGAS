@@ -12,8 +12,8 @@ PEGAS includes a simulation environment to test the guidance algorithm, includin
 This section covers the framework from the concept and physics point of view.
 Potentially it is too detailed than necessary in order to run your own mission - you might not need to know how all the internal structures are laid out - however, reading *introduction*, *flow*, *physics* and *vehicle* is recommended.
 
-### Cheatsheet: run my own mission
-A very brief walkthrough on running a simulation from scratch, on an example Space Shuttle mission.
+### [Tutorial: run my own mission](tutorial.md)
+A brief walkthrough on running a simulation from scratch, on an example Space Shuttle mission.
 
 ### Example missions
 Demonstration of PEGAS capabilities and limitations.
