@@ -1,5 +1,5 @@
 function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCycle, coastLength, events)
-%results = FLIGHTMANAGER(vehicle, init, target, dt, control, upfgCycle,
+%flight = FLIGHTMANAGER(vehicle, init, target, dt, control, upfgCycle,
 %                                                     coastLengths, events)
 %Flight simulation for the entire vehicle. FlightSim3D only handles one
 %stage - flightManager consecutively calls flightSim3D for each stage,
@@ -31,7 +31,7 @@ function [flight] = flightManager(vehicle, init, target, dt, s1guidance, upfgCyc
 %               flightSim3D for details.
 %
 %OUTPUT
-%    results    Results struct, packed into a superstructure for easy
+%    flight     Results struct, packed into a superstructure for easy
 %               extraction of data and visualization. Will contain results
 %               (as returned by flightSim3D) packed into two arrays:
 %                results.powered - all consecutive powered phases

@@ -1,4 +1,5 @@
 initSimulation
+
 SpaceShuttle
 
 site = createLaunchSite('Kennedy');
