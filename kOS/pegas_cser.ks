@@ -1,3 +1,25 @@
+FUNCTION uss {
+	DECLARE PARAMETER xarg.
+	DECLARE PARAMETER a.
+	DECLARE PARAMETER kmax.
+	
+	LOCAL du1 IS xarg/4.
+	LOCAL u1 IS du1.
+	LOCAL u1old IS 0.
+	LOCAL f7 IS -a * du1^2.
+	LOCAL k IS 3.
+	
+	UNTIL NOT (k<kmax) {
+		SET du1 TO f7*du1 / (k*(k-1)).
+		SET u1old TO u1.
+		SET u1 TO u1+du1.
+		IF u1=u1old { BREAK. }
+		SET k TO k+2.
+	}
+	
+	RETURN u1.
+}.
+
 FUNCTION qcf {
 	DECLARE PARAMETER w.
 	LOCAL xq IS 0.
