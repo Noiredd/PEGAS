@@ -1,3 +1,33 @@
+FUNCTION qcf {
+	DECLARE PARAMETER w.
+	LOCAL xq IS 0.
+	
+	IF w<1 {
+		SET xq TO 21.04 - 13.04*w.
+	} ELSE IF w<4.625 {
+		SET xq TO (5/3) * (2*w+5).
+	} ELSE IF w<13.846 {
+		SET xq TO (10/7) * (w+12).
+	} ELSE IF w<44 {
+		SET xq TO 0.5 * (w+60).
+	} ELSE IF w<100 {
+		SET xq TO 0.25 * (w+164).
+	} ELSE SET xq TO 70.
+	
+	LOCAL b IS 0.
+	LOCAL y IS (w-1)/(w+1).
+	LOCAL j IS FLOOR(xq).
+	LOCAL b IS y/(1+(j-1)/(j+2)*(1-b)).
+	UNTIL NOT (j>2) {
+		SET j TO j-1.
+		SET b TO y/(1+(j-1)/(j+2)*(1-b)).
+	}
+	
+	LOCAL Q IS 1/w^2 * (1 + (2-b/2) / (3*w*(w+1))).
+	
+	RETURN Q.
+}.
+
 FUNCTION si {
 	DECLARE PARAMETER dterror.
 	DECLARE PARAMETER xguess.
@@ -7,11 +37,11 @@ FUNCTION si {
 	DECLARE PARAMETER xmax.
 	DECLARE PARAMETER dtmax.
 	
-	SET etp TO 0.000001.
-	SET dxs TO 0.
+	LOCAL etp IS 0.000001.
+	LOCAL dxs IS 0.
 	
-	SET dtminp TO dtguess - dtmin.
-	SET dtmaxp TO dtguess - dtmax.
+	LOCAL dtminp IS dtguess - dtmin.
+	LOCAL dtmaxp IS dtguess - dtmax.
 	IF (ABS(dtminp)<etp) OR (ABS(dtmaxp)<etp) {
 		SET dxs TO 0.
 	} ELSE {
