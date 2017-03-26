@@ -1,3 +1,25 @@
+FUNCTION ktti {
+	DECLARE PARAMETER xarg.
+	DECLARE PARAMETER s0s.
+	DECLARE PARAMETER a.
+	DECLARE PARAMETER kmax.
+	
+	LOCAL u1 IS uss(xarg, a, kmax).
+	
+	LOCAL zs IS 2*u1.
+	LOCAL E IS 1 - 0.5*a*zs^2.
+	LOCAL w IS SQRT( MAX(0.5+E/2, 0) ).
+	LOCAL D IS w*zs.
+	LOCAL A IS D^2.
+	LOCAL B IS 2*(E+s0s*D).
+	
+	LOCAL Q IS qcf(w).
+	
+	LOCAL t IS D*(B+A*Q).
+	
+	RETURN LIST(t, A, D, E).
+}.
+
 FUNCTION uss {
 	DECLARE PARAMETER xarg.
 	DECLARE PARAMETER a.
