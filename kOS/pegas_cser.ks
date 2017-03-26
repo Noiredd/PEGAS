@@ -72,6 +72,65 @@ FUNCTION qcf {
 	RETURN Q.
 }.
 
+FUNCTION kil {
+	DECLARE PARAMETER imax.
+	DECLARE PARAMETER dts.
+	DECLARE PARAMETER xguess.
+	DECLARE PARAMETER dtguess.
+	DECLARE PARAMETER xmin.
+	DECLARE PARAMETER dtmin.
+	DECLARE PARAMETER xmax.
+	DECLARE PARAMETER dtmax.
+	DECLARE PARAMETER s0s.
+	DECLARE PARAMETER a_.
+	DECLARE PARAMETER kmax.
+	DECLARE PARAMETER A.
+	DECLARE PARAMETER D.
+	DECLARE PARAMETER E.
+	
+	LOCAL etp IS 0.000001.
+	LOCAL i IS 1.
+	LOCAL dterror IS 0.
+	LOCAL dxs IS 0.
+	LOCAL xold IS 0.
+	LOCAL dtold IS 0.
+	
+	UNTIL NOT (i<imax) {
+		SET dterror TO dts-dtguess.
+		
+		IF ABS(dterror)<etp {
+			BREAK.
+		}
+		
+		LOCAL pack IS si(dterror, xguess, dtguess, xmin, dtmin, xmax, dtmax).
+		SET dxs TO pack[0].
+		SET xmin TO pack[1].
+		SET dtmin TO pack[2].
+		SET xmax TO pack[3].
+		SET dtmax TO pack[4].
+		pack:CLEAR().
+		
+		SET xold TO xguess.
+		SET xguess TO xguess+dxs.
+		
+		IF xguess=xold { BREAK. }
+		
+		SET dtold TO dtguess.
+		
+		SET pack TO ktti(xguess, s0s, a_, kmax).
+		SET dtguess TO pack[0].
+		SET A TO pack[1].
+		SET D TO pack[2].
+		SET E TO pack[3].
+		
+		IF dtguess=dtold { BREAK. }
+		
+		SET i TO i+1.
+	}
+	
+	RETURN LIST(xguess, dtguess, A, D, E).
+}.
+
 FUNCTION si {
 	DECLARE PARAMETER dterror.
 	DECLARE PARAMETER xguess.
