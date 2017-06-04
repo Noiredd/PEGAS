@@ -1,4 +1,4 @@
-SET g0 TO 9.8067.
+//	Unified Powered Flight Guidance
 
 FUNCTION upfg {
 	DECLARE PARAMETER vehicle.
@@ -22,7 +22,7 @@ FUNCTION upfg {
 	LOCAL vprev IS previous["v"].
 	LOCAL vgo IS previous["vgo"].
 
-	//1
+	//	1
 	LOCAL n IS vehicle:LENGTH.
 	LOCAL SM IS LIST().
 	LOCAL aL IS LIST().
@@ -36,7 +36,7 @@ FUNCTION upfg {
 	FROM { LOCAL i IS 0. } UNTIL i>=n STEP { SET i TO i+1. } DO {
 		SM:ADD(vehicle[i]["mode"]).
 		aL:ADD(vehicle[i]["gLim"]*g0).
-		LOCAL pack IS getThrust(vehicle[i]["engines"], 0).
+		LOCAL pack IS getThrust(vehicle[i]["engines"]).
 		fT:ADD(pack[0]).
 		md:ADD(pack[1]).
 		ve:ADD(pack[2]*g0).
@@ -45,13 +45,13 @@ FUNCTION upfg {
 		tb:ADD(vehicle[i]["maxT"]).
 	}
 	
-	//2
+	//	2
 	LOCAL dt IS t-tp.
 	LOCAL dvsensed IS v-vprev.
 	LOCAL vgo IS vgo-dvsensed.
 	SET tb[0] TO tb[0] - previous["tb"].
 	
-	//3
+	//	3
 	IF SM[0]=1 {
 		SET aT[0] TO fT[0] / m.
 	} ELSE IF SM[0]=2 {
@@ -91,7 +91,7 @@ FUNCTION upfg {
 	LOCAL L1 IS Li[0].
 	LOCAL tgo IS tgoi[n-1].
 	
-	//4
+	//	4
 	SET L TO 0.
 	LOCAL J IS 0.
 	LOCAL S IS 0.
@@ -133,7 +133,7 @@ FUNCTION upfg {
 		SET H TO J*tgoi[i] - Q.
 	}
 	
-	//5
+	//	5
 	LOCAL lambda IS vgo:NORMALIZED.
 	IF previous["tgo"]>0 {
 		SET rgrav TO (tgo/previous["tgo"])^2 * rgrav.
@@ -156,8 +156,8 @@ FUNCTION upfg {
 	SET vbias TO vgo - vthrust.
 	SET rbias TO rgo - rthrust.
 	
-	//6
-	//TODO: angle rates
+	//	6
+	//	TODO: angle rates
 	LOCAL _up IS r:NORMALIZED.
 	LOCAL _east IS VCRS(V(0,0,1),_up):NORMALIZED.
 	LOCAL pitch IS VANG(iF_,_up).
@@ -168,7 +168,7 @@ FUNCTION upfg {
 		SET yaw TO -yaw.
 	}
 	
-	//7
+	//	7
 	LOCAL rc1 IS r - 0.1*rthrust - (tgo/30)*vthrust.
 	LOCAL vc1 IS v + 1.2*rthrust/tgo - 0.1*vthrust.
 	LOCAL pack IS cse(rc1, vc1, tgo, cser).
@@ -176,13 +176,13 @@ FUNCTION upfg {
 	SET rgrav TO pack[0] - rc1 - vc1*tgo.
 	LOCAL vgrav IS pack[1] - vc1.
 	
-	//8
+	//	8
 	LOCAL rp IS r + v*tgo + rgrav + rthrust.
 	SET rp TO rp - VDOT(rp,iy)*iy.
 	LOCAL rd IS rdval*rp:NORMALIZED.
 	SET ix TO rd:NORMALIZED.
 	SET iz TO VCRS(ix,iy).
-	//emulate matrix-vector multiplication
+	//	emulate matrix-vector multiplication
 	LOCAL vv1 IS V(ix:X, iy:X, iZ:X).
 	LOCAL vv2 IS V(ix:Y, iy:Y, iZ:Y).
 	LOCAL vv3 IS V(ix:Z, iy:Z, iZ:Z).
@@ -190,38 +190,37 @@ FUNCTION upfg {
 	LOCAL vd IS V(VDOT(vv1,vop), VDOT(vv2,vop), VDOT(vv3,vop))*vdval.
 	SET vgo TO vd - v - vgrav + vbias.
 	
-	//RETURN
-	SET previous["cser"] TO cser.
-	SET previous["rbias"] TO rbias.
-	SET previous["rd"] TO rd.
-	SET previous["rgrav"] TO rgrav.
-	SET previous["tb"] TO previous["tb"] + dt.
-	SET previous["time"] TO t.
-	SET previous["tgo"] TO tgo.
-	SET previous["v"] TO v.
-	SET previous["vgo"] TO vgo.
-	
+	//	RETURN - build new internal state instead of overwriting the old one
+	LOCAL current IS LEXICON(
+		"cser", cser,
+		"rbias", rbias,
+		"rd", rd,
+		"rgrav", rgrav,
+		"tb", previous["tb"] + dt,
+		"time", t,
+		"tgo", tgo,
+		"v", v,
+		"vgo", vgo
+	).
 	LOCAL guidance IS LEXICON(
+		"vector", iF_,
 		"pitch", pitch,
 		"yaw", yaw,
 		"pitchdot", 0,
 		"yawdot", 0,
 		"tgo", tgo
 	).
-	
-	RETURN LIST(previous, guidance).
+	RETURN LIST(current, guidance, dt).
 }.
 
 FUNCTION getThrust {
 	DECLARE PARAMETER engines.
-	DECLARE PARAMETER pressure.
 	
 	LOCAL n IS engines:LENGTH.
-	LOCAL p IS pressure.
 	LOCAL F IS 0.
 	LOCAL dm IS 0.
 	FROM { LOCAL i IS 0. } UNTIL i>=n STEP { SET i TO i+1. } DO {
-		LOCAL isp IS (engines[i]["isp1"]-engines[i]["isp0"]) * p + engines[i]["isp0"].
+		LOCAL isp IS engines[i]["isp"].
 		LOCAL dm_ IS engines[i]["flow"].
 		SET dm TO dm + dm_.
 		SET F TO F + isp*dm_*g0.

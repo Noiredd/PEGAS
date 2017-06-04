@@ -1,6 +1,6 @@
-GLOBAL mu IS SHIP:BODY:MU.	//	TODO: move to global initialization script
+//	Conic State Extrapolation
 
-FUNCTION cse{
+FUNCTION cse {
 	//	LOCAL FUNCTIONS
 	//	Bundled here because of kOS's peculiar scoping rules.
 	FUNCTION ktti {
@@ -170,10 +170,9 @@ FUNCTION cse{
 	}.
 	//END OF LOCAL FUNCTIONS
 	
-	//	Conic State Extrapolation
 	DECLARE PARAMETER r0.	//	Expects a vector
 	DECLARE PARAMETER v0.	//	Expects a vector
-	DECLARE PARAMETER dt.
+	DECLARE PARAMETER dt.	//	Expects a scalar
 	DECLARE PARAMETER last.	//	Expects a lexicon with fields: dtcp, xcp, A, D, E
 	
 	LOCAL dtcp IS 0.
@@ -201,7 +200,7 @@ FUNCTION cse{
 	LOCAL n IS 0.
 	LOCAL r0m IS r0:MAG.
 	
-	LOCAL f1 IS f0*SQRT(r0m/mu).
+	LOCAL f1 IS f0*SQRT(r0m/SHIP:ORBIT:BODY:MU).
 	LOCAL f2 IS 1/f1.
 	LOCAL f3 IS f2/r0m.
 	LOCAL f4 IS f1*r0m.
