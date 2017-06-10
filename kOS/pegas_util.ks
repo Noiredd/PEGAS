@@ -39,6 +39,9 @@ FUNCTION targetSetup {
 		mission:ADD("altitude", mission["periapsis"]).
 	}
 	
+	//	Fix LAN to between 0-360 degrees
+	IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
+	
 	//	Override plane definition if a map target was selected
 	IF HASTARGET {
 		SET mission["inclination"] TO TARGET:ORBIT:INCLINATION.
@@ -92,7 +95,7 @@ FUNCTION launchAzimuth {
 	LOCAL targetAlt IS upfgTarget["radius"].
 	LOCAL targetVel IS upfgTarget["velocity"].
 	LOCAL siteLat IS SHIP:GEOPOSITION:LAT.
-	IF targetInc < siteLat { PRINT "Target inclination below launch site latitude!". }
+	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site latitude!" ). }
 	
 	LOCAL Binertial IS ARCSIN( COS(targetInc)/COS(siteLat) ).
 	//LOCAL Vorbit IS SQRT( SHIP:ORBIT:BODY:MU/(SHIP:BODY:RADIUS+targetAlt*1000) ).		//	This is a normal calculation for a circular orbit
@@ -300,7 +303,7 @@ FUNCTION systemEventHandler {
 	}
 	
 	//	Handle event
-	PRINT systemEvents[systemEventPointer]["message"].//todo:use gui here
+	pushUIMessage( systemEvents[systemEventPointer]["message"], 3 ).
 	
 	//	Reset event flag
 	SET systemEventFlag TO FALSE.
@@ -335,8 +338,8 @@ FUNCTION userEventHandler {
 	LOCAL eType IS sequence[userEventPointer]["type"].
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
-	ELSE { PRINT "Unknown event type (" + eType + ")!". }
-	PRINT sequence[userEventPointer]["message"].//todo:use gui here
+	ELSE { pushUIMessage( "Unknown event type (" + eType + ")!" ). }
+	pushUIMessage( sequence[userEventPointer]["message"] ).
 	
 	//	Reset event flag
 	SET userEventFlag TO FALSE.
@@ -403,9 +406,9 @@ FUNCTION stageEventHandler {
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN { STAGE. }
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
-		} ELSE { PRINT "Unknown event type (" + event["ullage"] + ")!". }
+		} ELSE { pushUIMessage( "Unknown event type (" + event["ullage"] + ")!" ). }
 	}
-	PRINT event["message"].//todo:use gui here
+	pushUIMessage( event["message"] ).
 	
 	//	Reset event flag
 	SET stageEventFlag TO FALSE.
@@ -429,7 +432,7 @@ FUNCTION convergenceHandler {
 	LOCAL vectorDifference IS (previousIF-upfgResults["vector"]):MAG.
 	IF upfgConverged = FALSE AND vectorDifference<0.01 {
 		SET upfgConverged TO TRUE.
-		PRINT "converged".	//	TODO: gui message
+		pushUIMessage( "UPFG has converged!" ).
 	}
 	SET previousIF TO upfgResults["vector"].
 }.
@@ -437,15 +440,21 @@ FUNCTION convergenceHandler {
 //	Throttle controller
 FUNCTION throttleControl {
 	//	Expects global variables "vehicle" as list and "upfgStage" as scalar.
-
+	//	Also expects a global variable "throttleSetting" as scalar but creates it on its first run.
+	
+	IF NOT (DEFINED throttleSetting) {
+		GLOBAL throttleSetting IS 0.
+		LOCK THROTTLE TO throttleSetting.
+	}
+	
 	LOCAL thisStage IS MAX(upfgStage, 0).	//	At first, when loop 2 has only just kicked in, upfgStage is at -1.
 	IF vehicle[thisStage]["mode"] = 1 {
-		LOCK THROTTLE TO vehicle[thisStage]["throttle"].
+		SET throttleSetting TO vehicle[thisStage]["throttle"].
 	}
 	ELSE IF vehicle[thisStage]["mode"] = 2 {
 		LOCAL currentThrust_ IS getThrust(vehicle[thisStage]["engines"]).	//	requires pegas_upfg
 		LOCAL currentThrust IS currentThrust_[0].
-		LOCK THROTTLE TO vehicle[thisStage]["throttle"]*(SHIP:MASS*1000*vehicle[thisStage]["gLim"]*g0) / (currentThrust).	//	Lock to as much of a statement as possible
+		SET throttleSetting TO vehicle[thisStage]["throttle"]*(SHIP:MASS*1000*vehicle[thisStage]["gLim"]*g0) / (currentThrust).
 	}
-	ELSE { PRINT "There's something seriously wrong with this stage (mode=" + vehicle[thisStage]["mode"] + ")!". }.
+	ELSE { pushUIMessage( "throttleControl stage error (stage=" + thisStage + ", mode=" + vehicle[thisStage]["mode"] + ")!" ). }.
 }.
