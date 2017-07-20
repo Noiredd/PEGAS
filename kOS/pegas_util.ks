@@ -228,70 +228,103 @@ FUNCTION setUserEvents {
 	userEventHandler().
 }.
 
-//	Setup vehicle: UPFG info struct and default throttle
-//	* sets up MODE for each stage (required for UPFG)
-//	* calculates engine fuel mass flow if thrust value was given instead
-//	* adjusts maxT/engine flow for given throttle OR sets up default throttle to 1.0
-//	* creates a new virtual stage for acceleration-limited mode
-//	* initializes the UPFG staging sequence
+//	Setup vehicle: transform user input to UPFG-compatible struct
 FUNCTION setVehicle {
-	//	Expects a global variable "vehicle" as list of lexicons and "controls" as lexicon
+	//	Calculates missing mass inputs (user gives any 2 of 3: total, dry, fuel mass)
+	//	Adds payload mass to the mass of each stage
+	//	Sets up defaults: acceleration limit (none, 0.0), throttle (1.0), and UPFG MODE
+	//	Calculates engine fuel mass flow (if thrust value was given instead) and adjusts for given throttle
+	//	Calculates max stage burn time
 	
-	FROM { LOCAL i IS 0. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
-		//	Throttle setup
-		IF NOT vehicle[i]:HASKEY("throttle") {
-			//	Add entry for consistency
-			vehicle[i]:ADD("throttle", 1.0).
+	//	Expects a global variable "vehicle" as list of lexicons and "controls" and "mission" as lexicon.
+
+	LOCAL i IS 0.
+	FOR v IN vehicle {
+		//	Mass calculations
+		IF v:HASKEY("massTotal") AND v:HASKEY("massDry")		{ v:ADD("massFuel",  v["massTotal"]-v["massDry"]).	}
+		ELSE IF v:HASKEY("massTotal") AND v:HASKEY("massFuel")	{ v:ADD("massDry",   v["massTotal"]-v["massFuel"]).	}
+		ELSE IF v:HASKEY("massFuel") AND v:HASKEY("massDry")	{ v:ADD("massTotal", v["massFuel"] +v["massDry"]).	}
+		ELSE { PRINT "Vehicle is ill-defined: missing mass keys in stage " + i. }
+		IF mission:HASKEY("payload") {
+			SET v["massTotal"] TO v["massTotal"] + mission["payload"].
+			SET v["massDry"] TO v["massDry"] + mission["payload"].
 		}
-		ELSE {
-			//	Adjust max burn time and engine flow rate; calculate mass flow if necessary
-			SET vehicle[i]["maxT"] TO vehicle[i]["maxT"] / vehicle[i]["throttle"].
-			FOR e IN vehicle[i]["engines"] {
-				IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*g0)). }
-				SET e["flow"] TO e["flow"] * vehicle[i]["throttle"].
-			}
+		//	Default fields: gLim, throttle, m0, mode
+		IF NOT v:HASKEY("gLim")		{ v:ADD("gLim", 0). }
+		IF NOT v:HASKEY("throttle")	{ v:ADD("throttle", 1). }
+		v:ADD("m0", v["massTotal"]).
+		v:ADD("mode", 1).
+		//	Engine update
+		FOR e IN v["engines"] {
+			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*g0) * v["throttle"]). }
 		}
-		//	Mode setup
-		vehicle[i]:ADD("mode", 1).
-		//	Acceleration limit setup
-		IF vehicle[i]:HASKEY("gLim") {
-			IF vehicle[i]["gLim"]>0 {	// due to KSP's lazy condition checking this should not throw errors
-				//	Calculate when will the acceleration limit be exceeded
-				LOCAL fdmisp IS getThrust(vehicle[i]["engines"]).	//	needs pegas_upfg
-				LOCAL Fthrust IS fdmisp[0].
-				LOCAL massFlow IS fdmisp[1].
-				LOCAL totalIsp IS fdmisp[2].
-				LOCAL accLimTime IS (vehicle[i]["m0"] - Fthrust/vehicle[i]["gLim"]/g0) / massFlow.
-				//	If this time is greater than the stage's max burn time - we're good. Otherwise, the limit must be enforced
-				IF accLimTime < vehicle[i]["maxT"] {
-					//	Create a new stage
-					LOCAL gLimStage IS LEXICON("mode", 2, "gLim", vehicle[i]["gLim"], "engines", vehicle[i]["engines"]).
-					//	Inherit default throttle from the original stage
-					gLimStage:ADD("throttle", vehicle[i]["throttle"]).
-					//	Supply it with a staging information
-					gLimStage:ADD("staging", LEXICON("message", "Constant acceleration mode", "jettison", FALSE, "ignition", FALSE)).
-					//	Calculate its initial mass
-					LOCAL burnedFuelMass IS massFlow * accLimTime.
-					gLimStage:ADD("m0", vehicle[i]["m0"] - burnedFuelMass).
-					//	Calculate its burn time assuming constant acceleration
-					LOCAL totalStageFuel IS massFlow * vehicle[i]["maxT"].
-					LOCAL remainingFuel IS totalStageFuel - burnedFuelMass.
-					gLimStage:ADD("maxT", totalIsp/vehicle[i]["gLim"] * LN( gLimStage["m0"]/(gLimStage["m0"]-remainingFuel) )).
-					//	Insert it into the list and increment i so that we don't process it next
-					vehicle:INSERT(i+1, gLimStage).
-					//	Adjust the current stage's burn time
-					SET vehicle[i]["maxT"] TO accLimTime.
-					SET vehicle[i]["gLim"] TO 0.
-					SET i TO i+1.
-				}
-			}
-		}
-		ELSE { vehicle[i]:ADD("gLim", 0). }	//	UPFG requires this field
+		//	Calculate max burn time
+		LOCAL combinedEngines IS getThrust(v["engines"]).
+		v:ADD("maxT", v["massFuel"] / combinedEngines[1]).
+		//	Increment loop counter
+		SET i TO i+1.
 	}
-	stageEventHandler(TRUE).	//	Schedule ignition of the first UPFG-controlled stage.
-	
-	IF NOT controls:HASKEY("initialThrottle") { controls:ADD("initialThrottle", 1.0). }
 }.
+
+//	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
+//	initializes the automatic staging sequence.
+FUNCTION initializeVehicle {
+	//	The first actively guided stage can be a whole new stage (think: Saturn V, S-II), or a sustainer stage that continues
+	//	a burn started at liftoff (Atlas V, STS). In the former case, all information is known at liftoff and no updates are
+	//	necessary. For the latter, the amount of fuel remaining in the tank is only known at the moment of ignition of the
+	//	stage (due to uncertainty in engine spool-up at ignition, and potentially changing time of activation of UPFG). Thus,
+	//	the stage - and potentially also its derived const-acc stage - can only be initialized in flight. And this is what the
+	//	following function is supposed to do.
+
+	//	Expects a global variable "vehicle" as list of lexicons, "upfgConvergenceDelay" as scalar
+	
+	LOCAL currentTime IS TIME:SECONDS.
+	LOCAL currentMass IS SHIP:MASS*1000.
+	//	If a stage has a staging sequence defined, this means it is a Saturn-like stage which needs no update. Otherwise,
+	//	it is a sustainer stage and only its initial (and, hence, dry) mass is known. Actual mass needs to be calculated.
+	IF NOT vehicle[0]["staging"]["ignition"] {
+		LOCAL combinedEngines IS getThrust(vehicle[0]["engines"]).
+		//	This function is expected to run "upfgConvergenceDelay" before actual activation of the stage, hence the mass decrease.
+		SET vehicle[0]["massTotal"] TO currentMass - combinedEngines[1]*upfgConvergenceDelay.
+		SET vehicle[0]["massFuel"]  TO vehicle[0]["massTotal"] - vehicle[0]["massDry"].
+		SET vehicle[0]["m0"] TO vehicle[0]["massTotal"].
+		SET vehicle[0]["maxT"] TO vehicle[0]["massFuel"] / combinedEngines[1].
+	}
+	//	Acceleration limits are handled in the following loop
+	FROM { LOCAL i IS 0. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
+		IF vehicle[i]["gLim"]>0 {
+			//	Calculate when will the acceleration limit be exceeded
+			LOCAL fdmisp IS getThrust(vehicle[i]["engines"]).
+			LOCAL Fthrust IS fdmisp[0].
+			LOCAL massFlow IS fdmisp[1].
+			LOCAL totalIsp IS fdmisp[2].
+			LOCAL accLimTime IS (vehicle[i]["m0"] - Fthrust/vehicle[i]["gLim"]/g0) / massFlow.
+			//	If this time is greater than the stage's max burn time - we're good. Otherwise, the limit must be enforced
+			IF accLimTime < vehicle[i]["maxT"] {
+				//	Create a new stage
+				LOCAL gLimStage IS LEXICON("mode", 2, "name", "Constant acceleration", "gLim", vehicle[i]["gLim"], "engines", vehicle[i]["engines"]).
+				//	Inherit default throttle from the original stage
+				gLimStage:ADD("throttle", vehicle[i]["throttle"]).
+				//	Supply it with a staging information
+				gLimStage:ADD("staging", LEXICON("jettison", FALSE, "ignition", FALSE)).
+				//	Calculate its initial mass
+				LOCAL burnedFuelMass IS massFlow * accLimTime.
+				gLimStage:ADD("m0", vehicle[i]["m0"] - burnedFuelMass).
+				//	Calculate its burn time assuming constant acceleration
+				LOCAL totalStageFuel IS massFlow * vehicle[i]["maxT"].
+				LOCAL remainingFuel IS vehicle[i]["massFuel"] - burnedFuelMass.
+				gLimStage:ADD("maxT", totalIsp/vehicle[i]["gLim"] * LN( gLimStage["m0"]/(gLimStage["m0"]-remainingFuel) )).
+				//	Insert it into the list and increment i so that we don't process it next
+				vehicle:INSERT(i+1, gLimStage).
+				//	Adjust the current stage's burn time
+				SET vehicle[i]["maxT"] TO accLimTime.
+				SET vehicle[i]["gLim"] TO 0.
+				SET i TO i+1.
+			}
+		}
+	}
+	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
+}
 
 //	Executes a system event. Currently only supports message printing.
 FUNCTION systemEventHandler {
