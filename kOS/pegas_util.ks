@@ -196,18 +196,17 @@ FUNCTION setSystemEvents {
 		RETURN LEXICON("time", timeAfterLiftoff, "type", "dummy", "message", eventMessage, "data", LIST()).
 	}.
 	
-	//	Expects a global variable "liftoffTime" as scalar
+	//	Expects a global variable "liftoffTime" as scalar and "systemEvents" as list
 	LOCAL timeToLaunch IS liftoffTime:SECONDS - TIME:SECONDS.
 	
 	//	Prepare events table
-	GLOBAL systemEvents IS LIST().
 	IF timeToLaunch > 18000 { systemEvents:ADD(makeEvent(-18000,"5 hours to launch")). }
 	IF timeToLaunch > 3600  { systemEvents:ADD(makeEvent(-3600,"1 hour to launch")). }
 	IF timeToLaunch > 1800  { systemEvents:ADD(makeEvent(-1800,"30 minutes to launch")). }
 	IF timeToLaunch > 600   { systemEvents:ADD(makeEvent(-600,"10 minutes to launch")). }
 	IF timeToLaunch > 300   { systemEvents:ADD(makeEvent(-300,"5 minutes to launch")). }
 	IF timeToLaunch > 60    { systemEvents:ADD(makeEvent(-60,"1 minute to launch")). }
-	systemEvents:ADD(makeEvent(-30,"30 seconds to launch")).
+	IF timeToLaunch > 30	{ systemEvents:ADD(makeEvent(-30,"30 seconds to launch")). }
 	systemEvents:ADD(makeEvent(-10,"10 SECONDS TO LAUNCH")).
 	systemEvents:ADD(makeEvent(-9,"9 SECONDS TO LAUNCH")).
 	systemEvents:ADD(makeEvent(-8,"8 SECONDS TO LAUNCH")).
@@ -220,17 +219,13 @@ FUNCTION setSystemEvents {
 	systemEvents:ADD(makeEvent(-1,"1 SECONDS TO LAUNCH")).
 	
 	//	Initialize the first event
-	systemEventHandler(TRUE).
+	systemEventHandler().
 }.
 
 //	Setup user events (vehicle sequence)
 FUNCTION setUserEvents {
-	//	Set up UPFG stage flags
-	GLOBAL upfgStage IS 0.
-	GLOBAL upfgConverged IS FALSE.
-	
-	//	Call handler to do the setup
-	userEventHandler(TRUE).
+	//	Just a wrapper to a handler which automatically does the setup on its first run.
+	userEventHandler().
 }.
 
 //	Setup vehicle: UPFG info struct and default throttle
@@ -308,14 +303,9 @@ FUNCTION systemEventHandler {
 		}
 	}.
 	
-	//	Expects global variables "liftoffTime" as scalar, "systemEvents" as list and "systemEventFlag" as bool.
-	//	Additionally expects a global variable "systemEventPointer" as scalar but creates it during the first run.
-	DECLARE PARAMETER firstRun IS FALSE.	//	Only run with "TRUE" from setup
-	
-	//	First call initializes and exits
-	IF firstRun {
-		GLOBAL systemEventPointer IS -1.	//	We need that at zero but setNextEvent increments this automatically
-		GLOBAL systemEventFlag IS FALSE.
+	//	Expects global variables "liftoffTime" as TimeSpan, "systemEvents" as list, "systemEventFlag" as bool and "systemEventPointer" as scalar.
+	//	First call initializes and exits without messaging
+	IF systemEventPointer = -1 {	//	This var is initialized at -1, so meeting this condition is only possible on first run.
 		setNextEvent().
 		RETURN.
 	}
@@ -332,7 +322,7 @@ FUNCTION systemEventHandler {
 
 //	Executes a user (sequence) event.
 FUNCTION userEventHandler {
-	//	Structure is very similar to systemEventHandler
+	//	Mechanism is very similar to systemEventHandler
 	FUNCTION setNextEvent {
 		SET userEventPointer TO userEventPointer + 1.
 		IF userEventPointer < sequence:LENGTH {
@@ -340,14 +330,9 @@ FUNCTION userEventHandler {
 		}
 	}.
 	
-	//	Expects global variables "liftoffTime" as scalar, "sequence" as list and "userEventFlag" as bool.
-	//	Additionally expects a global variable "userEventPointer" as scalar but creates it during the first run.
-	DECLARE PARAMETER firstRun IS FALSE.	//	Only run with "TRUE" from setup
-	
-	//	First call initializes and exits
-	IF firstRun {
-		GLOBAL userEventPointer IS -1.		//	We need that at zero but setNextEvent increments this automatically
-		GLOBAL userEventFlag IS FALSE.
+	//	Expects global variables "liftoffTime" as scalar, "sequence" as list, "userEventFlag" as bool and "userEventPointer" as scalar.
+	//	First call initializes and exits without doing anything
+	IF userEventPointer = -1 {
 		setNextEvent().
 		RETURN.
 	}
@@ -356,6 +341,7 @@ FUNCTION userEventHandler {
 	LOCAL eType IS sequence[userEventPointer]["type"].
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
+	ELSE IF eType = "throttle" OR eType = "t" { SET throttleSetting TO sequence[userEventPointer]["throttle"]. }
 	ELSE { pushUIMessage( "Unknown event type (" + eType + ")!" ). }
 	pushUIMessage( sequence[userEventPointer]["message"] ).
 	
