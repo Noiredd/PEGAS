@@ -577,22 +577,23 @@ FUNCTION upfgSteeringControl {
 
 //	Throttle controller
 FUNCTION throttleControl {
-	//	Expects global variables "vehicle" as list and "upfgStage" as scalar.
-	//	Also expects a global variable "throttleSetting" as scalar but creates it on its first run.
+	//	Expects global variables "vehicle" as list, "upfgStage" as scalar, "throttleSetting" as scalar and "stagingInProgress" as bool.
 	
-	IF NOT (DEFINED throttleSetting) {
-		GLOBAL throttleSetting IS 0.
-		LOCK THROTTLE TO throttleSetting.
+	//	If we're guiding a stage nominally, it's simple. But if the stage is about to change into the next one,
+	//	value of "upfgStage" is already incremented. In this case we shouldn't use the next stage values (this
+	//	would ruin constant-acceleration stages).
+	LOCAL whichStage IS upfgStage.
+	IF stagingInProgress {
+		SET whichStage TO upfgStage - 1.
 	}
 	
-	LOCAL thisStage IS MAX(upfgStage, 0).	//	At first, when loop 2 has only just kicked in, upfgStage is at -1.
-	IF vehicle[thisStage]["mode"] = 1 {
-		SET throttleSetting TO vehicle[thisStage]["throttle"].
+	IF vehicle[whichStage]["mode"] = 1 {
+		SET throttleSetting TO vehicle[whichStage]["throttle"].
 	}
-	ELSE IF vehicle[thisStage]["mode"] = 2 {
-		LOCAL currentThrust_ IS getThrust(vehicle[thisStage]["engines"]).	//	requires pegas_upfg
+	ELSE IF vehicle[whichStage]["mode"] = 2 {
+		LOCAL currentThrust_ IS getThrust(vehicle[whichStage]["engines"]).
 		LOCAL currentThrust IS currentThrust_[0].
-		SET throttleSetting TO vehicle[thisStage]["throttle"]*(SHIP:MASS*1000*vehicle[thisStage]["gLim"]*g0) / (currentThrust).
+		SET throttleSetting TO vehicle[whichStage]["throttle"]*(SHIP:MASS*1000*vehicle[whichStage]["gLim"]*g0) / (currentThrust).
 	}
 	ELSE { pushUIMessage( "throttleControl stage error (stage=" + thisStage + ", mode=" + vehicle[thisStage]["mode"] + ")!" ). }.
 }.
