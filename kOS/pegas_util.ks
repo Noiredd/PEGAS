@@ -19,7 +19,7 @@ FUNCTION rodrigues {
 
 //	KSP-MATLAB-KSP vector conversion
 FUNCTION vecYZ {
-	DECLARE PARAMETER input.	//	input vector
+	DECLARE PARAMETER input.	//	Expects a vector
 	LOCAL output IS V(input:X, input:Z, input:Y).
 	RETURN output.
 }.
@@ -59,6 +59,7 @@ FUNCTION targetSetup {
 	
 	//	Fix LAN to between 0-360 degrees
 	IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
+	IF mission["LAN"] > 360 { SET mission["LAN"] TO mission["LAN"] - 360. }
 	
 	//	Override plane definition if a map target was selected
 	IF HASTARGET {
@@ -130,7 +131,7 @@ FUNCTION launchAzimuth {
 
 //	Creates and initializes UPFG internal struct
 FUNCTION setupUPFG {
-	//	Expects global variables "mission", "upfgState" and upfgTarget as lexicons
+	//	Expects global variables "mission", "upfgState" and "upfgTarget" as lexicons.
 
 	LOCAL curR IS upfgState["radius"].
 	LOCAL curV IS upfgState["velocity"].
@@ -139,11 +140,6 @@ FUNCTION setupUPFG {
 	LOCAL desR IS rodrigues(curR, -upfgTarget["normal"], 20):NORMALIZED * upfgTarget["radius"].
 	LOCAL tgoV IS upfgTarget["velocity"] * VCRS(-upfgTarget["normal"], desR):NORMALIZED - curV.
 
-	//vecdraw(v(0,0,0),vecyz(curR):normalized,rgb(1,0,0),"R",10.0,true,0.1).
-	//vecdraw(v(0,0,0),vecyz(desR):normalized,rgb(1,1,0),"dR",10.0,true,0.1).
-	//vecdraw(v(0,0,0),VCRS(-upfgTarget["normal"], desR):NORMALIZED,rgb(1,0,1),"dV",10.0,true,0.1).
-	//vecdraw(v(0,0,0),vecyz(tgoV):normalized,rgb(0,1,1),"Vgo",10.0,true,0.1).
-	//vecdraw(v(0,0,0),vecyz(upfgTarget["normal"]:normalized),rgb(1,1,1),"iy",10.0,true,0.1).
 	RETURN LEXICON(
 		"cser", LEXICON("dtcp",0, "xcp",0, "A",0, "D",0, "E",0),
 		"rbias", V(0, 0, 0),
@@ -476,7 +472,7 @@ FUNCTION stageEventHandler {
 	setNextEvent(currentTime, eventDelay).
 }.
 
-//	OTHER TECHNICAL FUNCTIONS
+//	THROTTLE AND STEERING CONTROLS
 
 //	Interface between stageEventHandler and upfgSteeringControl.
 FUNCTION upfgStagingNotify {
