@@ -2,6 +2,9 @@
 
 //	Initialize messaging system
 GLOBAL uiMessage IS LEXICON("content", "", "time", TIME, "received", FALSE, "printed", FALSE).	//	Currently some of it is unused
+//	Set screen dimensions
+SET TERMINAL:WIDTH TO 43.
+SET TERMINAL:HEIGHT TO 26 + 14.	//	Few more lines for debugging
 
 FUNCTION createUI {
 	CLEARSCREEN.
@@ -9,13 +12,14 @@ FUNCTION createUI {
 	PRINT "| PEGAS                          v1.0beta |".
 	PRINT "| Powered Explicit Guidance Ascent System |".
 	PRINT "|-----------------------------------------|".
-	PRINT "|                                         |".
-	PRINT "|-----------------------------------------|".
 	PRINT "| T   h  m  s |                           |".
 	PRINT "|-----------------------------------------|".
+	PRINT "|                                         |".
+	PRINT "|-----------------------------------------|".
+	PRINT "| Stage:                          (    s) |".
 	PRINT "| UPFG status  =                          |".
 	PRINT "| Throttle     =      %    Tgo =      s   |".
-	PRINT "| Acceleration =      m/s  Vgo =      m/s |".
+	PRINT "| Acceleration =      m/s2 Vgo =      m/s |".
 	PRINT "|-----------------------------------------|".
 	PRINT "|               Current       Target      |".
 	PRINT "| Altitude    |        km   |        km   |".
@@ -30,7 +34,7 @@ FUNCTION createUI {
 	PRINT "|                                         |".
 	PRINT "*-----------------------------------------*".
 	
-	textPrint(SHIP:NAME, 4, 2, 41, "L").
+	textPrint(SHIP:NAME, 6, 2, 41, "L").
 	refreshUI().
 }.
 
@@ -82,50 +86,76 @@ FUNCTION numberPrint {
 FUNCTION timePrint {
 	//	Expects a global variable "liftoffTime" as timespan.
 	
-	LOCAL deltaT IS TIME.
+	LOCAL currentTime IS TIME.
+	LOCAL deltaT IS currentTime.
 	LOCAL sign IS "".
-	IF liftoffTime<TIME {
+	IF liftoffTime<currentTime {
 		SET sign TO "+".
-		SET deltaT TO TIME - liftoffTime.
+		SET deltaT TO currentTime - liftoffTime.
 	} ELSE {
 		SET sign TO "-".
-		SET deltaT TO liftoffTime - TIME.
+		SET deltaT TO liftoffTime - currentTime.
 	}
 	
-	textPrint(sign, 6, 3, 4, "L").
-	numberPrint(deltaT:HOUR, 6, 4, 6, 0).
-	numberPrint(deltaT:MINUTE, 6, 7, 9, 0).
-	numberPrint(deltaT:SECOND, 6, 10, 12, 0).
-	textPrint(TIME:CALENDAR+",", 6, 15, 32, "R").
-	textPrint(TIME:CLOCK, 6, 33, 41, "R").
+	textPrint(sign, 4, 3, 4, "L").
+	numberPrint(deltaT:HOUR, 4, 4, 6, 0).
+	numberPrint(deltaT:MINUTE, 4, 7, 9, 0).
+	numberPrint(deltaT:SECOND, 4, 10, 12, 0).
+	textPrint(currentTime:CALENDAR+",", 4, 15, 32, "R").
+	textPrint(currentTime:CLOCK, 4, 33, 41, "R").
+	
+	RETURN currentTime.
 }.
 
 //	Just fill in the blanks, do not redraw the whole GUI.
 FUNCTION refreshUI {
-	//	Expects global variables "liftoffTime" as timespan, "controls", "mission", and "upfgTarget" as lexicon 
-	//	Optionally also global variables "throttleSetting" as scalar, "upfgInternal" as lexicon and "upfgConverged" as bool.
-	timePrint().
+	//	Expects global variables "liftoffTime" as timespan, "throttleSetting" as scalar, "controls", "mission", "upfgTarget" and "upfgInternal" as lexicon and "upfgConverged" as bool.
+
+	LOCAL currentTime IS timePrint().
+	
+	//	Section offsets, for easier extendability
+	LOCAL vehicleInfoOffset IS 8.	//	Reads: vehicle info section starts at row 8
+	LOCAL orbitalInfoOffset IS 14.
+	LOCAL currentOrbitOffset IS 15.	//	Horizontal offset for the current orbit info
+	LOCAL targetOrbitOffset IS 29.	//	Horizontal offset for the target orbit info
+	LOCAL messageBoxOffset IS 23.
 	
 	//	First figure out what phase of the flight are we in: passively or actively guided.
 	IF NOT (DEFINED upfgInternal) {
 		//	Don't try to access any UPFG-related variables
-		textPrint("INACTIVE", 8, 17, 41).
-		textPrint("N/A", 9, 33, 37, "R").
-		textPrint("N/A", 10, 33, 37, "R").
+		textPrint("INACTIVE", vehicleInfoOffset + 1, 17, 41).
+		textPrint("N/A", vehicleInfoOffset + 2, 33, 37, "R").
+		textPrint("N/A", vehicleInfoOffset + 3, 33, 37, "R").
 		//	In passive flight, assuming we're low in the atmosphere, print ground speed.
-		numberPrint(SHIP:VELOCITY:SURFACE:MAG, 14, 15, 22).
+		numberPrint(SHIP:VELOCITY:SURFACE:MAG, orbitalInfoOffset + 1, currentOrbitOffset, 22).
+		//	Print time until activation of UPFG (only if we're flying at all)
+		IF TIME:SECONDS > liftoffTime:SECONDS {
+			numberPrint(liftoffTime:SECONDS + controls["upfgActivation"] - upfgConvergenceDelay - currentTime:SECONDS, vehicleInfoOffset, 35, 39, 0).
+		}
 	} ELSE {
 		//	Print convergence flag
-		IF upfgConverged {
-			textPrint("CONVERGED", 8, 17, 41).
+		IF stagingInProgress {
+			textPrint("STAGING", vehicleInfoOffset + 1, 17, 41).
 		} ELSE {
-			textPrint("converging...", 8, 17, 41).
-		}.
-		numberPrint(upfgInternal["tgo"], 9, 33, 37, 0).
-		numberPrint(upfgInternal["vgo"]:MAG, 10, 33, 37, 0).
+			IF upfgConverged {
+				textPrint("CONVERGED", vehicleInfoOffset + 1, 17, 41).
+				numberPrint(upfgInternal["tgo"], vehicleInfoOffset + 2, 33, 37, 0).
+				numberPrint(upfgInternal["vgo"]:MAG, vehicleInfoOffset + 3, 33, 37, 0).
+			} ELSE {
+				textPrint("converging...", vehicleInfoOffset + 1, 17, 41).
+			}
+		}
 		//	In active flight we're going to orbit
-		numberPrint(SHIP:VELOCITY:ORBIT:MAG, 14, 15, 22).
-	}.
+		numberPrint(SHIP:VELOCITY:ORBIT:MAG, orbitalInfoOffset + 1, currentOrbitOffset, 22).
+		//	Print name of the current stage and time till next (just not during staging, this would be confusing)
+		IF NOT stagingInProgress {
+			textPrint(vehicle[upfgStage]["name"], vehicleInfoOffset, 9, 33 ).
+			LOCAL timeToNextStage IS 0.
+			IF upfgStage < vehicle:LENGTH - 1 { SET timeToNextStage TO nextStageTime - currentTime:SECONDS. }	//	Time from now to next staging, if we still have any stages to fly
+			ELSE { SET timeToNextStage TO nextStageTime + vehicle[upfgStage]["maxT"] - currentTime:SECONDS. }	//	Time from now to (time of activation of the current stage + length of that stage) if this is the last one
+			numberPrint(timeToNextStage, vehicleInfoOffset, 35, 39, 0).
+		} ELSE { textPrint("", vehicleInfoOffset, 9, 33). }
+	}
 	
 	//	Print physical information
 	//	Read throttle depending on phase (in UPFG flight we have "throttleSetting" global var,
@@ -134,30 +164,30 @@ FUNCTION refreshUI {
 	IF DEFINED throttleSetting { SET throttle_ TO throttleSetting. }
 	ELSE { SET throttle_ TO controls["initialThrottle"]. }
 	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
-	numberPrint(100*throttle_, 9, 17, 21, 0).
-	numberPrint(currentAcc, 10, 17, 21).
+	numberPrint(100*throttle_, vehicleInfoOffset + 2, 17, 21, 0).
+	numberPrint(currentAcc, vehicleInfoOffset + 3, 17, 21).
 	
 	//	Print current vehicle state
-	numberPrint(SHIP:ALTITUDE/1000, 13, 15, 22).		//	Convert to km
-	numberPrint(SHIP:VERTICALSPEED, 15, 15, 22).
-	numberPrint(SHIP:ORBIT:PERIAPSIS/1000, 16, 15, 22).	//	Convert to km
-	numberPrint(SHIP:ORBIT:APOAPSIS/1000, 17, 15, 22).	//	Convert to km
-	numberPrint(SHIP:ORBIT:INCLINATION, 18, 15, 22, 2).
-	numberPrint(SHIP:ORBIT:LAN, 19, 15, 22, 2).
+	numberPrint(SHIP:ALTITUDE/1000,			orbitalInfoOffset + 0, currentOrbitOffset, currentOrbitOffset + 7).
+	numberPrint(SHIP:VERTICALSPEED,			orbitalInfoOffset + 2, currentOrbitOffset, currentOrbitOffset + 7).
+	numberPrint(SHIP:ORBIT:PERIAPSIS/1000,	orbitalInfoOffset + 3, currentOrbitOffset, currentOrbitOffset + 7).
+	numberPrint(SHIP:ORBIT:APOAPSIS/1000,	orbitalInfoOffset + 4, currentOrbitOffset, currentOrbitOffset + 7).
+	numberPrint(SHIP:ORBIT:INCLINATION,		orbitalInfoOffset + 5, currentOrbitOffset, currentOrbitOffset + 7, 2).
+	numberPrint(SHIP:ORBIT:LAN,				orbitalInfoOffset + 6, currentOrbitOffset, currentOrbitOffset + 7, 2).
 	
 	//	Print target state
-	numberPrint(mission["altitude"], 13, 29, 36).
-	numberPrint(upfgTarget["velocity"], 14, 29, 36).
-	numberPrint(upfgTarget["velocity"]*SIN(upfgTarget["angle"]), 15, 29, 36).
-	numberPrint(mission["periapsis"], 16, 29, 36).
-	numberPrint(mission["apoapsis"], 17, 29, 36).
-	numberPrint(mission["inclination"], 18, 29, 36, 2).
-	numberPrint(mission["LAN"], 19, 29, 36, 2).
+	numberPrint(mission["altitude"],		orbitalInfoOffset + 0, targetOrbitOffset, targetOrbitOffset + 7).
+	numberPrint(upfgTarget["velocity"],		orbitalInfoOffset + 1, targetOrbitOffset, targetOrbitOffset + 7).
+	numberPrint(upfgTarget["velocity"]*SIN(upfgTarget["angle"]), orbitalInfoOffset + 2, targetOrbitOffset, targetOrbitOffset + 7).
+	numberPrint(mission["periapsis"],		orbitalInfoOffset + 3, targetOrbitOffset, targetOrbitOffset + 7).
+	numberPrint(mission["apoapsis"],		orbitalInfoOffset + 4, targetOrbitOffset, targetOrbitOffset + 7).
+	numberPrint(mission["inclination"],		orbitalInfoOffset + 5, targetOrbitOffset, targetOrbitOffset + 7, 2).
+	numberPrint(mission["LAN"],				orbitalInfoOffset + 6, targetOrbitOffset, targetOrbitOffset + 7, 2).
 	
 	//	Calculate and print angle between orbits
 	LOCAL currentOrbitNormal IS targetNormal(SHIP:ORBIT:INCLINATION, SHIP:ORBIT:LAN).
 	LOCAL relativeAngle IS VANG(currentOrbitNormal, upfgTarget["normal"]).
-	numberPrint(relativeAngle, 20, 24, 29, 2).
+	numberPrint(relativeAngle, orbitalInfoOffset + 7, 24, 29, 2).
 	
 	//	Handle messages
 	IF uiMessage["printed"] {
