@@ -456,23 +456,102 @@ FUNCTION stageEventHandler {
 
 //	OTHER TECHNICAL FUNCTIONS
 
-//	Decides whether UPFG has converged basing on variations in guidance vector
-FUNCTION convergenceHandler {
-	DECLARE PARAMETER upfgResults.	//	Expects a lexicon
+//	Interface between stageEventHandler and upfgSteeringControl.
+FUNCTION upfgStagingNotify {
+	//	Allows stageEventHandler to let upfgSteeringControl know that staging had occured.
+	//	Easier to modify this function in case more information needs to be passed rather
+	//	than stageEventHandler itself.
 	
-	//	Expects a global variables "upfgConverged" as bool and a global variable "previousIF" as vector which it creates if undefined.
-	
-	IF NOT (DEFINED previousIF) {
-		GLOBAL previousIF IS V(1,0,0).
+	//	Expects global variables "upfgConverged" and "usc_stagingNoticed" as bool.
+	SET upfgConverged TO FALSE.
+	SET usc_stagingNoticed TO FALSE.
+}
+
+//	Intelligent wrapper around UPFG that controls steering vector.
+FUNCTION upfgSteeringControl {
+	//	This function is essentially oblivious to which stage it is guiding (see "stageEventHandler" for more info).
+	//	However, it pays attention to UPFG convergence and proceeding staging, ensuring that the vehicle will not
+	//	rotate during separation nor will it rotate to an oscillating, unconverged solution.
+	FUNCTION resetUPFG {
+		//	Reset internal state of the guidance algorithm. Put here as a precaution from early debugging days,
+		//	should not be ever called in normal operation (but if it gets called, it's likely to fix UPFG going
+		//	crazy).
+		//	Important thing to do is to remember fuel burned in the stage before resetting (or set it to zero if
+		//	we're in a pre-convergence phase).
+		LOCAL tb IS 0.
+		IF NOT stagingInProgress { SET tb TO upfgOutput[0]["tb"]. }
+		SET upfgOutput[0] TO setupUPFG().
+		SET upfgOutput[0]["tb"] TO tb.
+		SET usc_convergeFlags TO LIST().
+		SET usc_lastGoodVector TO V(1,0,0).
+		SET upfgConverged TO FALSE.
+		pushUIMessage( "UPFG reset", 5, PRIORITY_CRITICAL ).
 	}
 	
-	LOCAL vectorDifference IS (previousIF-upfgResults["vector"]):MAG.
-	IF upfgConverged = FALSE AND vectorDifference<0.01 {
+	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector and 
+	//	"upfgConvergenceCriterion" and "upfgGoodSolutionCriterion" as scalars.
+	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and 
+	//	"usc_lastIterationTime" as scalar.
+	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
+	DECLARE PARAMETER upfgStage.	//	Expects a scalar
+	DECLARE PARAMETER upfgTarget.	//	Expects a lexicon
+	DECLARE PARAMETER upfgState.	//	Expects a lexicon
+	DECLARE PARAMETER upfgInternal.	//	Expects a lexicon
+	
+	//	First run marked by undefined globals
+	IF NOT (DEFINED usc_lastGoodVector) {
+		GLOBAL usc_lastGoodVector IS V(1,0,0).
+		GLOBAL usc_convergeFlags IS LIST().
+		GLOBAL usc_stagingNoticed IS FALSE.
+		GLOBAL usc_lastIterationTime IS upfgState["time"].
+	}
+	
+	//	Run UPFG
+	LOCAL currentIterationTime IS upfgState["time"].
+	LOCAL lastTgo IS upfgInternal["tgo"].
+	LOCAL currentVehicle IS vehicle:SUBLIST(upfgStage,vehicle:LENGTH-upfgStage).
+	LOCAL upfgOutput IS upfg(currentVehicle, upfgTarget, upfgState, upfgInternal).
+	
+	//	Convergence check. The rule is that time-to-go as calculated between iterations
+	//	should not change significantly more than the time difference between those iterations.
+	//	Uses upfgState as timestamp, for equal grounds for comparison.
+	//	Requires (a hardcoded) number of consecutive good values before calling it a convergence.
+	LOCAL iterationDeltaTime IS currentIterationTime - usc_lastIterationTime.
+	IF stagingInProgress {
+		//	If the stage hasn't yet been activated, then we're doing a pre-flight convergence.
+		//	That means that time effectively doesn't pass for the algorithm - so neither the
+		//	iteration takes any time, nor any fuel (measured with remaining time of burn) is
+		//	deducted from the stage.
+		SET iterationDeltaTime TO 0.
+		SET upfgOutput[0]["tb"] TO 0.
+	}
+	SET usc_lastIterationTime TO currentIterationTime.
+	LOCAL expectedTgo IS lastTgo - iterationDeltaTime.
+	SET lastTgo TO upfgOutput[1]["tgo"].
+	IF ABS(expectedTgo-upfgOutput[1]["tgo"]) < upfgConvergenceCriterion {
+		IF usc_lastGoodVector <> V(1,0,0) {
+			IF VANG(upfgOutput[1]["vector"], usc_lastGoodVector) < upfgGoodSolutionCriterion {
+				usc_convergeFlags:ADD(TRUE).
+			} ELSE {
+				if not staginginprogress {//todo://
+				resetUPFG(). }
+			}
+		} ELSE {
+			usc_convergeFlags:ADD(TRUE).
+		}
+	} ELSE { SET usc_convergeFlags TO LIST(). }
+	//	If we have enough number of consecutive good results - we're converged.
+	IF usc_convergeFlags:LENGTH = 2 {
 		SET upfgConverged TO TRUE.
-		pushUIMessage( "UPFG has converged!" ).
+		SET usc_convergeFlags TO LIST(TRUE, TRUE).
 	}
-	SET previousIF TO upfgResults["vector"].
-}.
+	//	Check if we can steer
+	IF upfgConverged AND NOT stagingInProgress {
+		SET steeringVector TO vecYZ(upfgOutput[1]["vector"]).
+		SET usc_lastGoodVector TO upfgOutput[1]["vector"].
+	}
+	RETURN upfgOutput[0].
+}
 
 //	Throttle controller
 FUNCTION throttleControl {
