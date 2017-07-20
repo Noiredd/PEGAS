@@ -212,20 +212,3 @@ FUNCTION upfg {
 	).
 	RETURN LIST(current, guidance, dt).
 }.
-
-FUNCTION getThrust {
-	DECLARE PARAMETER engines.
-	
-	LOCAL n IS engines:LENGTH.
-	LOCAL F IS 0.
-	LOCAL dm IS 0.
-	FROM { LOCAL i IS 0. } UNTIL i>=n STEP { SET i TO i+1. } DO {
-		LOCAL isp IS engines[i]["isp"].
-		LOCAL dm_ IS engines[i]["flow"].
-		SET dm TO dm + dm_.
-		SET F TO F + isp*dm_*g0.
-	}
-	SET isp TO F/(dm*g0).
-	
-	RETURN LIST(F, dm, isp).
-}.
