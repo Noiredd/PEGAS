@@ -1,7 +1,17 @@
 //	Miscellaneous, user interface related functions.
 
 //	Initialize messaging system
-GLOBAL uiMessage IS LEXICON("content", "", "time", TIME, "received", FALSE, "printed", FALSE).	//	Currently some of it is unused
+GLOBAL uiMessage IS LEXICON("content", "",
+							"timeToLive", 0,
+							"priority", 0,
+							"deadline", TIME:SECONDS,
+							"received", FALSE,
+							"printed", FALSE).
+//	Initializing "enum" type priorities for messaging system
+GLOBAL PRIORITY_LOW IS 0.
+GLOBAL PRIORITY_NORMAL IS 1.	//	Default priority
+GLOBAL PRIORITY_HIGH IS 2.
+GLOBAL PRIORITY_CRITICAL IS 3.
 //	Set screen dimensions
 SET TERMINAL:WIDTH TO 43.
 SET TERMINAL:HEIGHT TO 26 + 14.	//	Few more lines for debugging
@@ -190,23 +200,46 @@ FUNCTION refreshUI {
 	numberPrint(relativeAngle, orbitalInfoOffset + 7, 24, 29, 2).
 	
 	//	Handle messages
-	IF uiMessage["printed"] {
-		IF TIME:SECONDS >= uiMessage["time"] {
-			textPrint("", 22, 2, 41).
-			SET uiMessage["printed"] TO FALSE.
+	IF uiMessage["received"] {
+		//	If we have any message
+		IF NOT uiMessage["printed"] {
+			//	If it hasn't been yet printed - do so and set the deadline message
+			textPrint(uiMessage["content"], messageBoxOffset, 2, 41).
+			SET uiMessage["deadline"] TO currentTime:SECONDS + uiMessage["timeToLive"].
+			SET uiMessage["printed"] TO TRUE.
+		} ELSE {
+			//	If it has already been printed - just check if it should be erased
+			IF currentTime:SECONDS >= uiMessage["deadline"] {
+				textPrint("", messageBoxOffset, 2, 41).
+				SET uiMessage["printed"] TO FALSE.
+				SET uiMessage["received"] TO FALSE.
+			}
 		}
 	}
 }.
 
 //	Message printing interface
 FUNCTION pushUIMessage {
-	DECLARE PARAMETER message.	//	Expects a string.
-	DECLARE PARAMETER ttl IS 5.	//	Message time-to-live (scalar).
+	//	Only passes messages into the system. refreshUI does the actual printing.
+	//	If there is a message pending or printed already, an incoming one will be only
+	//	accepted (thus overwriting the old one) if it is at least the same priority.
+	DECLARE PARAMETER message.		//	Expects a string.
+	DECLARE PARAMETER ttl IS 5.		//	Message time-to-live (scalar).
+	DECLARE PARAMETER priority IS PRIORITY_NORMAL.
 	
-	//	Currently the simplest mechanism of overwriting the past message.
-	//	TODO: consider a priority-based or queue system.
-	textPrint(message, 22, 2, 41).
-	//	Set timeout to clear the message
-	SET uiMessage["time"] TO TIME:SECONDS + ttl.
-	SET uiMessage["printed"] TO TRUE.
+	//	If we already have a message - only accept the new one if it's important enough
+	IF uiMessage["received"] {
+		IF priority >= uiMessage["priority"] {
+			SET uiMessage["content"] TO message.
+			SET uiMessage["timeToLive"] TO ttl.
+			SET uiMessage["priority"] TO priority.
+			SET uiMessage["printed"] TO FALSE.
+		}
+	} ELSE {
+		//	Otherwise just a normal message passing
+		SET uiMessage["content"] TO message.
+		SET uiMessage["timeToLive"] TO ttl.
+		SET uiMessage["priority"] TO priority.
+		SET uiMessage["received"] TO TRUE.
+	}
 }

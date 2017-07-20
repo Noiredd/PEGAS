@@ -113,7 +113,7 @@ FUNCTION launchAzimuth {
 	LOCAL targetAlt IS upfgTarget["radius"].
 	LOCAL targetVel IS upfgTarget["velocity"].
 	LOCAL siteLat IS SHIP:GEOPOSITION:LAT.
-	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site latitude!" ). }
+	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site latitude!", 5, PRIORITY_HIGH ). }
 	
 	LOCAL Binertial IS ARCSIN( COS(targetInc)/COS(siteLat) ).
 	//LOCAL Vorbit IS SQRT( SHIP:ORBIT:BODY:MU/(SHIP:BODY:RADIUS+targetAlt*1000) ).		//	This is a normal calculation for a circular orbit
@@ -344,7 +344,7 @@ FUNCTION systemEventHandler {
 	}
 	
 	//	Handle event
-	pushUIMessage( systemEvents[systemEventPointer]["message"], 3 ).
+	pushUIMessage( systemEvents[systemEventPointer]["message"], 3, PRIORITY_LOW ).
 	
 	//	Reset event flag
 	SET systemEventFlag TO FALSE.
@@ -375,7 +375,7 @@ FUNCTION userEventHandler {
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
 	ELSE IF eType = "throttle" OR eType = "t" { SET throttleSetting TO sequence[userEventPointer]["throttle"]. }
-	ELSE { pushUIMessage( "Unknown event type (" + eType + ")!" ). }
+	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + sequence[userEventPointer]["message"] + "')!", 5, PRIORITY_HIGH ). }
 	pushUIMessage( sequence[userEventPointer]["message"] ).
 	
 	//	Reset event flag
@@ -462,7 +462,7 @@ FUNCTION stageEventHandler {
 															SET stagingInProgress TO FALSE.
 															pushUIMessage(stageName + " - ignition"). }
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
-		} ELSE { pushUIMessage( "Unknown event type (" + event["ullage"] + ")!" ). }
+		} ELSE { pushUIMessage( "Unknown event type (" + event["ullage"] + ")!", 5, PRIORITY_HIGH ). }
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
 		SET stagingInProgress TO FALSE.
@@ -595,5 +595,5 @@ FUNCTION throttleControl {
 		LOCAL currentThrust IS currentThrust_[0].
 		SET throttleSetting TO vehicle[whichStage]["throttle"]*(SHIP:MASS*1000*vehicle[whichStage]["gLim"]*g0) / (currentThrust).
 	}
-	ELSE { pushUIMessage( "throttleControl stage error (stage=" + thisStage + ", mode=" + vehicle[thisStage]["mode"] + ")!" ). }.
+	ELSE { pushUIMessage( "throttleControl stage error (stage=" + upfgStage + "(" + whichStage + "), mode=" + vehicle[whichStage]["mode"] + ")!", 5, PRIORITY_CRITICAL ). }.
 }.
