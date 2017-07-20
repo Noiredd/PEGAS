@@ -127,6 +127,73 @@ FUNCTION launchAzimuth {
 	RETURN 90-azimuth.	//	In MATLAB an azimuth of 0 is due east, while in KSP it's due north. This returned value is steering-ready.
 }.
 
+//	Verifies parameters of the attained orbit
+FUNCTION missionValidation {
+	FUNCTION difference {
+		DECLARE PARAMETER input.		//	Expects scalar
+		DECLARE PARAMETER reference.	//	Expects scalar
+		DECLARE PARAMETER threshold.	//	Expects scalar
+		
+		IF ABS(input-reference)<threshold { RETURN TRUE. } ELSE { RETURN FALSE. }
+	}
+	FUNCTION errorMessage {
+		DECLARE PARAMETER input.		//	Expects scalar
+		DECLARE PARAMETER reference.	//	Expects scalar
+		RETURN "" + ROUND(input,1) + " vs " + reference + " (" + ROUND((input-reference)/reference,1) + "%)".
+	}
+	//	Expects global variable "mission" as lexicon.
+	
+	//	Some local variables for tracking mission success/partial success/failure
+	LOCAL success IS TRUE.
+	LOCAL failure IS FALSE.
+	LOCAL apsisSuccessThreshold IS 10000.
+	LOCAL apsisFailureThreshold IS 50000.
+	LOCAL angleSuccessThreshold IS 0.1.
+	LOCAL angleFailureThreshold IS 1.
+	
+	//	Check every condition
+	IF NOT difference(SHIP:ORBIT:PERIAPSIS, mission["periapsis"]*1000, apsisSuccessThreshold) {
+		SET success TO FALSE.
+		IF NOT difference(SHIP:ORBIT:PERIAPSIS, mission["periapsis"]*1000, apsisFailureThreshold) {
+			SET failure TO TRUE.
+		}
+		PRINT "Periapsis:   " + errorMessage(SHIP:ORBIT:PERIAPSIS, mission["periapsis"]*1000).
+	}
+	IF NOT difference(SHIP:ORBIT:APOAPSIS, mission["apoapsis"]*1000, apsisSuccessThreshold) {
+		SET success TO FALSE.
+		IF NOT difference(SHIP:ORBIT:APOAPSIS, mission["apoapsis"]*1000, apsisFailureThreshold) {
+			SET failure TO TRUE.
+		}
+		PRINT "Apoapsis:    " + errorMessage(SHIP:ORBIT:APOAPSIS, mission["apoapsis"]*1000).
+	}
+	IF NOT difference(SHIP:ORBIT:INCLINATION, mission["inclination"], angleSuccessThreshold) {
+		SET success TO FALSE.
+		IF NOT difference(SHIP:ORBIT:INCLINATION, mission["inclination"], angleFailureThreshold) {
+			SET failure TO TRUE.
+		}
+		PRINT "Inclination: " + errorMessage(SHIP:ORBIT:INCLINATION, mission["inclination"]).
+	}
+	IF NOT difference(SHIP:ORBIT:LAN, mission["LAN"], angleSuccessThreshold) {
+		SET success TO FALSE.
+		IF NOT difference(SHIP:ORBIT:LAN, mission["LAN"], angleFailureThreshold) {
+			SET failure TO TRUE.
+		}
+		PRINT "Long. of AN: " + errorMessage(SHIP:ORBIT:LAN, mission["LAN"]).
+	}
+	
+	//	If at least one condition is not a success - we only have a partial. If at least one condition
+	//	is a failure - we have a failure.
+	IF failure {
+		pushUIMessage( "Mission failure!", PRIORITY_HIGH ).
+	} ELSE {
+		IF NOT success {
+			pushUIMessage( "Partial success.", PRIORITY_HIGH ).
+		} ELSE {
+			pushUIMessage( "Mission successful!", PRIORITY_HIGH ).
+		}
+	}
+}
+
 //	UPFG HANDLING FUNCTIONS
 
 //	Creates and initializes UPFG internal struct
