@@ -139,7 +139,13 @@ FUNCTION missionValidation {
 	FUNCTION errorMessage {
 		DECLARE PARAMETER input.		//	Expects scalar
 		DECLARE PARAMETER reference.	//	Expects scalar
-		RETURN "" + ROUND(input,1) + " vs " + reference + " (" + ROUND((input-reference)/reference,1) + "%)".
+		//	Apoapse/periapse will be rounded to no decimal places, angles rounded to 2.
+		LOCAL smartRounding IS 0.
+		LOCAL inputAsString IS "" + ROUND(input,0).
+		IF inputAsString:LENGTH <= 3 {
+			SET smartRounding TO 2.
+		}
+		RETURN "" + ROUND(input,smartRounding) + " vs " + ROUND(reference,smartRounding) + " (" + ROUND(100*(input-reference)/reference,1) + "%)".
 	}
 	//	Expects global variable "mission" as lexicon.
 	
