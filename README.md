@@ -1,19 +1,33 @@
 ## PEGAS
-*Powered Explicit Guidance Ascent System* is an autopilot for Kerbal Space Program made and ran in [kOS](http://forum.kerbalspaceprogram.com/index.php?/topic/61827-122-kos-scriptable-autopilot-system-v103-20161207/), designed to control launch vehicles under a modified version of the game running [Realism Overhaul](http://forum.kerbalspaceprogram.com/threads/99966). Its unique feature is an implementation of a real-word rocket guidance algorithm: previously [Powered Explicit Guidance](http://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19660006073.pdf), more recently [Unified Powered Flight Guidance](https://ntrs.nasa.gov/search.jsp?R=19740004402) - as used in the **Space Shuttle** GN&C computer.
+*Powered Explicit Guidance Ascent System*, from here referred to as *PEGAS*, is an ascent autopilot for Kerbal Space Program made and ran in [kOS](http://forum.kerbalspaceprogram.com/index.php?/topic/61827-122-kos-scriptable-autopilot-system-v103-20161207/), designed to control launch vehicles under a modified version of the game running [Realism Overhaul](http://forum.kerbalspaceprogram.com/index.php?/topic/155700-113-realism-overhaul).
+Its unique feature is an implementation of a real-word rocket guidance algorithm: Unified Powered Flight Guidance, as used in the **Space Shuttle** GN&C computer for the standard ascent flight mode.
+Short list of what PEGAS is capable of:
+ * estimation of a launch window,
+ * calculation of a launch azimuth,
+ * simple atmospheric ascent by pitching over and holding prograde with zero angle of attack,
+ * automatic guidance to orbits defined by:
+  * apoapse
+  * periapse
+  * inclination
+  * longitude of ascending node
+  * or, alternatively, selecting an existing target,
+ * executing of timed events (engine ignition, payload fairing jettison etc.),
+ * automatic staging with ullage handling.
 
-Right now PEGAS is undergoing a major rework: previously it implemented an old version of PEG, which (among its many limitations) only supported launching to circular orbits with no control over plane - constant azimuth was assumed throughout the mission. Now a full implementation of UPFG (in standard ascent mode) is being coded - this will allow it to target orbits not only of a given shape (apoapsis + periapsis), but also in a given plane (inclination + longitude of ascending node).
+More info on my KSP [forum thread](http://forum.kerbalspaceprogram.com/index.php?/topic/142213-pegas-powered-explicit-guidance-ascent-system-devlog/), also see my [prototype repository](https://github.com/Noiredd/PEGAS-MATLAB).
 
-### Recent advances
-**IMPORTANT**: PEGAS repository has been split into two: [PEGAS-MATLAB](https://github.com/Noiredd/PEGAS-MATLAB) contains the prototype written in MATLAB, with all its bells, whistles and sophistication. This repository ([PEGAS](https://github.com/Noiredd/PEGAS)) *will contain* kOS code, ready-to-use for your launches.
+### How to use - see [tutorial](tutorial.md) and [reference](reference.md)
+1. Dowload files from this repository's [kOS folder](kOS) and place them in your `Script` folder.
+2. Define your vehicle and mission.
+3. Once on the launch pad, load the definitions from pt. 2. and type `run pegas.` in kOS terminal.
 
-PEGAS now uses a very general guidance algorithm, the Unified Powered Flight Guidance. Brief list of most important features includes:
-* targetting orbits with periapsis/apoapsis and **plane** constraints (inclination + longitude of ascending node),
-* support for multistage vehicles with constant-thrust and acceleration-limited modes,
-* simple atmospheric stage guidance in a "pitch over and hold prograde" mode,
-* automatically estimated launch window basing on launch site position and target orbit,
-* no complicated pre-flight analysis needed - as long as the vehicle has enough power, missing the window slightly will not affect insertion precision.
+### Disclaimer
+This is a first public release of PEGAS.
+Due to sheer amount of work on prototyping and coding it, and the range of potential problems with launch vehicles, I have been unable to test it with many rockets.
+Therefore, I cannot guarantee that it will handle *any* vehicle or that it is entirely bug-free.
+Likely, it will take you several tries before you get your rocket flying - and maybe you will find yourself unable to do that at all.
+I am willing to provide support, correct bugs and (to some extent) introduce new functionalities to PEGAS.
+In case of problems: read the [how to submit issues](docs/issues.md) page and then visit the issue tracker.
 
-### Preview
-You can see the old version of PEGAS in my youtube video below. This will be soon replaced by a new thing, once it's ready.
-
-<a href="https://youtu.be/0LGAizO-6K4" target="_blank"><img src="http://img.youtube.com/vi/0LGAizO-6K4/0.jpg" width="240" height="180" border="10" /></a>
+### Demo
+<a href="https://youtu.be/NEQD7AQoLXk" target="_blank"><img src="http://img.youtube.com/vi/NEQD7AQoLXk/0.jpg" width="240" height="180" border="10" /></a>
