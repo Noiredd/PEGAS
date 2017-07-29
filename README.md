@@ -16,7 +16,7 @@ Short list of what PEGAS is capable of:
 
 More info on my KSP [forum thread](http://forum.kerbalspaceprogram.com/index.php?/topic/142213-pegas-powered-explicit-guidance-ascent-system-devlog/), also see my [prototype repository](https://github.com/Noiredd/PEGAS-MATLAB).
 
-### How to use - see [tutorial](tutorial.md) and [reference](reference.md)
+### How to use - see [tutorial](docs/tutorial.md) and [reference](docs/reference.md)
 1. Dowload files from this repository's [kOS folder](kOS) and place them in your `Script` folder.
 2. Define your vehicle and mission.
 3. Once on the launch pad, load the definitions from pt. 2. and type `run pegas.` in kOS terminal.
