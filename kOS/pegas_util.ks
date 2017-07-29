@@ -57,15 +57,15 @@ FUNCTION targetSetup {
 		mission:ADD("altitude", mission["periapsis"]).
 	}
 	
-	//	Fix LAN to between 0-360 degrees
-	IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
-	IF mission["LAN"] > 360 { SET mission["LAN"] TO mission["LAN"] - 360. }
-	
 	//	Override plane definition if a map target was selected
 	IF HASTARGET {
 		SET mission["inclination"] TO TARGET:ORBIT:INCLINATION.
 		SET mission["LAN"] TO TARGET:ORBIT:LAN.
 	}
+	
+	//	Fix LAN to between 0-360 degrees
+	IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
+	IF mission["LAN"] > 360 { SET mission["LAN"] TO mission["LAN"] - 360. }
 	
 	//	Calculate velocity and flight path angle at given criterion using vis-viva equation and conservation of specific relative angular momentum
 	LOCAL pe IS mission["periapsis"]*1000 + SHIP:BODY:RADIUS.
@@ -92,7 +92,10 @@ FUNCTION orbitInterceptTime {
 	LOCAL targetLan IS mission["lan"].
 	
 	//	First find the ascending node of an orbit of the given inclination, passing right over the vehicle now.
-	LOCAL b IS ARCSIN(TAN(90-targetInc)*(TAN(SHIP:GEOPOSITION:LAT))).			//	From Napier's spherical triangle mnemonics
+	LOCAL b IS TAN(90-targetInc)*(TAN(SHIP:GEOPOSITION:LAT)).	//	From Napier's spherical triangle mnemonics
+	IF b < -1 { SET b TO -1. }
+	IF b > 1 { SET b TO 1. }
+	SET b TO ARCSIN(b).											//	Broken in case of an attempt at launch to a lower inclination than reachable
 	LOCAL currentNode IS VXCL(V(0,1,0), -SHIP:ORBIT:BODY:POSITION):NORMALIZED.
 	SET currentNode TO rodrigues(currentNode, V(0,1,0), b).
 	//	Then find the ascending node of the target orbit.
@@ -116,7 +119,10 @@ FUNCTION launchAzimuth {
 	LOCAL siteLat IS SHIP:GEOPOSITION:LAT.
 	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site latitude!", 5, PRIORITY_HIGH ). }
 	
-	LOCAL Binertial IS ARCSIN( COS(targetInc)/COS(siteLat) ).
+	LOCAL Binertial IS COS(targetInc)/COS(siteLat).
+	IF Binertial < -1 { SET Binertial TO -1. }
+	IF Binertial > 1 { SET Binertial TO 1. }
+	SET Binertial TO ARCSIN(Binertial).		//	In case of an attempt at launch to a lower inclination than reachable
 	//LOCAL Vorbit IS SQRT( SHIP:ORBIT:BODY:MU/(SHIP:BODY:RADIUS+targetAlt*1000) ).		//	This is a normal calculation for a circular orbit
 	LOCAL Vorbit IS targetVel*COS(upfgTarget["angle"]).									//	But we already have our desired velocity, however we must correct for the flight path angle (only the tangential component matters here)
 	LOCAL Vbody IS (2*CONSTANT:PI*SHIP:BODY:RADIUS/SHIP:BODY:ROTATIONPERIOD)*COS(siteLat).
@@ -624,8 +630,9 @@ FUNCTION upfgSteeringControl {
 			IF VANG(upfgOutput[1]["vector"], usc_lastGoodVector) < upfgGoodSolutionCriterion {
 				usc_convergeFlags:ADD(TRUE).
 			} ELSE {
-				if not staginginprogress {//todo://
-				resetUPFG(). }
+				IF NOT stagingInProgress {
+					resetUPFG().
+				}
 			}
 		} ELSE {
 			usc_convergeFlags:ADD(TRUE).
