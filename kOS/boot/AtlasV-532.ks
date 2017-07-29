@@ -38,7 +38,7 @@ GLOBAL sequence IS LIST(
 ).
 GLOBAL controls IS LEXICON(
 					"launchTimeAdvance", 150,
-					"verticalAscentTime", 8,	//	8 seconds work well for 5t payload, 9 good for 15t
+					"verticalAscentTime", 7,	//	7 seconds work well for 5t payload, 8 good for 15t
 					"pitchOverAngle", 10,
 					"upfgActivation", 115
 ).
