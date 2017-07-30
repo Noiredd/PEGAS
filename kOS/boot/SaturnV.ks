@@ -41,5 +41,3 @@ SET STEERINGMANAGER:ROLLTS TO 10.
 SWITCH TO 0.
 CLEARSCREEN.
 PRINT "Loaded boot file: SaturnV!".
-run mission.
-run pegas.
