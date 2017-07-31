@@ -167,9 +167,9 @@ Important note: selecting target will only work for bodies orbiting the Earth (o
 Need to drop SRBs while in atmosphere?  
 Jettison paylod fairing when you're confident the altitude is high enough?  
 Set up the `sequence` accordingly.  
-Bear in mind that it needs to have at least one element: the release clamps command at time zero!
-4. Steps 1-3 get your vehicle ready (you may enclose them in a single script and bind it as a boot file to your vehicle).  
-Now the only thing you need to do is specify where you want it to go: define your `mission`.
+Bear in mind that it needs to have at least one element: the release clamps command at time zero!  
+Those steps get your vehicle ready (you may enclose them in a single script and bind it as a boot file to your vehicle).
+4. Now the only thing you need to do is specify where you want it to go: define your `mission`.
 5. When in kOS terminal, load those 4 variables (boot files or by simply running scripts).
 6. `RUN pegas.`
 
@@ -179,3 +179,23 @@ If something is going wrong mid-flight, you can use the standard action group `A
 Note that if you revert flight while controls are locked by kOS, the attempt to lock them again (in the new flight) will result in `object reference not set` error.
 When that happens you will have to leave and reenter the vehicle view.
 For experiments involving PEGAS, it's best to `ABORT` flight using the standard action group (hit backspace) before you revert.
+
+### Note for kOS beginners
+First, let's assume your KSP install folder is `KSP\` (this is where `GameData`, `Resources` and other folders reside).
+kOS folder is in `KSP\Ships\Script\` - that is where you should put all PEGAS files.
+Optionally, you can create a subfolder `boot` in there, if you want to use the [boot files](http://ksp-kos.github.io/KOS_DOC/general/volumes.html#special-handling-of-files-in-the-boot-directory) functionality of kOS, which I recommend.
+
+In order to follow with this tutorial, I recommend starting with a new, empty script in `KSP\Ships\Script\` - let's call it `myVehicle.ks`.
+In this script, you go with points 1-3 from the [summary](#summary) - a good reference for that is any of the example [boot files](../kOS/boot).
+If you did everything right so far, `myVehicle.ks` should contain **three** global variables: `vehicle`, `controls`, and `sequence`.  
+Now create a new empty script, let's say `myMission.ks`.
+In there, perform the 4th step: declare your `mission`; here are some [examples](../examples/) how to do that.
+
+Now you are ready to fly.
+Recheck your staging sequence and put your vehicle on the launchpad.
+Open the kOS terminal and type `SWITCH TO 0.` in order to be able to load the files you've just prepared.  
+`RUN myVehicle.` loads your vehicle definition - alternatively, you could use that script as a bootfile, to get to that point automatically.  
+`RUN myMission.` loads your mission definition.  
+As the last thing, `RUN pegas.` - if you did everything right, after a while of loading you should see the PEGAS interface with a countdown.
+If you forgot to specify some of the variables, PEGAS will notice that and crash on purpose (leaving an error message that should tell you what was missing).
+If however you made some mistakes... there are very few safety checks, and PEGAS assumes that everything you did, you did on purpose.
