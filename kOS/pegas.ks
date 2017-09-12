@@ -12,6 +12,10 @@ IF NOT (DEFINED vehicle) OR NOT (DEFINED sequence) OR NOT (DEFINED controls) OR 
 //	The following is absolutely necessary to run UPFG fast enough.
 SET CONFIG:IPU TO 500.
 
+//	Equivalent to clicking "control from here" on a part that runs the system.
+//	Helpful when your payload is not perfectly rigidly attached, and you're not sure whether it controls the vessel or not.
+CORE:PART:CONTROLFROM().
+
 //	Set up constants.
 GLOBAL g0 IS 9.8067.					//	PEGAS will launch from any planet or moon - "g0" is a standard constant for thrust computation and shall not be changed!
 GLOBAL pitchOverTimeLimit IS 20.		//	In atmospheric part of ascent, when the vehicle pitches over, the wait for velocity vector to align will be forcibly broken after that many second.
