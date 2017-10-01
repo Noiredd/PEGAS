@@ -151,7 +151,10 @@ FUNCTION missionValidation {
 		IF inputAsString:LENGTH <= 3 {
 			SET smartRounding TO 2.
 		}
-		RETURN "" + ROUND(input,smartRounding) + " vs " + ROUND(reference,smartRounding) + " (" + ROUND(100*(input-reference)/reference,1) + "%)".
+		LOCAL output IS "" + ROUND(input,smartRounding) + " vs " + ROUND(reference,smartRounding) + " (".
+		IF input<reference { SET output TO output + (input-reference). }
+		ELSE { SET output TO output + "+" + (input-reference). }
+		RETURN output.
 	}
 	//	Expects global variable "mission" as lexicon.
 	
