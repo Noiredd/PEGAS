@@ -474,8 +474,8 @@ FUNCTION stageEventHandler {
 	FUNCTION setNextEvent {
 		DECLARE PARAMETER baseTime IS TIME:SECONDS.	//	Expects a scalar. Meaning: set next stage from this time (allows more precise calculations)
 		DECLARE PARAMETER eventDelay IS 0.			//	Expects a scalar. Meaning: if this stage ignites in "eventDelay" seconds from now, the next should ignite in "eventDelay"+"maxT" from now.
+		GLOBAL nextStageTime IS baseTime + eventDelay + vehicle[upfgStage]["maxT"].	//	Calculate how long this stage will burn, but don't set an event for the last stage
 		IF upfgStage < vehicle:LENGTH-1 {
-			GLOBAL nextStageTime IS baseTime + eventDelay + vehicle[upfgStage]["maxT"].
 			WHEN TIME:SECONDS >= nextStageTime THEN { SET stageEventFlag TO TRUE. }
 			WHEN TIME:SECONDS >= nextStageTime - stagingKillRotTime THEN {
 				SET stagingInProgress TO TRUE.

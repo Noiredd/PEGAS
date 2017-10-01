@@ -161,8 +161,7 @@ FUNCTION refreshUI {
 		IF NOT stagingInProgress {
 			textPrint(vehicle[upfgStage]["name"], vehicleInfoOffset, 9, 33 ).
 			LOCAL timeToNextStage IS 0.
-			IF upfgStage < vehicle:LENGTH - 1 { SET timeToNextStage TO nextStageTime - currentTime:SECONDS. }	//	Time from now to next staging, if we still have any stages to fly
-			ELSE { SET timeToNextStage TO nextStageTime + vehicle[upfgStage]["maxT"] - currentTime:SECONDS. }	//	Time from now to (time of activation of the current stage + length of that stage) if this is the last one
+			SET timeToNextStage TO nextStageTime - currentTime:SECONDS. //	Time until the stage burns out (and, potentially, the next one's ignition sequence starts)
 			numberPrint(timeToNextStage, vehicleInfoOffset, 35, 39, 0).
 		} ELSE { textPrint("", vehicleInfoOffset, 9, 33). }
 	}
