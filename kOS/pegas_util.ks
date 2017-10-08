@@ -188,9 +188,9 @@ FUNCTION missionValidation {
 			SET smartRounding TO 2.
 		}
 		LOCAL output IS "" + ROUND(input,smartRounding) + " vs " + ROUND(reference,smartRounding) + " (".
-		IF input<reference { SET output TO output + (input-reference). }
-		ELSE { SET output TO output + "+" + (input-reference). }
-		RETURN output.
+		IF input<reference { SET output TO output + ROUND(input-reference,smartRounding). }
+		ELSE { SET output TO output + "+" + ROUND(input-reference,smartRounding). }
+		RETURN output + ")".
 	}
 	//	Expects global variable "mission" as lexicon.
 	
