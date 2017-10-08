@@ -42,6 +42,42 @@ FUNCTION getThrust {
 	RETURN LIST(F, dm, isp).
 }.
 
+//	Robust calculation of constant acceleration burn time
+FUNCTION constAccBurnTime {
+	//	Takes minimum engine throttle into account:
+	//	continuous throttling down to maintain acceleration makes fuel flow an inverse exponential function of time
+	//	but at some point the minimum throttle constraint can be violated - from then, stage will continue to burn
+	//	at constant thrust. This means that the stage will burn out faster than expected.
+	DECLARE PARAMETER _stage.	//	Expects a lexicon containing at least partially formed logical stage.
+								//	This has to contain the following keys:
+								//	"massFuel", "massTotal", "engines", "gLim" and "minThrottle".
+	
+	//	Unpack the structure
+	LOCAL engineData IS getThrust(_stage["engines"]).
+	LOCAL isp IS engineData[2].
+	LOCAL baseFlow IS engineData[1].
+	LOCAL mass IS _stage["massTotal"].
+	LOCAL fuel IS _stage["massFuel"].
+	LOCAL gLim IS _stage["gLim"].
+	LOCAL tMin IS _stage["minThrottle"].
+	//	Find maximum burn time
+	LOCAL maxBurnTime IS isp/gLim * LN( mass/(mass-fuel) ).
+	//	If there is no throttling limit - we will always be able to throttle a bit more down.
+	//	With no possible constraints to violate, we can just return this theoretical time.
+	IF tMin = 0 { RETURN maxBurnTime. }
+	//	Otherwise - find time of constraint violation
+	LOCAL violationTime IS -isp/gLim * LN(tMin).
+	//	If this time is lower than the time we want to burn - we need to act.
+	LOCAL constThrustTime IS 0.	//	Declare now, so that we can have a single return statement.
+	IF violationTime < maxBurnTime {
+		//	First we calculate mass of the fuel burned until violation
+		LOCAL burnedFuel IS mass*(1 - CONSTANT:E^(-gLim/isp * violationTime)).
+		//	Then, time it will take to burn the rest on constant minimum throttle
+		SET constThrustTime TO (fuel - burnedFuel) / (baseFlow * tMin).
+	}
+	RETURN maxBurnTime + constThrustTime.
+}.
+
 //	TARGETING FUNCTIONS
 
 //	Generate a PEGAS-compatible target struct from user-specified one
@@ -394,15 +430,16 @@ FUNCTION initializeVehicle {
 				//	Calculate its initial mass
 				LOCAL burnedFuelMass IS massFlow * accLimTime.
 				gLimStage:ADD("m0", vehicle[i]["m0"] - burnedFuelMass).
-				//	Calculate its burn time assuming constant acceleration
-				LOCAL totalStageFuel IS massFlow * vehicle[i]["maxT"].
-				LOCAL remainingFuel IS vehicle[i]["massFuel"] - burnedFuelMass.
-				gLimStage:ADD("maxT", totalIsp/vehicle[i]["gLim"] * LN( gLimStage["m0"]/(gLimStage["m0"]-remainingFuel) )).
+				//	Finish the structure so that we can run the burn time calculation
+				gLimStage:ADD("massTotal", gLimStage["m0"]).
+				gLimStage:ADD("massFuel", vehicle[i]["massFuel"] - burnedFuelMass).
+				gLimStage:ADD("massDry", gLimStage["massTotal"] - gLimStage["massFuel"]).
+				gLimStage:ADD("maxT", constAccBurnTime(gLimStage)).
 				//	Insert it into the list and increment i so that we don't process it next
 				vehicle:INSERT(i+1, gLimStage).
 				//	Adjust the current stage's burn time
 				SET vehicle[i]["maxT"] TO accLimTime.
-				SET vehicle[i]["gLim"] TO 0.
+				//	We want to iterate through all the stages, but we just added one
 				SET i TO i+1.
 			}
 		}
@@ -447,7 +484,7 @@ FUNCTION userEventHandler {
 		}
 	}.
 	
-	//	Expects global variables "liftoffTime" as scalar, "sequence" as list, "userEventFlag" as bool and "userEventPointer" as scalar.
+	//	Expects global variables "liftoffTime" as scalar, "sequence" and "vehicle" as list, "userEventFlag" as bool, "userEventPointer" and "upfgStage" as scalars.
 	//	First call initializes and exits without doing anything
 	IF userEventPointer = -1 {
 		setNextEvent().
@@ -458,6 +495,45 @@ FUNCTION userEventHandler {
 	LOCAL eType IS sequence[userEventPointer]["type"].
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
+	ELSE IF eType = "jettison" OR eType = "j" {
+		//	Jettisoning some mass results in change of vehicle dynamics. The following mechanism allows the system to
+		//	deal with this loss, which otherwise would have negative effects on constant-acceleration stages.
+		//	The jettisoned mass is subtracted from the current stage's mass (dry and total), and all subsequent stages'
+		//	until one that separates the preceding one is found. In case of a const-acc stage, its burn time is also
+		//	recalculated. If it so happens that the jettison has occurred during const-acc, changing the burn time is
+		//	not enough to ensure safe separation (since the triggers were already set) - in this case, the next stage's
+		//	(if there is any) separation delay is increased.
+		//	It is theoretically possible that the stage right after the updated constant-acceleration stage will have
+		//	no separation nor ignition, and thus no delay can be applied, but since this vehicle configuration is hardly
+		//	realistic, this case IS NOT covered here (and will be simply ignored).
+		LOCAL dm IS sequence[userEventPointer]["massLost"].
+		FROM { LOCAL i IS upfgStage. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
+			//	Reduce mass of this stage
+			SET vehicle[i]["m0"] TO vehicle[i]["m0"] - dm.
+			SET vehicle[i]["massTotal"] TO vehicle[i]["massTotal"] - dm.
+			SET vehicle[i]["massDry"] TO vehicle[i]["massDry"] - dm.
+			//	Recalculate burn time of const-acc stages
+			IF vehicle[i]["mode"] = 2 {
+				LOCAL newBurnTime IS constAccBurnTime(vehicle[i]).
+				//	If this stage is not being flown - changing the burn time will suffice
+				IF i <> upfgStage {
+					SET vehicle[i]["maxT"] TO newBurnTime.
+				} ELSE IF i+1 < vehicle:LENGTH {
+					//	Otherwise, we have to increase a delay on the subsequent stage
+					LOCAL addDelay IS newBurnTime - vehicle[i]["maxT"].
+					IF vehicle[i+1]["staging"]:HASKEY("waitBeforeJettison") {
+						SET vehicle[i+1]["staging"]["waitBeforeJettison"] TO vehicle[i+1]["staging"]["waitBeforeJettison"] + addDelay.
+					} ELSE IF vehicle[i+1]["staging"]:HASKEY("waitBeforeIgnition") {
+						SET vehicle[i+1]["staging"]["waitBeforeIgnition"] TO vehicle[i+1]["staging"]["waitBeforeIgnition"] + addDelay.
+					}
+				}
+			}
+			//	Exit the loop if the subsequent stage separates (either via staging or ignition)
+			IF (i+1 < vehicle:LENGTH) AND (vehicle[i+1]["staging"]["jettison"] OR vehicle[i+1]["staging"]["ignition"]) { BREAK. }
+		}
+		//	Finally, stage
+		STAGE.
+	}
 	ELSE IF eType = "throttle" OR eType = "t" {
 		SET throttleSetting TO sequence[userEventPointer]["throttle"].
 		SET throttleDisplay TO throttleSetting.

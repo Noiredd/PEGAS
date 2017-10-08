@@ -81,9 +81,21 @@ It is **crucial** that the order of events in the list is the same as the order 
 Key      | Type/units | Meaning
 ---      | ---        | ---
 time     | s          | Time after liftoff, when this event is to be executed.
-type     | `string`   | Type of the event. Allowed values: `"print"`, `"stage"`, `"throttle"`.
+type     | `string`   | Type of the event. See below for the complete list.
 message  | `string`   | Message that will be printed in the terminal when the event is executed.
 throttle | `scalar`   | **Used only if** `type` **is** `"throttle"`. Desired throttle setting, value in range \[0-1\].
+massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the system of mass amount lost in the process.
+
+Available event types:
+
+Type       | Short\* | Explanation
+---        | ---     | ---
+`print`    | `p`     | Prints `message` in the GUI, nothing else.
+`stage`    | `s`     | Hits spacebar (a single `STAGE.` command in kOS).
+`jettison` | `j`     | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
+`throttle` | `t`     | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
+
+\* - can be used instead of the full event type name.
 
 ### Mission
 `GLOBAL mission IS LEXICON().`
