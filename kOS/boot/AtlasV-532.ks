@@ -34,8 +34,10 @@ GLOBAL sequence IS LIST(
 					LEXICON("time", -3.7, "type", "stage", "message", "RD-180 ignition"),
 					LEXICON("time", 0, "type", "stage", "message", "LIFTOFF"),
 					LEXICON("time", 100, "type", "stage", "message", "SRB jettison"),
+					LEXICON("time", 105, "type", "roll", "angle", 90),
 					LEXICON("time", 210, "type", "jettison", "message", "PLF jettison", "massLost", 4400),
 					LEXICON("time", 215, "type", "stage", "message", "CFLR jettison")
+					LEXICON("time", 260, "type", "roll", "angle", 0)
 ).
 GLOBAL controls IS LEXICON(
 					"launchTimeAdvance", 150,

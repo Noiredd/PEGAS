@@ -87,6 +87,12 @@ You want to be outside the atmosphere when that happens, 40-50 km is good.
 From this moment the UPFG is in control over your vehicle, and if you're too low and it decides to pitch up too much, you might experience your vehicle tumbling out of control for a moment, or even rapidly disassembling.
 It's not possible to provide example numbers, as this variable strongly depends on your vehicle - see the [boot files](kOS/boot).
 
+##### Rolling
+Roll control in PEGAS is achieved using two mechanisms.
+First roll maneuver occurs together with the pitchover, by angle given via `initialRoll` key.
+By default (in case the key was not present) vehicle will roll to 0 degrees angle.
+In any time during the flight, roll can be changed during a preprogrammed event (see [`sequence`](#sequence) below).
+
 ### [Vehicle](reference.md#vehicle)
 Physical description of each stage of your vehicle, *as seen by the UPFG algorithm*.
 That means, **only those stages that will be actively guided need to be listed here**.
@@ -144,12 +150,18 @@ Even something as innocent as jettisoning the payload fairings can have grave co
 PEGAS provides you with a special tool: the `jettison` event, which allows you to inform the system of the mass lost during the event (see below).
 
 ### [Sequence](reference.md#sequence)
-This is how you control timed events, like separation of the strap-on boosters, jettisoning the payload fairing, or even throttle in the atmospheric ascent phase\*.
+This is how you control timed events, like:
+* separation of the strap-on boosters,
+* jettisoning the payload fairing,
+* rolling to given attitude,
+* throttle (only in the atmospheric ascent phase)\*.
+
 See the reference to all possible events and how to use them.  
-The main difference between vehicle staging and `sequence`, is that vehicle staging events are bound to the *physical parameters of the vehicle* (how much fuel does a stage have, how fast does it consume it => when does the next stage activate), while `sequence` events are bound directly to time (counted from lift-off).  
-However, both `sequence` and automatically calculated staging only do one thing: hit the spacebar.
+As you see, both `sequence` and `vehicle` can cause a staging (equivalent to hitting spacebar).
+The main difference between `vehicle` staging and `sequence`, is that vehicle staging events are bound to the *physical parameters of the vehicle* (how much fuel does a stage have, how fast does it consume it => when does the next stage activate), while `sequence` events are bound directly to time (counted from lift-off).
 For this reason, you must pay attention that your timed events be properly aligned in the in-game staging sequence, with respect to the staging events.
 You don't want your payload fairing jettison event to accidentally separate the currently burning stage.
+Recommended approach is to avoid scheduling other staging events near the main vehicle staging.
 
 One unique thing about sequence is that it controls the lift-off too.
 You **need to** have an entry at time zero that releases the launch clamps.

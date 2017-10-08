@@ -5,14 +5,16 @@
 
 Variable of type `LEXICON`.
 Defines vehicle behavior in phases 0 and 1 (pre-launch and atmospheric ascent).
-Has to have the following 4 keys:
+List of possible keys:
 
-Key                | Units | Meaning
----                | ---   | ---
-launchTimeAdvance  | s     | Launch time will be scheduled that many seconds before the launch site rotates directly under the target orbit
-verticalAscentTime | s     | After liftoff, vehicle will fly straight up for that many seconds before pitching over
-pitchOverAngle     | deg   | Vehicle will pitch over by that many degrees away from vertical
-upfgActivation     | s     | The active guidance phase will be activated that many seconds after liftoff
+Key                | Units | Opt/req  | Meaning
+---                | ---   | ---      | ---
+launchTimeAdvance  | s     | required | Launch time will be scheduled that many seconds before the launch site rotates directly under the target orbit
+verticalAscentTime | s     | required | After liftoff, vehicle will fly straight up for that many seconds before pitching over
+pitchOverAngle     | deg   | required | Vehicle will pitch over by that many degrees away from vertical
+upfgActivation     | s     | required | The active guidance phase will be activated that many seconds after liftoff
+launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability
+initialRoll        | deg   | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
 
 ### Vehicle
 `GLOBAL vehicle IS LIST().`
@@ -82,18 +84,22 @@ Key      | Type/units | Meaning
 ---      | ---        | ---
 time     | s          | Time after liftoff, when this event is to be executed.
 type     | `string`   | Type of the event. See below for the complete list.
-message  | `string`   | Message that will be printed in the terminal when the event is executed.
+message  | `string`   | Optional\*. Message that will be printed in the terminal when the event is executed.
 throttle | `scalar`   | **Used only if** `type` **is** `"throttle"`. Desired throttle setting, value in range \[0-1\].
 massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the system of mass amount lost in the process.
+angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
+
+\* - for events of type `throttle` and `roll` message will be automatically generated.
 
 Available event types:
 
 Type       | Short\* | Explanation
 ---        | ---     | ---
-`print`    | `p`     | Prints `message` in the GUI, nothing else.
-`stage`    | `s`     | Hits spacebar (a single `STAGE.` command in kOS).
-`jettison` | `j`     | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
-`throttle` | `t`     | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
+print    | `p`     | Prints `message` in the GUI, nothing else.
+stage    | `s`     | Hits spacebar (a single `STAGE.` command in kOS).
+jettison | `j`     | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
+throttle | `t`     | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
+roll     | `r`     | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
 
 \* - can be used instead of the full event type name.
 

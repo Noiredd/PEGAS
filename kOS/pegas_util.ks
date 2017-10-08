@@ -17,6 +17,15 @@ FUNCTION rodrigues {
 	RETURN outVector.
 }.
 
+//	Returns a kOS direction for given aim vector and roll angle
+FUNCTION aimAndRoll {
+	DECLARE PARAMETER aimVec.	//	Expects a vector
+	DECLARE PARAMETER rollAng.	//	Expects a scalar
+	
+	LOCAL rollVector IS rodrigues(UP:VECTOR, aimVec, -rollAng).
+	RETURN LOOKDIRUP(aimVec, rollVector).
+}
+
 //	KSP-MATLAB-KSP vector conversion
 FUNCTION vecYZ {
 	DECLARE PARAMETER input.	//	Expects a vector
@@ -484,7 +493,8 @@ FUNCTION userEventHandler {
 		}
 	}.
 	
-	//	Expects global variables "liftoffTime" as scalar, "sequence" and "vehicle" as list, "userEventFlag" as bool, "userEventPointer" and "upfgStage" as scalars.
+	//	Expects global variables "sequence" and "vehicle" as list, "userEventFlag" as bool,
+	//	"liftoffTime", "steeringRoll", "userEventPointer" and "upfgStage" as scalars.
 	//	First call initializes and exits without doing anything
 	IF userEventPointer = -1 {
 		setNextEvent().
@@ -537,6 +547,11 @@ FUNCTION userEventHandler {
 	ELSE IF eType = "throttle" OR eType = "t" {
 		SET throttleSetting TO sequence[userEventPointer]["throttle"].
 		SET throttleDisplay TO throttleSetting.
+	ELSE IF eType = "roll" OR eType = "r" {
+		SET steeringRoll TO sequence[userEventPointer]["angle"].
+		IF NOT sequence[userEventPointer]:HASKEY("message") {
+			sequence[userEventPointer]:ADD("message", "Rolling to " + steeringRoll + " degrees").
+		}
 	}
 	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + sequence[userEventPointer]["message"] + "')!", 5, PRIORITY_HIGH ). }
 	pushUIMessage( sequence[userEventPointer]["message"] ).
@@ -674,7 +689,7 @@ FUNCTION upfgSteeringControl {
 	}
 	
 	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector and 
-	//	"upfgConvergenceCriterion" and "upfgGoodSolutionCriterion" as scalars.
+	//	"upfgConvergenceCriterion", "upfgGoodSolutionCriterion" and "steeringRoll" as scalars.
 	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and 
 	//	"usc_lastIterationTime" as scalar.
 	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
@@ -733,7 +748,7 @@ FUNCTION upfgSteeringControl {
 	}
 	//	Check if we can steer
 	IF upfgConverged AND NOT stagingInProgress {
-		SET steeringVector TO vecYZ(upfgOutput[1]["vector"]).
+		SET steeringVector TO aimAndRoll(vecYZ(upfgOutput[1]["vector"]), steeringRoll).
 		SET usc_lastGoodVector TO upfgOutput[1]["vector"].
 	}
 	RETURN upfgOutput[0].
