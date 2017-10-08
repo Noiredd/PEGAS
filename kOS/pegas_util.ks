@@ -479,7 +479,7 @@ FUNCTION systemEventHandler {
 	//	Reset event flag
 	SET systemEventFlag TO FALSE.
 	
-	//	Create new event
+	//	Create new event trigger
 	setNextEvent().
 }.
 
@@ -545,8 +545,22 @@ FUNCTION userEventHandler {
 		STAGE.
 	}
 	ELSE IF eType = "throttle" OR eType = "t" {
-		SET throttleSetting TO sequence[userEventPointer]["throttle"].
-		SET throttleDisplay TO throttleSetting.
+		//	Throttling is only allowed during the passive guidance phase, as it would ruin burn time predictions used by
+		//	UPFG for guidance and stageEvent system for stage timing.
+		IF upfgStage < 0 {
+			IF NOT sequence[userEventPointer]:HASKEY("message") {
+				IF sequence[userEventPointer]["throttle"] < throttleSetting {
+					sequence[userEventPointer]:ADD("message", "Throttling down to " + 100*sequence[userEventPointer]["throttle"] + "%").
+				} ELSE {
+					sequence[userEventPointer]:ADD("message", "Throttling up to " + 100*sequence[userEventPointer]["throttle"] + "%").
+				}
+			}
+			SET throttleSetting TO sequence[userEventPointer]["throttle"].
+			SET throttleDisplay TO throttleSetting.
+		} ELSE {
+			pushUIMessage( "Throttle ignored in active guidance!", 5, PRIORITY_HIGH ).
+		}
+	}
 	ELSE IF eType = "roll" OR eType = "r" {
 		SET steeringRoll TO sequence[userEventPointer]["angle"].
 		IF NOT sequence[userEventPointer]:HASKEY("message") {
@@ -554,12 +568,15 @@ FUNCTION userEventHandler {
 		}
 	}
 	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + sequence[userEventPointer]["message"] + "')!", 5, PRIORITY_HIGH ). }
-	pushUIMessage( sequence[userEventPointer]["message"] ).
+	//	Print event message, if requested
+	IF sequence[userEventPointer]:HASKEY("message") {
+		pushUIMessage( sequence[userEventPointer]["message"] ).
+	}
 	
 	//	Reset event flag
 	SET userEventFlag TO FALSE.
 	
-	//	Create new event
+	//	Create new event trigger
 	setNextEvent().
 }.
 
@@ -650,7 +667,7 @@ FUNCTION stageEventHandler {
 	//	Reset event flag
 	SET stageEventFlag TO FALSE.
 	
-	//	Create new event
+	//	Create new event trigger
 	setNextEvent(currentTime, eventDelay).
 }.
 
