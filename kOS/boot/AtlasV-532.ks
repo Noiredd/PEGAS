@@ -7,6 +7,7 @@ GLOBAL vehicle IS LIST(
 						"massTotal", 334872,
 						"massFuel", 207720+76367,
 						"gLim", 4.5,
+						"minThrottle", 0.47,
 						"engines", LIST(LEXICON("isp", 338.4, "thrust", 4152000)),
 						"staging", LEXICON(
 										"jettison", FALSE,

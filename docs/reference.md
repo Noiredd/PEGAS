@@ -21,17 +21,20 @@ Variable of type `LIST` containing `LEXICON`s.
 Each element of the list contains physical descriptions of each stage to be guided with UPFG, as well as desciption of the staging sequence.
 The following table gives list of all possible keys each element of the list can have, some of which are required, others optional.
 
-Key       | Type/units | Opt/req   | Meaning
----       | ---        | ---       | ---
-name      | `string`   | required  | Name of the stage that will be printed in the terminal
-massTotal | kg         | optional* | Total mass of the **entire vehicle** at the moment of ignition of this stage
-massFuel  | kg         | optional* | Mass of the fuel in this stage at the moment of ignition
-massDry   | kg         | optional* | `massTotal` - `massDry`
-gLim      | G          | optional  | Acceleration limit to be imposed on this stage (requires throttling engines)
-engines   | `list`     | required  | Parameters of each engine in the stage (details further)
-staging   | `lexicon`  | required  | Description of method of activation of this stage (details further)
+Key         | Type/units | Opt/req   | Meaning
+---         | ---        | ---       | ---
+name        | `string`   | required  | Name of the stage that will be printed in the terminal
+massTotal   | kg         | optional* | Total mass of the **entire vehicle** at the moment of ignition of this stage
+massFuel    | kg         | optional* | Mass of the fuel in this stage at the moment of ignition
+massDry     | kg         | optional* | `massTotal` - `massDry`
+gLim        | G          | optional  | Acceleration limit to be imposed on this stage (requires throttling engines)
+minThrottle | (0.0-1.0)  | optional**| Minimum possible throttle of this stage's engines (for Realism Overhaul)
+throttle    | (0.0-1.0)  | optional  | Nominal throttle for this stage's engines (default = 1.0)
+engines     | `list`     | required  | Parameters of each engine in the stage (details further)
+staging     | `lexicon`  | required  | Description of method of activation of this stage (details further)
 
-\* - of the three fields, `massTotal`, `massFuel` and `massDry`, one can be skipped, but **two** have to be given.
+\* - of the three fields, `massTotal`, `massFuel` and `massDry`, one can be skipped, but **two** have to be given.  
+\*\* - required if `gLim` is given.
 
 ##### Engines
 Key of type `LIST` containing `LEXICON`s.

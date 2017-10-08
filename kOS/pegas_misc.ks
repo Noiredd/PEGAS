@@ -167,11 +167,7 @@ FUNCTION refreshUI {
 	}
 	
 	//	Print physical information
-	//	Read throttle depending on phase (in UPFG flight we have "throttleSetting" global var,
-	//	otherwise we're flying in passive mode with initial setting) for other calculations.
-	LOCAL throttle_ IS 0.
-	IF DEFINED throttleSetting { SET throttle_ TO throttleSetting. }
-	ELSE { SET throttle_ TO controls["initialThrottle"]. }
+	LOCAL throttle_ IS throttleDisplay.
 	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
 	numberPrint(100*throttle_, vehicleInfoOffset + 2, 17, 21, 0).
 	numberPrint(currentAcc, vehicleInfoOffset + 3, 17, 21).

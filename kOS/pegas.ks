@@ -39,7 +39,8 @@ GLOBAL systemEventPointer IS -1.	//	Same deal as with "upfgStage"
 GLOBAL systemEventFlag IS FALSE.
 GLOBAL userEventPointer IS -1.		//	As above
 GLOBAL userEventFlag IS FALSE.
-GLOBAL throttleSetting IS 1.
+GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
+GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see throttleControl() for details.
 GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR).
 GLOBAL upfgConverged IS FALSE.
 GLOBAL stagingInProgress IS FALSE.

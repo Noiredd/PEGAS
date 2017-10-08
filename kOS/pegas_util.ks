@@ -327,9 +327,13 @@ FUNCTION setVehicle {
 			SET v["massTotal"] TO v["massTotal"] + mission["payload"].
 			SET v["massDry"] TO v["massDry"] + mission["payload"].
 		}
-		//	Default fields: gLim, throttle, m0, mode
-		IF NOT v:HASKEY("gLim")		{ v:ADD("gLim", 0). }
-		IF NOT v:HASKEY("throttle")	{ v:ADD("throttle", 1). }
+		//	Default fields: gLim, minThrottle, throttle, m0, mode
+		IF NOT v:HASKEY("gLim")			{ v:ADD("gLim", 0). }
+		IF NOT v:HASKEY("minThrottle")	{ v:ADD("minThrottle", 0). }
+		//	In case user accidentally entered throttle as percentage instead of a fraction
+		ELSE IF v["minThrottle"] > 1.0	{ SET v["minThrottle"] TO v["minThrottle"] / 100.0. }
+		IF NOT v:HASKEY("throttle")		{ v:ADD("throttle", 1). }
+		ELSE IF v["throttle"] > 1.0		{ SET v["throttle"] TO v["throttle"] / 100.0. }
 		v:ADD("m0", v["massTotal"]).
 		v:ADD("mode", 1).
 		//	Engine update
@@ -381,8 +385,10 @@ FUNCTION initializeVehicle {
 			IF accLimTime < vehicle[i]["maxT"] {
 				//	Create a new stage
 				LOCAL gLimStage IS LEXICON("mode", 2, "name", "Constant acceleration", "gLim", vehicle[i]["gLim"], "engines", vehicle[i]["engines"]).
-				//	Inherit default throttle from the original stage
-				gLimStage:ADD("throttle", vehicle[i]["throttle"]).
+				//	Default throttle is irrelevant since it will be dynamically calculated anyway
+				gLimStage:ADD("throttle", 1.0).
+				//	But we need to inherit the minimum throttle limit from the previous stage
+				gLimStage:ADD("minThrottle", vehicle[i]["minThrottle"]).
 				//	Supply it with a staging information
 				gLimStage:ADD("staging", LEXICON("jettison", FALSE, "ignition", FALSE)).
 				//	Calculate its initial mass
@@ -452,7 +458,10 @@ FUNCTION userEventHandler {
 	LOCAL eType IS sequence[userEventPointer]["type"].
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
-	ELSE IF eType = "throttle" OR eType = "t" { SET throttleSetting TO sequence[userEventPointer]["throttle"]. }
+	ELSE IF eType = "throttle" OR eType = "t" {
+		SET throttleSetting TO sequence[userEventPointer]["throttle"].
+		SET throttleDisplay TO throttleSetting.
+	}
 	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + sequence[userEventPointer]["message"] + "')!", 5, PRIORITY_HIGH ). }
 	pushUIMessage( sequence[userEventPointer]["message"] ).
 	
@@ -656,7 +665,7 @@ FUNCTION upfgSteeringControl {
 
 //	Throttle controller
 FUNCTION throttleControl {
-	//	Expects global variables "vehicle" as list, "upfgStage" as scalar, "throttleSetting" as scalar and "stagingInProgress" as bool.
+	//	Expects global variables "vehicle" as list, "upfgStage", "throttleSetting" and "throttleDisplay" as scalars and "stagingInProgress" as bool.
 	
 	//	If we're guiding a stage nominally, it's simple. But if the stage is about to change into the next one,
 	//	value of "upfgStage" is already incremented. In this case we shouldn't use the next stage values (this
@@ -668,11 +677,20 @@ FUNCTION throttleControl {
 	
 	IF vehicle[whichStage]["mode"] = 1 {
 		SET throttleSetting TO vehicle[whichStage]["throttle"].
+		SET throttleDisplay TO throttleSetting.
 	}
 	ELSE IF vehicle[whichStage]["mode"] = 2 {
-		LOCAL currentThrust_ IS getThrust(vehicle[whichStage]["engines"]).
-		LOCAL currentThrust IS currentThrust_[0].
-		SET throttleSetting TO vehicle[whichStage]["throttle"]*(SHIP:MASS*1000*vehicle[whichStage]["gLim"]*g0) / (currentThrust).
+		LOCAL nominalThrust_ IS getThrust(vehicle[whichStage]["engines"]).
+		LOCAL nominalThrust IS nominalThrust_[0].
+		LOCAL throttleLimit IS vehicle[whichStage]["minThrottle"].
+		LOCAL desiredThrottle IS SHIP:MASS*1000*vehicle[whichStage]["gLim"]*g0 / nominalThrust.
+		//	Realism Overhaul considers in-game throttle not as absolute, but relative to the allowed throttle range of the engine.
+		//	Setting throttle to 0.5 for an engine with throttle range 0.4-1.0 actually results in a 0.7 throttle setting.
+		SET throttleSetting TO (desiredThrottle - throttleLimit) / (1 - throttleLimit).
+		//	If the algorithm requests a throttle setting lower than minimum limit, we might accidentally shutdown.
+		SET throttleSetting TO MAX(throttleSetting, 0.01).
+		//	For the GUI printout however, we want to see the final throttle value.
+		SET throttleDisplay TO desiredThrottle.
 	}
 	ELSE { pushUIMessage( "throttleControl stage error (stage=" + upfgStage + "(" + whichStage + "), mode=" + vehicle[whichStage]["mode"] + ")!", 5, PRIORITY_CRITICAL ). }.
 }.
