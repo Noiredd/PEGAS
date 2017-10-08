@@ -130,18 +130,24 @@ In this case, the only thing you need to do is provide that dry mass, and set th
 
 ##### Note about constant-acceleration phases
 PEGAS has the capability to run vehicles with acceleration-limited stages (eg. Space Shuttle, Atlas V).
-You do that by specifying `gLim` in your stage description, but beware!
-PEGAS will not know if your engines throttle deep enough, and it will assume they do.
-Therefore, you *can* make it try to fly at 0.5 G, and it will calculate everything as if the engines were capable of throttling so deep.
-If they could do that, their fuel consumption would fall, so time until the stage runs out of propelland would also decrease.
-If they in fact cannot, PEGAS doesn't know that - they will run out of propellant faster than it thought, which might have some negative consequences.  
-The same way you can tell PEGAS to fly at acceleration *larger* than the engines can pull off - which would work the same, except with far more catastrophic effects (engines running while the system was sure they would be already fuel-deprived).
+You do that by specifying `gLim` in your stage description (in multiples of `g0`, standard Earth gravitational acceleration).
+In order for that setting to work properly, you have to also specify `minThrottle` to inform PEGAS about the throttling limit imposed by the stage's engines.
+It is required due to how Realism Overhaul calculates throttle - the setting is not absolute (ie. 50% slider *does not* in general equal 50% throttle), but relative to the throttle range of the engine.
+That is, if an engine throttles in 40-100% range, setting the slider to 50% will actually result in (100%-40%)\*0.5 + 40% = 70% throttle.
+Therefore, PEGAS **must** know what is the throttle limit in order to calculate throttle commands correctly.
+
+Additionally, you have to pay attention to your vehicle's mass.
+PEGAS makes a burn time prediction based on what is the vehicle's mass, and schedules the next stage separation/ignition basing on that.
+If the actual vehicle's mass turns out to be lower than the value in the `vehicle` structure, the resulting throttle commands (which are always based on the current *measured* mass) will be smaller than predicted.
+This will cause lower than predicted fuel consumption, and consequently longer than predicted burn time - in the worst case, the next stage will separate while the current one is still burning, causing the two to collide.  
+Even something as innocent as jettisoning the payload fairings can have grave consequences if you haven't prepared your vehicle for that.
+PEGAS provides you with a special tool: the `jettison` event, which allows you to inform the system of the mass lost during the event (see below).
 
 ### [Sequence](reference.md#sequence)
-This is how you control "other" things, like separation of the strap-on boosters, jettisoning the payload fairing, or even throttle in the atmospheric ascent phase\*.
-It works as a list of "events", which PEGAS executes at given times.
-So the main difference between vehicle staging and those, is that vehicle staging events are bound to the *physical parameters of the vehicle* (how much fuel does a stage have, how fast does it consume it => when does the next stage activate), while sequence events are bound directly to time (counted from lift-off).  
-Unfortunately, they both do the same thing: hit spacebar.
+This is how you control timed events, like separation of the strap-on boosters, jettisoning the payload fairing, or even throttle in the atmospheric ascent phase\*.
+See the reference to all possible events and how to use them.  
+The main difference between vehicle staging and `sequence`, is that vehicle staging events are bound to the *physical parameters of the vehicle* (how much fuel does a stage have, how fast does it consume it => when does the next stage activate), while `sequence` events are bound directly to time (counted from lift-off).  
+However, both `sequence` and automatically calculated staging only do one thing: hit the spacebar.
 For this reason, you must pay attention that your timed events be properly aligned in the in-game staging sequence, with respect to the staging events.
 You don't want your payload fairing jettison event to accidentally separate the currently burning stage.
 
