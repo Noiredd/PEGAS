@@ -48,7 +48,8 @@ GLOBAL stagingInProgress IS FALSE.
 
 
 //	PREFLIGHT ACTIVITIES
-//	Set up UPFG target and silently upgrade mission target
+//	Update mission struct and set up UPFG target
+missionSetup().
 SET upfgTarget TO targetSetup().
 //	Calculate time to launch
 SET currentTime TO TIME.

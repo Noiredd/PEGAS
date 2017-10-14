@@ -89,10 +89,10 @@ FUNCTION constAccBurnTime {
 
 //	TARGETING FUNCTIONS
 
-//	Generate a PEGAS-compatible target struct from user-specified one
-FUNCTION targetSetup {
-	//	Expects a global variable "mission" as lexicon
-	
+//	Update keys in the mission lexicon
+FUNCTION missionSetup {
+	//	Expects global variables "mission" and "controls" as lexicons
+
 	//	Fix target definition if the burnout altitude is wrong or not given
 	IF mission:HASKEY("altitude") {
 		IF mission["altitude"] < mission["periapsis"] OR mission["altitude"] > mission["apoapsis"] {
@@ -108,9 +108,29 @@ FUNCTION targetSetup {
 		SET mission["LAN"] TO TARGET:ORBIT:LAN.
 	}
 	
-	//	Fix LAN to between 0-360 degrees
-	IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
-	IF mission["LAN"] > 360 { SET mission["LAN"] TO mission["LAN"] - 360. }
+	//	Set default launch direction
+	IF NOT mission:HASKEY("direction") {
+		mission:ADD("direction", "nearest").
+	}
+	
+	//	Calculate LAN for the "right now" launch, or fix the existing to 0-360 degrees range
+	IF mission:HASKEY("LAN") {
+		IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
+		IF mission["LAN"] > 360 { SET mission["LAN"] TO mission["LAN"] - 360. }
+	} ELSE {
+		//	Calculate what LAN would an orbit passing right above the launch site right now have,
+		//	correct for launchTimeAdvance and add some time for the countdown, and set up the new LAN.
+		IF mission["direction"] = "nearest" { SET mission["direction"] TO "north". }
+		LOCAL currentNode IS nodeVector(mission["inclination"], mission["direction"]).
+		LOCAL currentLan IS VANG(currentNode, SOLARPRIMEVECTOR).
+		IF VDOT(V(0,1,0), VCRS(currentNode, SOLARPRIMEVECTOR)) < 0 { SET currentLan TO 360 - currentLan. }
+		SET mission["LAN"] TO currentLan + (controls["launchTimeAdvance"] + 30)/SHIP:ORBIT:BODY:ROTATIONPERIOD*360.
+	}
+}
+
+//	Generate a PEGAS-compatible target struct from user-specified one
+FUNCTION targetSetup {
+	//	Expects a global variable "mission" as lexicon
 	
 	//	Calculate velocity and flight path angle at given criterion using vis-viva equation and conservation of specific relative angular momentum
 	LOCAL pe IS mission["periapsis"]*1000 + SHIP:BODY:RADIUS.
@@ -130,28 +150,63 @@ FUNCTION targetSetup {
 				).
 }.
 
-//	Time to next northerly launch opportunity
+//	Ascending node vector of the orbit passing right over the launch site
+FUNCTION nodeVector {
+	DECLARE PARAMETER inc.				//	Inclination of the desired orbit. Expects a scalar.
+	DECLARE PARAMETER dir IS "north".	//	Launch direction. Expects a string, either "north" or "south".
+	
+	//	From right spherical triangle composed of inclination, latitude and "b",
+	//	which is angular difference between the desired node vector and projection
+	//	of the vector pointing at the launch site onto the equatorial plane.
+	LOCAL b IS TAN(90-inc)*TAN(SHIP:GEOPOSITION:LAT).
+	SET b TO ARCSIN( MIN(MAX(-1, b), 1) ).
+	LOCAL longitudeVector IS VXCL(V(0,1,0), -SHIP:ORBIT:BODY:POSITION):NORMALIZED.
+	IF dir = "north" {
+		RETURN rodrigues(longitudeVector, V(0,1,0), b).
+	} ELSE IF dir = "south" {
+		//	This can be easily derived from spherical triangle if one draws a half
+		//	of an orbit, from node to node. It is obvious that distance from node to
+		//	peak equals 90 degrees, and from that the following results.
+		RETURN rodrigues(longitudeVector, V(0,1,0), 180-b).
+	} ELSE {
+		pushUIMessage("Unknown launch direction. Trying north.", 5, PRIORITY_HIGH).
+		RETURN nodeVector(inc, "north").
+	}
+}
+
+//	Time to next launch opportunity in given direction
 FUNCTION orbitInterceptTime {
+	DECLARE PARAMETER launchDir IS mission["direction"].	//	Passing as parameter for recursive calls.
+	
 	//	Expects a global variable "mission" as lexicon
 	LOCAL targetInc IS mission["inclination"].
 	LOCAL targetLan IS mission["lan"].
 	
-	//	First find the ascending node of an orbit of the given inclination, passing right over the vehicle now.
-	LOCAL b IS TAN(90-targetInc)*(TAN(SHIP:GEOPOSITION:LAT)).	//	From Napier's spherical triangle mnemonics
-	IF b < -1 { SET b TO -1. }
-	IF b > 1 { SET b TO 1. }
-	SET b TO ARCSIN(b).											//	Broken in case of an attempt at launch to a lower inclination than reachable
-	LOCAL currentNode IS VXCL(V(0,1,0), -SHIP:ORBIT:BODY:POSITION):NORMALIZED.
-	SET currentNode TO rodrigues(currentNode, V(0,1,0), b).
-	//	Then find the ascending node of the target orbit.
-	LOCAL targetNode IS rodrigues(SOLARPRIMEVECTOR, V(0,1,0), -targetLan).
-	//	Finally find the angle between them, minding rotation direction.
-	LOCAL nodeDelta IS VANG(currentNode, targetNode).
-	LOCAL deltaDir IS VDOT(V(0,1,0), VCRS(targetNode, currentNode)).
-	IF deltaDir < 0 { SET nodeDelta TO 360 - nodeDelta. }
-	LOCAL deltaTime IS SHIP:ORBIT:BODY:ROTATIONPERIOD * nodeDelta/360.
-	
-	RETURN deltaTime.
+	//	For "nearest" launch opportunity:
+	IF launchDir = "nearest" {
+		LOCAL timeToNortherly IS orbitInterceptTime("north").
+		LOCAL timeToSoutherly IS orbitInterceptTime("south").
+		IF timeToSoutherly < timeToNortherly {
+			SET mission["direction"] TO "south".
+			RETURN timeToSoutherly.
+		} ELSE {
+			SET mission["direction"] TO "north".
+			RETURN timeToNortherly.
+		}
+	} ELSE {
+		//	Tind the ascending node vector of an orbit of the desired inclination,
+		//	that passes above the launch site right now.
+		SET currentNode TO nodeVector(targetInc, launchDir).
+		//	Then find the ascending node vector of the target orbit.
+		LOCAL targetNode IS rodrigues(SOLARPRIMEVECTOR, V(0,1,0), -targetLan).
+		//	Find the angle between them, minding rotation direction, and return as time.
+		LOCAL nodeDelta IS VANG(currentNode, targetNode).
+		LOCAL deltaDir IS VDOT(V(0,1,0), VCRS(targetNode, currentNode)).
+		IF deltaDir < 0 { SET nodeDelta TO 360 - nodeDelta. }
+		LOCAL deltaTime IS SHIP:ORBIT:BODY:ROTATIONPERIOD * nodeDelta/360.
+		
+		RETURN deltaTime.
+	}
 }.
 
 //	Launch azimuth to a given orbit
@@ -162,7 +217,7 @@ FUNCTION launchAzimuth {
 	LOCAL targetAlt IS upfgTarget["radius"].
 	LOCAL targetVel IS upfgTarget["velocity"].
 	LOCAL siteLat IS SHIP:GEOPOSITION:LAT.
-	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site latitude!", 5, PRIORITY_HIGH ). }
+	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site!", 5, PRIORITY_HIGH ). }
 	
 	LOCAL Binertial IS COS(targetInc)/COS(siteLat).
 	IF Binertial < -1 { SET Binertial TO -1. }
@@ -175,7 +230,16 @@ FUNCTION launchAzimuth {
 	LOCAL VrotY IS Vorbit*COS(Binertial).
 	LOCAL azimuth IS ARCTAN2(VrotY, VrotX).
 	
-	RETURN 90-azimuth.	//	In MATLAB an azimuth of 0 is due east, while in KSP it's due north. This returned value is steering-ready.
+	//	In MATLAB an azimuth of 0 is due east, while in KSP it's due north.
+	//	Return the valid value depending on the launch direction:
+	IF mission["direction"] = "north" {
+		RETURN 90-azimuth.
+	} ELSE IF mission["direction"] = "south" {
+		RETURN 90+azimuth.
+	} ELSE {
+		pushUImessage("Unknown launch direction. Trying north.", 5, PRIORITY_HIGH).
+		RETURN 90-azimuth.
+	}
 }.
 
 //	Verifies parameters of the attained orbit

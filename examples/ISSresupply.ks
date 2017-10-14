@@ -7,5 +7,6 @@ GLOBAL mission IS LEXICON(
 					"periapsis", 180,
 					"apoapsis", 180,
 					"inclination", 65,
-					"LAN", 100
+					"LAN", 100,
+					"direction", "north"
 ).

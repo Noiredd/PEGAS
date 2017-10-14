@@ -13,8 +13,10 @@ launchTimeAdvance  | s     | required | Launch time will be scheduled that many 
 verticalAscentTime | s     | required | After liftoff, vehicle will fly straight up for that many seconds before pitching over
 pitchOverAngle     | deg   | required | Vehicle will pitch over by that many degrees away from vertical
 upfgActivation     | s     | required | The active guidance phase will be activated that many seconds after liftoff
-launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability
+launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability\*
 initialRoll        | deg   | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
+
+\* - see notes to [`mission`](#mission) struct.
 
 ### Vehicle
 `GLOBAL vehicle IS LIST().`
@@ -110,14 +112,21 @@ Variable of type `LEXICON`.
 Defines the target orbit.
 PEGAS allows launch to an orbit specified by selecting a target in the universe map, which allows you to enter only some of the keys.
 
-Key         | Units | Meaning
----         | ---   | ---
-payload     | kg    | **Optional**. Mass of the payload, that will be added to mass of each guided stage.
-apoapsis    | km    | Desired apoapsis above sea level.
-periapsis   | km    | Desired periapsis above sea level.
-altitude    | km    | **Optional**. Desired cutoff altitude above sea level. If not specified, will be set to periapsis.
-inclination | deg   | Inclination of the target orbit.
-LAN         | deg   | Longitude of ascending node of the target orbit.
+Key         | Type/units | Meaning
+---         | ---        | ---
+payload     | kg         | **Optional**. Mass of the payload, that will be added to mass of each guided stage.
+apoapsis    | km         | Desired apoapsis above sea level.
+periapsis   | km         | Desired periapsis above sea level.
+altitude    | km         | **Optional**. Desired cutoff altitude above sea level. If not specified, will be set to periapsis.
+inclination | deg        | Inclination of the target orbit.
+LAN         | deg        | **Optional**. Longitude of ascending node of the target orbit. When not given, will be calculated for an instantaneous launch.
+direction   | `string`   | **Optional**. Direction of launch. Allowed values: `north`, `south`, `nearest`. By default it is `nearest`.
 
 In case of selecting target from the map, `inclination` and `LAN` will be overwritten from the target data, but apoapsis and periapsis will not.
-Only in this situation one can go away with not inputting inclination and LAN.
+Only in this situation one can go away with not inputting inclination.
+LAN can generally be skipped too, in this case it will be calculated for the "right now" launch, depending on `direction`.
+If both LAN is set free and `direction` is set to `nearest`, the latter will be overridden with `north`.
+
+**Notice**: if the `controls` struct overrides the launch azimuth and `direction` is set to `nearest`,
+a conflict may happen where eg. the nearest launch opportunity is southerly but the launch azimuth optimized for a northerly launch.
+PEGAS will not try to figure out this conflict but obey, attempting to fly an impossible mission - be careful!
