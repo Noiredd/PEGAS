@@ -244,12 +244,12 @@ FUNCTION missionValidation {
 	//	If at least one condition is not a success - we only have a partial. If at least one condition
 	//	is a failure - we have a failure.
 	IF failure {
-		pushUIMessage( "Mission failure!", PRIORITY_HIGH ).
+		pushUIMessage( "Mission failure!", 3, PRIORITY_HIGH ).
 	} ELSE {
 		IF NOT success {
-			pushUIMessage( "Partial success.", PRIORITY_HIGH ).
+			pushUIMessage( "Partial success.", 3, PRIORITY_HIGH ).
 		} ELSE {
-			pushUIMessage( "Mission successful!", PRIORITY_HIGH ).
+			pushUIMessage( "Mission successful!", 3, PRIORITY_HIGH ).
 		}
 	}
 }

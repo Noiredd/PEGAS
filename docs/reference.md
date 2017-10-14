@@ -93,13 +93,13 @@ angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
 
 Available event types:
 
-Type       | Short\* | Explanation
----        | ---     | ---
-print    | `p`     | Prints `message` in the GUI, nothing else.
-stage    | `s`     | Hits spacebar (a single `STAGE.` command in kOS).
-jettison | `j`     | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
-throttle | `t`     | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
-roll     | `r`     | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
+Type     | Short\* | Explanation
+---      | ---     | ---
+print    | p       | Prints `message` in the GUI, nothing else.
+stage    | s       | Hits spacebar (a single `STAGE.` command in kOS).
+jettison | j       | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
+throttle | t       | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
+roll     | r       | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
 
 \* - can be used instead of the full event type name.
 
