@@ -118,13 +118,13 @@ payload     | kg         | **Optional**. Mass of the payload, that will be added
 apoapsis    | km         | Desired apoapsis above sea level.
 periapsis   | km         | Desired periapsis above sea level.
 altitude    | km         | **Optional**. Desired cutoff altitude above sea level. If not specified, will be set to periapsis.
-inclination | deg        | Inclination of the target orbit.
+inclination | deg        | **Optional**. Inclination of the target orbit. When not given, will be set to launch site latitude (absolute).
 LAN         | deg        | **Optional**. Longitude of ascending node of the target orbit. When not given, will be calculated for an instantaneous launch.
 direction   | `string`   | **Optional**. Direction of launch. Allowed values: `north`, `south`, `nearest`. By default it is `nearest`.
 
-In case of selecting target from the map, `inclination` and `LAN` will be overwritten from the target data, but apoapsis and periapsis will not.
-Only in this situation one can go away with not inputting inclination.
-LAN can generally be skipped too, in this case it will be calculated for the "right now" launch, depending on `direction`.
+In case of selecting target from the map, `inclination` and `LAN` will be overwritten from the target data, but apoapsis and periapsis will not.  
+Inclination can be omitted - it will be then set to the launch site latitude *magnitude*.
+LAN can also be omitted - in this case it will be calculated for a "right now" launch, depending on `direction`.
 If both LAN is set free and `direction` is set to `nearest`, the latter will be overridden with `north`.
 
 **Notice**: if the `controls` struct overrides the launch azimuth and `direction` is set to `nearest`,

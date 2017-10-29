@@ -113,10 +113,18 @@ FUNCTION missionSetup {
 		mission:ADD("direction", "nearest").
 	}
 	
+	//	Set inclination to launch site latitude, or fix the existing to (-180)-180 degrees range
+	IF mission:HASKEY("inclination") {
+		UNTIL mission["inclination"] > -180 { SET mission["inclination"] TO mission["inclination"] + 360. }
+		UNTIL mission["inclination"] < 180 { SET mission["inclination"] TO mission["inclination"] - 360. }
+	} ELSE {
+		mission:ADD("inclination", ABS(SHIP:GEOPOSITION:LAT)).
+	}
+	
 	//	Calculate LAN for the "right now" launch, or fix the existing to 0-360 degrees range
 	IF mission:HASKEY("LAN") {
-		IF mission["LAN"] < 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
-		IF mission["LAN"] > 360 { SET mission["LAN"] TO mission["LAN"] - 360. }
+		UNTIL mission["LAN"] > 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
+		IF mission["LAN"] > 360 { SET mission["LAN"] TO MOD(mission["LAN"], 360). }
 	} ELSE {
 		//	Calculate what LAN would an orbit passing right above the launch site right now have,
 		//	correct for launchTimeAdvance and add some time for the countdown, and set up the new LAN.
