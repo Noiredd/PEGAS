@@ -465,6 +465,77 @@ FUNCTION setVehicle {
 	}
 }.
 
+//	Recalculates stage mass parameters basing on the measured mass
+FUNCTION recalculateVehicleMass {
+	//	Vehicles basing on sustainer cores start the active guidance phase with a stage whose mass is not known at system
+	//	initialization - instead, only dry mass of a stage is known, and mass of the fuel needs to be calculated at the
+	//	moment of stage activation.
+	
+	//	Expects global variables "vehicle" as lexicon and "nextStageTime" as scalar.
+	DECLARE PARAMETER stageID.
+	DECLARE PARAMETER timeAhead IS 0.		//	If we need to know what will the mass be at some time from "now", passing
+											//	a positive scalar here will cause subtraction of mass burned by the engines.
+	DECLARE PARAMETER updateEvent IS FALSE.	//	TRUE will cause the "nextStageTime" to shift by the change in stage burn times.
+	
+	LOCAL combinedEngines IS getThrust(vehicle[stageID]["engines"]).
+	SET vehicle[stageID]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*timeAhead.
+	SET vehicle[stageID]["massFuel"]  TO vehicle[stageID]["massTotal"] - vehicle[stageID]["massDry"].
+	SET vehicle[stageID]["m0"] TO vehicle[stageID]["massTotal"].
+	LOCAL oldMaxT IS vehicle[stageID]["maxT"].
+	SET vehicle[stageID]["maxT"] TO vehicle[stageID]["massFuel"] / combinedEngines[1].
+	//	If the stage is followed by a constant acceleration stage - it has to be recalculated as well
+	IF stageID < vehicle:LENGTH - 1 AND vehicle[stageID+1]["mode"] = 2 {
+		//	Remove the old stage
+		vehicle:REMOVE(stageID+1).
+		//	Repeat the steps from initializeVehicle
+		LOCAL accLimTime IS accLimitViolationTime(vehicle[stageID]).
+		IF accLimTime > 0 AND accLimTime < vehicle[stageID]["maxT"] {
+			LOCAL gLimStage IS createAccelerationLimitedStage(vehicle[stageID], accLimTime).
+			vehicle:INSERT(stageID+1, gLimStage).
+			SET vehicle[stageID]["maxT"] TO accLimTime.
+		}
+	}
+	IF updateEvent {
+		SET nextStageTime TO nextStageTime - oldMaxT + vehicle[stageID]["maxT"].
+	}
+}.
+
+//	Calculates the time after which a given stage would exceed its acceleration limit
+FUNCTION accLimitViolationTime {
+	DECLARE PARAMETER baseStage.	//	Expects a lexicon
+	
+	IF baseStage["gLim"] = 0 { RETURN -1. }
+	
+	LOCAL fdmisp IS getThrust(baseStage["engines"]).
+	RETURN (baseStage["m0"] - fdmisp[0]/baseStage["gLim"]/g0) / fdmisp[1].
+}.
+
+//	Basing on an existing stage, builds a new virtual stage to handle acceleration limits.
+FUNCTION createAccelerationLimitedStage {
+	DECLARE PARAMETER baseStage.	//	Expects a lexicon
+	DECLARE PARAMETER accLimTime.	//	Time after which the given stage exceeds the limit. Expects a scalar
+	
+	//	Create a new stage
+	LOCAL gLimStage IS LEXICON("mode", 2, "name", "Constant acceleration", "gLim", baseStage["gLim"], "engines", baseStage["engines"]).
+	//	Default throttle is irrelevant since it will be dynamically calculated anyway
+	gLimStage:ADD("throttle", 1.0).
+	//	But we need to inherit the minimum throttle limit from the previous stage
+	gLimStage:ADD("minThrottle", baseStage["minThrottle"]).
+	//	Supply it with a staging information
+	gLimStage:ADD("staging", LEXICON("jettison", FALSE, "ignition", FALSE)).
+	//	Calculate its initial mass
+	LOCAL fdmisp IS getThrust(baseStage["engines"]).
+	LOCAL burnedFuelMass IS fdmisp[1] * accLimTime.
+	gLimStage:ADD("m0", baseStage["m0"] - burnedFuelMass).
+	//	Finish the structure so that we can run the burn time calculation
+	gLimStage:ADD("massTotal", gLimStage["m0"]).
+	gLimStage:ADD("massFuel", baseStage["massFuel"] - burnedFuelMass).
+	gLimStage:ADD("massDry", gLimStage["massTotal"] - gLimStage["massFuel"]).
+	gLimStage:ADD("maxT", constAccBurnTime(gLimStage)).
+	
+	RETURN gLimStage.
+}.
+
 //	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
 //	initializes the automatic staging sequence.
 FUNCTION initializeVehicle {
@@ -478,44 +549,24 @@ FUNCTION initializeVehicle {
 	//	Expects a global variable "vehicle" as list of lexicons, "upfgConvergenceDelay" as scalar
 	
 	LOCAL currentTime IS TIME:SECONDS.
-	LOCAL currentMass IS SHIP:MASS*1000.
+	
 	//	If a stage has a staging sequence defined, this means it is a Saturn-like stage which needs no update. Otherwise,
 	//	it is a sustainer stage and only its initial (and, hence, dry) mass is known. Actual mass needs to be calculated.
 	IF NOT vehicle[0]["staging"]["ignition"] {
-		LOCAL combinedEngines IS getThrust(vehicle[0]["engines"]).
-		//	This function is expected to run "upfgConvergenceDelay" before actual activation of the stage, hence the mass decrease.
-		SET vehicle[0]["massTotal"] TO currentMass - combinedEngines[1]*upfgConvergenceDelay.
-		SET vehicle[0]["massFuel"]  TO vehicle[0]["massTotal"] - vehicle[0]["massDry"].
-		SET vehicle[0]["m0"] TO vehicle[0]["massTotal"].
-		SET vehicle[0]["maxT"] TO vehicle[0]["massFuel"] / combinedEngines[1].
+		//	We need to know the real mass of the vehicle, but we're doing this "upfgConvergenceDelay" seconds before this
+		//	information will be used:
+		recalculateVehicleMass(0, upfgConvergenceDelay).
 	}
 	//	Acceleration limits are handled in the following loop
 	FROM { LOCAL i IS 0. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
 		IF vehicle[i]["gLim"]>0 {
 			//	Calculate when will the acceleration limit be exceeded
-			LOCAL fdmisp IS getThrust(vehicle[i]["engines"]).
-			LOCAL Fthrust IS fdmisp[0].
-			LOCAL massFlow IS fdmisp[1].
-			LOCAL totalIsp IS fdmisp[2].
-			LOCAL accLimTime IS (vehicle[i]["m0"] - Fthrust/vehicle[i]["gLim"]/g0) / massFlow.
-			//	If this time is greater than the stage's max burn time - we're good. Otherwise, the limit must be enforced
-			IF accLimTime < vehicle[i]["maxT"] {
-				//	Create a new stage
-				LOCAL gLimStage IS LEXICON("mode", 2, "name", "Constant acceleration", "gLim", vehicle[i]["gLim"], "engines", vehicle[i]["engines"]).
-				//	Default throttle is irrelevant since it will be dynamically calculated anyway
-				gLimStage:ADD("throttle", 1.0).
-				//	But we need to inherit the minimum throttle limit from the previous stage
-				gLimStage:ADD("minThrottle", vehicle[i]["minThrottle"]).
-				//	Supply it with a staging information
-				gLimStage:ADD("staging", LEXICON("jettison", FALSE, "ignition", FALSE)).
-				//	Calculate its initial mass
-				LOCAL burnedFuelMass IS massFlow * accLimTime.
-				gLimStage:ADD("m0", vehicle[i]["m0"] - burnedFuelMass).
-				//	Finish the structure so that we can run the burn time calculation
-				gLimStage:ADD("massTotal", gLimStage["m0"]).
-				gLimStage:ADD("massFuel", vehicle[i]["massFuel"] - burnedFuelMass).
-				gLimStage:ADD("massDry", gLimStage["massTotal"] - gLimStage["massFuel"]).
-				gLimStage:ADD("maxT", constAccBurnTime(gLimStage)).
+			LOCAL accLimTime IS accLimitViolationTime(vehicle[i]).
+			//	If this time is greater than the stage's max burn time - we're good.
+			//	Otherwise, we create a virtual stage for the acceleration-limited flight and reduce the burn time of
+			//	the violating stage.
+			IF accLimTime > 0 AND accLimTime < vehicle[i]["maxT"] {
+				LOCAL gLimStage IS createAccelerationLimitedStage(vehicle[i], accLimTime).
 				//	Insert it into the list and increment i so that we don't process it next
 				vehicle:INSERT(i+1, gLimStage).
 				//	Adjust the current stage's burn time
@@ -676,7 +727,6 @@ FUNCTION stageEventHandler {
 	
 	//	Expects global variables "liftOffTime" as TimeSpan, "vehicle" as list, "controls" as lexicon, "upfgStage" as scalar and "stageEventFlag" as bool.
 	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicle
-	LOCAL currentMass IS SHIP:MASS*1000.
 	
 	//	First call (we know because upfgStage is still at initial value) only sets up the event for first guided stage.
 	IF upfgStage = -1 {
@@ -693,7 +743,11 @@ FUNCTION stageEventHandler {
 	LOCAL eventDelay IS 0.			//	Many things occur sequentially - this keeps track of the time between subsequent events.
 	IF event["jettison"] {
 		GLOBAL stageJettisonTime IS currentTime + event["waitBeforeJettison"].
+		//	If we only jettison something but not ignite any new engines, means that this stage is a sustainer-type stage, which
+		//	needs additional recalculation of the mass parameters. We store this flag globally here (the trigger must access it).
+		GLOBAL needsMassRecalculation IS NOT event["ignition"].
 		WHEN TIME:SECONDS >= stageJettisonTime THEN {	STAGE.
+														IF needsMassRecalculation { recalculateVehicleMass(upfgStage, 0, TRUE). }
 														pushUIMessage(stageName + " - separation"). }
 		SET eventDelay TO eventDelay + event["waitBeforeJettison"].
 	}

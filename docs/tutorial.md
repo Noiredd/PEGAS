@@ -127,12 +127,14 @@ Let's say you're flying a Saturn V.
 A natural choice would be to align the moment of UPFG activation with ignition of the second stage.
 This way, you can use the [`staging`](reference.md#staging) facility in its description to make PEGAS control the ignition and separation of the previous stage.
 In this case, you write down the total mass of the stack after separation of the first stage, and the mass of fuel in the second one.
-You set the `upfgActivation` key in `controls` to time of burn of the first stage.  
+You set the `upfgActivation` key in `controls` to time of burn of the first stage.
+
 By contrast, you could be flying an Atlas V, and waiting till its booster burns out is not an option.
-You can define `upfgActivation` so that UPFG is engaged while the booster burns, and specify no jettison and no ignition events for that stage.
+You can define `upfgActivation` so that UPFG is engaged while the booster burns, and specify no ignition event for that stage.
 It *would be* quite cumbersome to have to calculate the vehicle's mass at that point before the flight - but PEGAS has one trick to make it easier.
-If a first actively guided stage has no jettison or no ignition set, it assumes it has been burning from time zero: it checks the current mass, compares that with the dry mass of the stage and infers the amount of fuel left in the tanks.
-In this case, the only thing you need to do is provide that dry mass, and set the `upfgActivation` to virtually any moment.
+If a first actively guided stage requires no ignition, it assumes the stage has been burning from time zero: it checks the current mass, compares that with the dry mass of the stage and infers the amount of fuel left in the tanks.
+In this case, the only thing you need to do is provide that dry mass, and set the `upfgActivation` to virtually any moment.  
+This also works if you decide to drop the SRBs and activate UPFG in one go, simply by stating `"jettison", TRUE` in the [`staging`](reference.md#staging) entry.
 
 ##### Note about constant-acceleration phases
 PEGAS has the capability to run vehicles with acceleration-limited stages (eg. Space Shuttle, Atlas V).
