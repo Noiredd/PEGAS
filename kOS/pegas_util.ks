@@ -457,6 +457,8 @@ FUNCTION setVehicle {
 		FOR e IN v["engines"] {
 			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*g0) * v["throttle"]). }
 		}
+		//	Add the shutdown flag - it is optional, but functions rely on its presence
+		IF NOT v:HASKEY("shutdownRequired") { v:ADD("shutdownRequired", FALSE). }
 		//	Calculate max burn time
 		LOCAL combinedEngines IS getThrust(v["engines"]).
 		v:ADD("maxT", v["massFuel"] / combinedEngines[1]).
@@ -475,6 +477,7 @@ FUNCTION recalculateVehicleMass {
 	DECLARE PARAMETER stageID.
 	DECLARE PARAMETER timeAhead IS 0.		//	If we need to know what will the mass be at some time from "now", passing
 											//	a positive scalar here will cause subtraction of mass burned by the engines.
+	DECLARE PARAMETER recalcNext IS FALSE.	//	TRUE will cause recalculation of the constant-acceleration stage (if present).
 	DECLARE PARAMETER updateEvent IS FALSE.	//	TRUE will cause the "nextStageTime" to shift by the change in stage burn times.
 	
 	LOCAL combinedEngines IS getThrust(vehicle[stageID]["engines"]).
@@ -484,7 +487,11 @@ FUNCTION recalculateVehicleMass {
 	LOCAL oldMaxT IS vehicle[stageID]["maxT"].
 	SET vehicle[stageID]["maxT"] TO vehicle[stageID]["massFuel"] / combinedEngines[1].
 	//	If the stage is followed by a constant acceleration stage - it has to be recalculated as well
-	IF stageID < vehicle:LENGTH - 1 AND vehicle[stageID+1]["mode"] = 2 {
+	IF recalcNext AND stageID < vehicle:LENGTH - 1 AND vehicle[stageID+1]["mode"] = 2 {
+		//	This is almost the same as initializeVehicle code, with one difference: if the (physical) stage requires
+		//	explicit shutting down of its engines, this information needs to be retrieved.
+		//back to the stage cause the creator will use it to create the new stage, we'll delete it later
+		SET vehicle[stageID]["shutdownRequired"] TO vehicle[stageID+1]["shutdownRequired"].
 		//	Remove the old stage
 		vehicle:REMOVE(stageID+1).
 		//	Repeat the steps from initializeVehicle
@@ -493,6 +500,7 @@ FUNCTION recalculateVehicleMass {
 			LOCAL gLimStage IS createAccelerationLimitedStage(vehicle[stageID], accLimTime).
 			vehicle:INSERT(stageID+1, gLimStage).
 			SET vehicle[stageID]["maxT"] TO accLimTime.
+			SET vehicle[stageID]["shutdownRequired"] TO FALSE.
 		}
 	}
 	IF updateEvent {
@@ -521,6 +529,8 @@ FUNCTION createAccelerationLimitedStage {
 	gLimStage:ADD("throttle", 1.0).
 	//	But we need to inherit the minimum throttle limit from the previous stage
 	gLimStage:ADD("minThrottle", baseStage["minThrottle"]).
+	//	Copy the shutdown flag
+	gLimStage:ADD("shutdownRequired", baseStage["shutdownRequired"]).
 	//	Supply it with a staging information
 	gLimStage:ADD("staging", LEXICON("jettison", FALSE, "ignition", FALSE)).
 	//	Calculate its initial mass
@@ -571,13 +581,16 @@ FUNCTION initializeVehicle {
 				vehicle:INSERT(i+1, gLimStage).
 				//	Adjust the current stage's burn time
 				SET vehicle[i]["maxT"] TO accLimTime.
+				//	And remember that it cannot shutdown before the virtual staging
+				SET vehicle[i]["shutdownRequired"] TO FALSE.
 				//	We want to iterate through all the stages, but we just added one
 				SET i TO i+1.
 			}
 		}
 	}
+	
 	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
-}
+}.
 
 //	Executes a system event. Currently only supports message printing.
 FUNCTION systemEventHandler {
@@ -617,7 +630,7 @@ FUNCTION userEventHandler {
 	}.
 	
 	//	Expects global variables "sequence" and "vehicle" as list, "userEventFlag" as bool,
-	//	"liftoffTime", "steeringRoll", "userEventPointer" and "upfgStage" as scalars.
+	//	"liftoffTime", "steeringRoll", "userEventPointer", "upfgStage" and "nextStageTime" as scalars.
 	//	First call initializes and exits without doing anything
 	IF userEventPointer = -1 {
 		setNextEvent().
@@ -654,11 +667,7 @@ FUNCTION userEventHandler {
 				} ELSE IF i+1 < vehicle:LENGTH {
 					//	Otherwise, we have to increase a delay on the subsequent stage
 					LOCAL addDelay IS newBurnTime - vehicle[i]["maxT"].
-					IF vehicle[i+1]["staging"]:HASKEY("waitBeforeJettison") {
-						SET vehicle[i+1]["staging"]["waitBeforeJettison"] TO vehicle[i+1]["staging"]["waitBeforeJettison"] + addDelay.
-					} ELSE IF vehicle[i+1]["staging"]:HASKEY("waitBeforeIgnition") {
-						SET vehicle[i+1]["staging"]["waitBeforeIgnition"] TO vehicle[i+1]["staging"]["waitBeforeIgnition"] + addDelay.
-					}
+					SET nextStageTime TO nextStageTime + addDelay.
 				}
 			}
 			//	Exit the loop if the subsequent stage separates (either via staging or ignition)
@@ -741,13 +750,17 @@ FUNCTION stageEventHandler {
 	LOCAL event IS vehicle[upfgStage]["staging"].
 	LOCAL stageName IS vehicle[upfgStage]["name"].
 	LOCAL eventDelay IS 0.			//	Many things occur sequentially - this keeps track of the time between subsequent events.
+	IF upfgStage > 0 AND vehicle[upfgStage-1]["shutdownRequired"] {
+		SET throttleSetting TO 0.
+		SET throttleDisplay TO 0.
+	}
 	IF event["jettison"] {
 		GLOBAL stageJettisonTime IS currentTime + event["waitBeforeJettison"].
 		//	If we only jettison something but not ignite any new engines, means that this stage is a sustainer-type stage, which
 		//	needs additional recalculation of the mass parameters. We store this flag globally here (the trigger must access it).
 		GLOBAL needsMassRecalculation IS NOT event["ignition"].
 		WHEN TIME:SECONDS >= stageJettisonTime THEN {	STAGE.
-														IF needsMassRecalculation { recalculateVehicleMass(upfgStage, 0, TRUE). }
+														IF needsMassRecalculation { recalculateVehicleMass(upfgStage, 0, TRUE, TRUE). }
 														pushUIMessage(stageName + " - separation"). }
 		SET eventDelay TO eventDelay + event["waitBeforeJettison"].
 	}
@@ -907,6 +920,7 @@ FUNCTION throttleControl {
 	LOCAL whichStage IS upfgStage.
 	IF stagingInProgress {
 		SET whichStage TO upfgStage - 1.
+		IF vehicle[whichStage]["shutdownRequired"] { RETURN. }
 	}
 	
 	IF vehicle[whichStage]["mode"] = 1 {
