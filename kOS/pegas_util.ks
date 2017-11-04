@@ -444,14 +444,13 @@ FUNCTION setVehicle {
 			SET v["massTotal"] TO v["massTotal"] + mission["payload"].
 			SET v["massDry"] TO v["massDry"] + mission["payload"].
 		}
-		//	Default fields: gLim, minThrottle, throttle, m0, mode
+		//	Default fields: gLim, minThrottle, throttle, mode
 		IF NOT v:HASKEY("gLim")			{ v:ADD("gLim", 0). }
 		IF NOT v:HASKEY("minThrottle")	{ v:ADD("minThrottle", 0). }
 		//	In case user accidentally entered throttle as percentage instead of a fraction
 		ELSE IF v["minThrottle"] > 1.0	{ SET v["minThrottle"] TO v["minThrottle"] / 100.0. }
 		IF NOT v:HASKEY("throttle")		{ v:ADD("throttle", 1). }
 		ELSE IF v["throttle"] > 1.0		{ SET v["throttle"] TO v["throttle"] / 100.0. }
-		v:ADD("m0", v["massTotal"]).
 		v:ADD("mode", 1).
 		//	Engine update
 		FOR e IN v["engines"] {
@@ -483,7 +482,6 @@ FUNCTION recalculateVehicleMass {
 	LOCAL combinedEngines IS getThrust(vehicle[stageID]["engines"]).
 	SET vehicle[stageID]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*timeAhead.
 	SET vehicle[stageID]["massFuel"]  TO vehicle[stageID]["massTotal"] - vehicle[stageID]["massDry"].
-	SET vehicle[stageID]["m0"] TO vehicle[stageID]["massTotal"].
 	LOCAL oldMaxT IS vehicle[stageID]["maxT"].
 	SET vehicle[stageID]["maxT"] TO vehicle[stageID]["massFuel"] / combinedEngines[1].
 	//	If the stage is followed by a constant acceleration stage - it has to be recalculated as well
@@ -515,7 +513,7 @@ FUNCTION accLimitViolationTime {
 	IF baseStage["gLim"] = 0 { RETURN -1. }
 	
 	LOCAL fdmisp IS getThrust(baseStage["engines"]).
-	RETURN (baseStage["m0"] - fdmisp[0]/baseStage["gLim"]/g0) / fdmisp[1].
+	RETURN (baseStage["massTotal"] - fdmisp[0]/baseStage["gLim"]/g0) / fdmisp[1].
 }.
 
 //	Basing on an existing stage, builds a new virtual stage to handle acceleration limits.
@@ -536,9 +534,8 @@ FUNCTION createAccelerationLimitedStage {
 	//	Calculate its initial mass
 	LOCAL fdmisp IS getThrust(baseStage["engines"]).
 	LOCAL burnedFuelMass IS fdmisp[1] * accLimTime.
-	gLimStage:ADD("m0", baseStage["m0"] - burnedFuelMass).
+	gLimStage:ADD("massTotal", baseStage["massTotal"] - burnedFuelMass).
 	//	Finish the structure so that we can run the burn time calculation
-	gLimStage:ADD("massTotal", gLimStage["m0"]).
 	gLimStage:ADD("massFuel", baseStage["massFuel"] - burnedFuelMass).
 	gLimStage:ADD("massDry", gLimStage["massTotal"] - gLimStage["massFuel"]).
 	gLimStage:ADD("maxT", constAccBurnTime(gLimStage)).
@@ -655,7 +652,6 @@ FUNCTION userEventHandler {
 		LOCAL dm IS sequence[userEventPointer]["massLost"].
 		FROM { LOCAL i IS upfgStage. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
 			//	Reduce mass of this stage
-			SET vehicle[i]["m0"] TO vehicle[i]["m0"] - dm.
 			SET vehicle[i]["massTotal"] TO vehicle[i]["massTotal"] - dm.
 			SET vehicle[i]["massDry"] TO vehicle[i]["massDry"] - dm.
 			//	Recalculate burn time of const-acc stages

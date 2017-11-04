@@ -40,7 +40,7 @@ FUNCTION upfg {
 		fT:ADD(pack[0]).
 		md:ADD(pack[1]).
 		ve:ADD(pack[2]*g0).
-		aT:ADD(fT[i] / vehicle[i]["m0"]).
+		aT:ADD(fT[i] / vehicle[i]["massTotal"]).
 		tu:ADD(ve[i]/aT[i]).
 		tb:ADD(vehicle[i]["maxT"]).
 	}
