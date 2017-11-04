@@ -30,6 +30,7 @@ RUN pegas_cser.
 RUN pegas_upfg.
 RUN pegas_util.
 RUN pegas_misc.
+RUN pegas_comm.
 
 //	Initialize global flags
 GLOBAL upfgStage IS -1.				//	Seems wrong (we use "vehicle[upfgStage]") but first run of stageEventHandler increments this automatically
@@ -39,6 +40,7 @@ GLOBAL systemEventPointer IS -1.	//	Same deal as with "upfgStage"
 GLOBAL systemEventFlag IS FALSE.
 GLOBAL userEventPointer IS -1.		//	As above
 GLOBAL userEventFlag IS FALSE.
+GLOBAL commsEventFlag IS FALSE.
 GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
 GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see throttleControl() for details.
 GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR).
@@ -68,6 +70,7 @@ IF controls:HASKEY("initialRoll") {
 setSystemEvents().		//	Set up countdown messages
 setUserEvents().		//	Initialize vehicle sequence
 setVehicle().			//	Complete vehicle definition (as given by user)
+setComms(). 			//	Setting up communications
 
 
 //	PEGAS TAKES CONTROL OF THE MISSION
@@ -81,6 +84,7 @@ UNTIL ABORT {
 	//	Sequence handling
 	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
+	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Control handling
 	IF ascentFlag = 0 {
 		//	The vehicle is going straight up for given amount of time
@@ -146,6 +150,7 @@ UNTIL ABORT {
 	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
 	IF  stageEventFlag = TRUE {  stageEventHandler(). }
+	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Update UPFG target and vehicle state
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
 	SET upfgState TO acquireState().
