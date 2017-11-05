@@ -13,18 +13,15 @@ FUNCTION commsEventHandler {
 	LOCAL message IS CORE:MESSAGES:PEEK:CONTENT.
 	//	Create a response lexicon to send back
 	LOCAL response IS LEXICON("type", "response").
+	//	Make sure data is in correct format
+	LOCAL validation IS verifyMessageFormat(message["type"], message["data"]).
+	LOCAL data IS validation["verifiedData"].
 	//	Create a lexicon to be populated with data to send back
-	LOCAL responseData IS LEXICON().
+	LOCAL responseData IS validation["responseData"].
 
-	IF message["type"] = "request" {
-		//	Example message: LEXICON("type", "request", "data", LIST("liftoffTime", "launchAzimuth"), "sender", CORE:TAG).
-
-		//	Making sure data is in correct format
-		LOCAL validation IS verifyMessageFormat(message["type"], message["data"], responseData).
-		LOCAL data IS validation["verifiedData"].
-		SET responseData TO validation["responseData"].
-
-		IF validation["passed"] {
+	//	Handle the message if it passed format validation
+	IF validation["passed"] {
+		IF message["type"] = "request" {
 			//	List of available return data
 			LOCAL availableData IS LEXICON(
 				"liftoffTime", liftoffTime:SECONDS,
@@ -32,55 +29,46 @@ FUNCTION commsEventHandler {
 				"upfgActivation", controls["upfgActivation"],
 				"upfgConverged", upfgConverged
 			).
-
 			//	Iterate through requested data and add to responseData
 			FOR d IN data {
-				IF d:ISTYPE("String") {	//	Only do the following if data name is a string
+				//	Check whether the request has the right type and whether we understand it.
+				IF d:ISTYPE("String") {
 					IF availableData:HASKEY(d) {
 						responseData:ADD(d, availableData[d]).
 					} ELSE {
 						responseData:ADD(d, "ERROR (Requested data not found)").
 					}
-				} ELSE {				//	Otherwise respond with an error
+				} ELSE {
 					responseData:ADD(d, "ERROR (Requested data not passed in as string)").
 				}
 			}
-		}
-
-	} ELSE IF message["type"] = "command" {
-		//	Example message: LEXICON("type", "command", "data", LIST("engineShutdown", "engine_1_tag", "engine_2_tag"), "sender", CORE:TAG).
-
-		//	Making sure data is in correct format
-		LOCAL validation IS verifyMessageFormat(message["type"], message["data"], responseData).
-		LOCAL data IS validation["verifiedData"].
-		SET responseData TO validation["responseData"].
-
-		IF validation["passed"] {
+		} ELSE IF message["type"] = "command" {
 			//	Iterate through commands and add to responseData
 			FOR d IN data {
 				//	If this list is empty, it will be skipped (no error returned as no command name to reference)
 				IF NOT d:EMPTY {
-					IF d[0]:ISTYPE("String") {	//	Only do the following if command name is a string
+					//	Check whether the request has the right type
+					IF d[0]:ISTYPE("String") {
 						IF availableCommands:HASKEY(d[0]) {
 							LOCAL returned IS TRUE.
+							//	Commands with and without parameters need different calls
 							IF d:LENGTH > 1 {
 								SET returned TO availableCommands[d[0]](d:SUBLIST(1, d:LENGTH-1)).
 							} ELSE {
 								SET returned TO availableCommands[d[0]]().
 							}
-							//	If command was executed return value
 							responseData:ADD(d[0], returned).
 						} ELSE {
-							//	Else, return an error
 							responseData:ADD(d[0], "ERROR (Command not found)").
 						}
-					} ELSE {				//	Otherwise respond with an error
+					} ELSE {
 						responseData:ADD(d[0], "ERROR (Command name not passed in as string)").
 					}
 				}
 			}
+		} ELSE {
+			SET responseData TO "ERROR (Unknown message type)".
 		}
-
 	}
 
 	//	Add all response data to the response
@@ -88,7 +76,7 @@ FUNCTION commsEventHandler {
 	//	Add the sender info
 	response:ADD("sender", CORE:TAG).
 
-	if message:HASKEY("sender") {
+	IF message:HASKEY("sender") {
 		LIST PROCESSORS IN CPUs.
 		LOCAL senderExists IS FALSE.
 		FOR CPU IN CPUs { IF CPU:tag = message["sender"] { SET senderExists TO TRUE. BREAK. } }
@@ -116,41 +104,44 @@ FUNCTION commsEventHandler {
 FUNCTION verifyMessageFormat {
 	PARAMETER type.
 	PARAMETER data.
-	PARAMETER responseData.
+	
+	//	Response is a lexicon by default. If we encounter any error, it will change type to a string,
+	//	and this is how we know that the format verification failed.
+	SET responseData TO LEXICON().
 
 	IF type = "request" {
+		//	Make sure even a single request is inside a list, and if it was passed as a list - that it's not empty.
 		IF NOT data:ISTYPE("List") {
-			//	Single string can be passed
-			IF data:ISTYPE("String") { SET data TO LIST(data). }
-			//	If unrecognised data type is provided, respond with an error
-			ELSE { SET responseData TO "ERROR (Unrecognised data format)". }
-		//	If list is empty, respod with an error
+			SET data TO LIST(data).
 		} ELSE IF data:EMPTY {
 			SET responseData TO "ERROR (List of requested data empty)".
 		}
 	} ELSE IF type = "command" {
+		//	A command consists of a string (name of a command) and optionally arguments of any type.
+		//	Commands data has to eventually become a list of lists. User can input either:
+		//	 *	single string:	a no-arguments command
+		//	 *	single list:	a single command with arguments
+		//	 *	list of lists:	several commands, with or without arguments
 		IF NOT data:ISTYPE("List") {
-			//	If user passes the command as a string, program assumes a single command with no parameters.
+			//	Single string case
 			IF data:ISTYPE("String") { SET data TO LIST(LIST(data)). }
 			ELSE { SET responseData TO "ERROR (Unrecognised data format)". }
 		} ELSE IF NOT data:EMPTY {
 			IF NOT data[0]:ISTYPE("List") {
-				//	If a single command is provided (inside 1 list), insert it into a second list
+				//	Single list case - reject if does not begin with a string
 				IF data[0]:ISTYPE("String") { SET data TO LIST(data). }
-				//	If list with unrecognised data type inside it is provided, respond with an error
 				ELSE { SET responseData TO "ERROR (Unrecognised data format)". }
 			} ELSE IF data:LENGTH = 1 AND data[0]:EMPTY {
-				//	If there is only 1 list inside outer list and it's empty, respond with an error
+				//	List of lists case - reject if it only contains an empty list
 				SET responseData TO "ERROR (List of commands empty)".
 			}
 		} ELSE {
-			//	If list is empty, respod with an error
 			SET responseData TO "ERROR (List of commands empty)".
 		}
 		// Make sure that all inner elements are lists
 		FOR d IN data { IF NOT d:ISTYPE("List") { SET responseData TO "ERROR (Unrecognised data format)". } }
 	}
-
+	
 	RETURN LEXICON("passed", responseData:ISTYPE("Lexicon"), "verifiedData", data, "responseData", responseData).
 }
 
