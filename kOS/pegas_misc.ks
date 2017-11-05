@@ -19,7 +19,7 @@ SET TERMINAL:HEIGHT TO 26 + 14.	//	Few more lines for debugging
 FUNCTION createUI {
 	CLEARSCREEN.
 	PRINT ".-----------------------------------------.".
-	PRINT "| PEGAS                              v1.0 |".
+	PRINT "| PEGAS                              v1.1 |".
 	PRINT "| Powered Explicit Guidance Ascent System |".
 	PRINT "|-----------------------------------------|".
 	PRINT "| T   h  m  s |                           |".
