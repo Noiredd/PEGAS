@@ -15,7 +15,7 @@ FUNCTION rodrigues {
 	SET outVector TO outVector + axis*VDOT(axis, inVector)*(1-COS(angle)).
 	
 	RETURN outVector.
-}.
+}
 
 //	Returns a kOS direction for given aim vector and roll angle
 FUNCTION aimAndRoll {
@@ -31,7 +31,7 @@ FUNCTION vecYZ {
 	DECLARE PARAMETER input.	//	Expects a vector
 	LOCAL output IS V(input:X, input:Z, input:Y).
 	RETURN output.
-}.
+}
 
 //	Engine combination parameters
 FUNCTION getThrust {
@@ -49,7 +49,7 @@ FUNCTION getThrust {
 	SET isp TO F/(dm*g0).
 	
 	RETURN LIST(F, dm, isp).
-}.
+}
 
 //	Robust calculation of constant acceleration burn time
 FUNCTION constAccBurnTime {
@@ -85,7 +85,7 @@ FUNCTION constAccBurnTime {
 		SET constThrustTime TO (fuel - burnedFuel) / (baseFlow * tMin).
 	}
 	RETURN maxBurnTime + constThrustTime.
-}.
+}
 
 //	TARGETING FUNCTIONS
 
@@ -156,7 +156,7 @@ FUNCTION targetSetup {
 				"angle", flightPathAngle,
 				"normal", V(0,0,0)				//	temporarily unset - due to KSP's silly coordinate system this needs to be recalculated every time step, so we will not bother with it for now
 				).
-}.
+}
 
 //	Ascending node vector of the orbit passing right over the launch site
 FUNCTION nodeVector {
@@ -215,7 +215,7 @@ FUNCTION orbitInterceptTime {
 		
 		RETURN deltaTime.
 	}
-}.
+}
 
 //	Launch azimuth to a given orbit
 FUNCTION launchAzimuth {
@@ -248,7 +248,7 @@ FUNCTION launchAzimuth {
 		pushUImessage("Unknown launch direction. Trying north.", 5, PRIORITY_HIGH).
 		RETURN 90-azimuth.
 	}
-}.
+}
 
 //	Verifies parameters of the attained orbit
 FUNCTION missionValidation {
@@ -350,7 +350,7 @@ FUNCTION setupUPFG {
 		"v", curV,
 		"vgo", tgoV
 	).
-}.
+}
 
 //	Acquire vehicle position data
 FUNCTION acquireState {
@@ -362,7 +362,7 @@ FUNCTION acquireState {
 		"radius", vecYZ(SHIP:ORBIT:BODY:POSITION) * -1,
 		"velocity", vecYZ(SHIP:ORBIT:VELOCITY:ORBIT)
 	).
-}.
+}
 
 //	Target plane normal vector in MATLAB coordinates, UPFG compatible direction
 FUNCTION targetNormal {
@@ -377,7 +377,7 @@ FUNCTION targetNormal {
 	LOCAL normalVec IS rodrigues(highPoint, rotAxis, 90-targetInc).
 	
 	RETURN -vecYZ(normalVec).
-}.
+}
 
 //	EVENT HANDLING FUNCTIONS
 
@@ -389,7 +389,7 @@ FUNCTION setSystemEvents {
 		DECLARE PARAMETER eventMessage.		//	Expects a string
 		
 		RETURN LEXICON("time", timeAfterLiftoff, "type", "dummy", "message", eventMessage, "data", LIST()).
-	}.
+	}
 	
 	//	Expects a global variable "liftoffTime" as scalar and "systemEvents" as list
 	LOCAL timeToLaunch IS liftoffTime:SECONDS - TIME:SECONDS.
@@ -415,13 +415,13 @@ FUNCTION setSystemEvents {
 	
 	//	Initialize the first event
 	systemEventHandler().
-}.
+}
 
 //	Setup user events (vehicle sequence)
 FUNCTION setUserEvents {
 	//	Just a wrapper to a handler which automatically does the setup on its first run.
 	userEventHandler().
-}.
+}
 
 //	Setup vehicle: transform user input to UPFG-compatible struct
 FUNCTION setVehicle {
@@ -464,7 +464,7 @@ FUNCTION setVehicle {
 		//	Increment loop counter
 		SET i TO i+1.
 	}
-}.
+}
 
 //	Recalculates stage mass parameters basing on the measured mass
 FUNCTION recalculateVehicleMass {
@@ -504,7 +504,7 @@ FUNCTION recalculateVehicleMass {
 	IF updateEvent {
 		SET nextStageTime TO nextStageTime - oldMaxT + vehicle[stageID]["maxT"].
 	}
-}.
+}
 
 //	Calculates the time after which a given stage would exceed its acceleration limit
 FUNCTION accLimitViolationTime {
@@ -514,7 +514,7 @@ FUNCTION accLimitViolationTime {
 	
 	LOCAL fdmisp IS getThrust(baseStage["engines"]).
 	RETURN (baseStage["massTotal"] - fdmisp[0]/baseStage["gLim"]/g0) / fdmisp[1].
-}.
+}
 
 //	Basing on an existing stage, builds a new virtual stage to handle acceleration limits.
 FUNCTION createAccelerationLimitedStage {
@@ -541,7 +541,7 @@ FUNCTION createAccelerationLimitedStage {
 	gLimStage:ADD("maxT", constAccBurnTime(gLimStage)).
 	
 	RETURN gLimStage.
-}.
+}
 
 //	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
 //	initializes the automatic staging sequence.
@@ -587,7 +587,7 @@ FUNCTION initializeVehicle {
 	}
 	
 	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
-}.
+}
 
 //	Executes a system event. Currently only supports message printing.
 FUNCTION systemEventHandler {
@@ -597,7 +597,7 @@ FUNCTION systemEventHandler {
 		IF systemEventPointer < systemEvents:LENGTH {
 			WHEN TIME:SECONDS >= liftoffTime:SECONDS + systemEvents[systemEventPointer]["time"] THEN { SET systemEventFlag TO TRUE. }
 		}
-	}.
+	}
 	
 	//	Expects global variables "liftoffTime" as TimeSpan, "systemEvents" as list, "systemEventFlag" as bool and "systemEventPointer" as scalar.
 	//	First call initializes and exits without messaging
@@ -614,7 +614,7 @@ FUNCTION systemEventHandler {
 	
 	//	Create new event trigger
 	setNextEvent().
-}.
+}
 
 //	Executes a user (sequence) event.
 FUNCTION userEventHandler {
@@ -624,7 +624,7 @@ FUNCTION userEventHandler {
 		IF userEventPointer < sequence:LENGTH {
 			WHEN TIME:SECONDS >= liftoffTime:SECONDS + sequence[userEventPointer]["time"] THEN { SET userEventFlag TO TRUE. }
 		}
-	}.
+	}
 	
 	//	Expects global variables "sequence" and "vehicle" as list, "userEventFlag" as bool,
 	//	"liftoffTime", "steeringRoll", "userEventPointer", "upfgStage" and "nextStageTime" as scalars.
@@ -706,7 +706,7 @@ FUNCTION userEventHandler {
 	
 	//	Create new event trigger
 	setNextEvent().
-}.
+}
 
 //	Executes an automatic staging event. Spawns additional triggers.
 FUNCTION stageEventHandler {
@@ -728,7 +728,7 @@ FUNCTION stageEventHandler {
 				upfgStagingNotify().	//	Pass information about staging to UPFG handler
 			}
 		}
-	}.
+	}
 	
 	//	Expects global variables "liftOffTime" as TimeSpan, "vehicle" as list, "controls" as lexicon, "upfgStage" as scalar and "stageEventFlag" as bool.
 	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicle
@@ -804,7 +804,7 @@ FUNCTION stageEventHandler {
 	
 	//	Create new event trigger
 	setNextEvent(currentTime, eventDelay).
-}.
+}
 
 //	THROTTLE AND STEERING CONTROLS
 
@@ -937,4 +937,4 @@ FUNCTION throttleControl {
 		SET throttleDisplay TO desiredThrottle.
 	}
 	ELSE { pushUIMessage( "throttleControl stage error (stage=" + upfgStage + "(" + whichStage + "), mode=" + vehicle[whichStage]["mode"] + ")!", 5, PRIORITY_CRITICAL ). }.
-}.
+}

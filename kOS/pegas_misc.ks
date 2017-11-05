@@ -46,7 +46,7 @@ FUNCTION createUI {
 	
 	textPrint(SHIP:NAME, 6, 2, 41, "L").
 	refreshUI().
-}.
+}
 
 //	Print text at the given place on the screen. Pad and trim when needed.
 FUNCTION textPrint {
@@ -68,7 +68,7 @@ FUNCTION textPrint {
 		ELSE IF align="l" { SET str TO str:PADRIGHT(flen). }
 	}
 	PRINT str AT(start, line).
-}.
+}
 
 //	Print a number like textPrint but round to 1 decimal place.
 FUNCTION numberPrint {
@@ -90,7 +90,7 @@ FUNCTION numberPrint {
 		}
 	}
 	textPrint(str, line, start, end, align).
-}.
+}
 
 //	Specialized function for printing current time and T+.
 FUNCTION timePrint {
@@ -115,7 +115,7 @@ FUNCTION timePrint {
 	textPrint(currentTime:CLOCK, 4, 33, 41, "R").
 	
 	RETURN currentTime.
-}.
+}
 
 //	Just fill in the blanks, do not redraw the whole GUI.
 FUNCTION refreshUI {
@@ -211,7 +211,7 @@ FUNCTION refreshUI {
 			}
 		}
 	}
-}.
+}
 
 //	Message printing interface
 FUNCTION pushUIMessage {

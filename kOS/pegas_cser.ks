@@ -23,7 +23,7 @@ FUNCTION cse {
 		LOCAL t IS D*(B+A*Q).
 		
 		RETURN LIST(t, A, D, E).
-	}.
+	}
 	FUNCTION uss {
 		DECLARE PARAMETER xarg.
 		DECLARE PARAMETER a.
@@ -44,7 +44,7 @@ FUNCTION cse {
 		}
 		
 		RETURN u1.
-	}.
+	}
 	FUNCTION qcf {
 		DECLARE PARAMETER w.
 		LOCAL xq IS 0.
@@ -73,7 +73,7 @@ FUNCTION cse {
 		LOCAL Q IS 1/w^2 * (1 + (2-b/2) / (3*w*(w+1))).
 		
 		RETURN Q.
-	}.
+	}
 	FUNCTION kil {
 		DECLARE PARAMETER imax.
 		DECLARE PARAMETER dts.
@@ -131,7 +131,7 @@ FUNCTION cse {
 		}
 		
 		RETURN LIST(xguess, dtguess, A, D, E).
-	}.
+	}
 	FUNCTION si {
 		DECLARE PARAMETER dterror.
 		DECLARE PARAMETER xguess.
@@ -167,7 +167,7 @@ FUNCTION cse {
 		}
 		
 		RETURN LIST(dxs, xmin, dtmin, xmax, dtmax).
-	}.
+	}
 	//END OF LOCAL FUNCTIONS
 	
 	DECLARE PARAMETER r0.	//	Expects a vector
@@ -306,4 +306,4 @@ FUNCTION cse {
 	LOCAL v IS f2*(Fts*ir0 + Gt*v0s).
 	
 	RETURN LIST(r, v, last).
-}.
+}

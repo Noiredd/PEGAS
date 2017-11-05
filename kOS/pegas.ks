@@ -131,7 +131,7 @@ UNTIL ABORT {
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
 	refreshUI().
 	WAIT 0.
-}.
+}
 
 
 //	ACTIVE GUIDANCE
@@ -158,7 +158,7 @@ UNTIL ABORT {
 	//	UI
 	refreshUI().
 	WAIT 0.
-}.
+}
 //	Final orbital insertion loop
 pushUIMessage( "Holding attitude for burn finalization!" ).
 SET previousTime TO TIME:SECONDS.
@@ -170,7 +170,7 @@ UNTIL ABORT {
 													//	We could have done "tgo < 0" but this would mean that the previous loop tgo was 0.01 yet we still didn't break
 	refreshUI().
 	WAIT 0.
-}.
+}
 
 
 //	EXIT
