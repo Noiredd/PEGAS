@@ -136,28 +136,33 @@ If both LAN is set free and `direction` is set to `nearest`, the latter will be 
 a conflict may happen where eg. the nearest launch opportunity is southerly but the launch azimuth optimized for a northerly launch.
 PEGAS will not try to figure out this conflict but obey, attempting to fly an impossible mission - be careful!
 
-## Communications reference
+## Communication module
 
-PEGAS can communicate with other CPUs on the same vessel by responding to data requests or executing commands in flight. This feature uses the [kOS Communication](https://ksp-kos.github.io/KOS/commands/communication.html) system. All messages need to be sent to the CPU that PEGAS is running on.
+PEGAS can communicate with other CPUs on the same vessel by responding to data requests or executing commands in flight.
+This feature uses the [kOS Communication](https://ksp-kos.github.io/KOS/commands/communication.html) system.
+All messages need to be sent to the CPU that PEGAS is running on.
 
 Example code for sending a message: `PROCESSOR("cpu_nametag"):CONNECTION:SENDMESSAGE(message).`.
 
-#### Message Structure
+### Message Structure
 Each message needs to be a `LEXICON` containing the following keys and values:
-* `type`   - what type of message this is. Can be either `request` or `command`. Messages that PEGAS responds with are always of type `response`.
-* `data`   - list of requested data or commands to be executed. Format depends on message type, please check the [Requesting data](#requesting-data) and [Sending commands](#sending-commands) sections below for details on how this should be structured.
-* `sender` - **OPTIONAL**. If you include the sender field with your CPU nametag, PEGAS will send the response directly to that CPU's message queue, otherwise it will send it to the vessel's queue (See [kOS message queues](http://ksp-kos.github.io/KOS_DOC/commands/communication.html#message-queues) for details).
+
+Key    | Type      | Meaning
+---    | ---       | ---
+type   | `string`  | What kind of message is it. Allowed values: `"request"` or `"command"`. PEGAS will always respond with a message type `"response"`.
+data   | (depends) | List of requested data or commands to be executed. Format depends on message type, please check the [Requesting data](#requesting-data) and [Sending commands](#sending-commands) sections below for details.
+sender | `string`  | **Optional**. If you include the sender field with your CPU nametag, PEGAS will send the response directly to that CPU's message queue, otherwise it will send it to the vessel's queue (See [kOS message queues](http://ksp-kos.github.io/KOS_DOC/commands/communication.html#message-queues) for details).
 
 Example message: `LOCAL message IS LEXICON("type", "request", "data", LIST("data_1", "data_2"), "sender", CORE:TAG).`.
 
 A response from PEGAS will always be in the same format:
-* `type` being `response`.
-* `data` containging a `LEXICON` with KEYs being command names/requested data names, and VALUEs being the data requested, boolean confirmation of command execution or an error message. NOTE: If the message sent to PEGAS contained `data` in unrecognised format, the `data` field in response will contain a `string` with an error message, NOT a `LEXICON`.
+* `type` being `"response"`.
+* `data` containging a `LEXICON` with keys being command names/requested data names, and values being the data requested, boolean confirmation of command execution or an error message. **NOTE**: If the message sent to PEGAS contained `data` in unrecognised format, the `data` field in response will contain a `string` with an error message, NOT a `LEXICON`.
 * `sender` being the nametag of CPU that PEGAS runs on.
 
 An example response: `LEXICON("type", "response", "data", LEXICON("liftoffTime", 3579844, "upfgActivation", 152), "sender", "pegas_cpu_nametag")`.
 
-Please note that all error messages start with `ERROR`, followed by a space and the acutall message `(Error occured while creating error message)`.
+Please note that all error messages start with `"ERROR"`, followed by a space and the actual message `"(Error occured while creating error message)`.
 
 ### Requesting data
 
@@ -165,22 +170,26 @@ PEGAS can provide some information to other CPUs upon request. To request data, 
 * `string` with a name of data being requested (see table below). Example: `"data", "liftoffTime"`.
 * `list` of `strings` with names of multiple data being requested. Example: `"data", LIST("liftoffTime", "launchAzimuth")`.
 
-Available Data | Return Type | Description
+Table of available data:
+
+Available data | Return type | Description
 ---            | ---         | ---
-liftoffTime    | Scalar      | Time when the rocket is scheduled to launch, provided as seconds since epoch.
-launchAzimuth  | Scalar      | Direction in which the rocket will be heading in passive guidance mode, provided as compass heading.
-upfgActivation | Scalar      | Time (seconds after liftoff) when UPFG guidance is scheduled to start.
-upfgConverged  | Bool        | Whether the UPFG has already converged or not.
+liftoffTime    | `scalar`    | Time when the rocket is scheduled to launch, provided as seconds since epoch.
+launchAzimuth  | `scalar`    | Direction in which the rocket will be heading in passive guidance mode, provided as compass heading.
+upfgActivation | `scalar`    | Time (seconds after liftoff) when UPFG guidance is scheduled to start.
+upfgConverged  | `boolean`   | Whether the UPFG has already converged or not.
 
 ### Sending commands
 
 PEGAS can execute commands requested by other CPUs. To send a command, your message needs to have a type of `command` and the data should contain one of the following:
-* `string` with command name. This can only be used with commands that don't require any parameters. Example: `"data", "setUpfgTime"`.
-* `list` of `strings` with single command name followed by parameters. Example: `"data", LIST("engineShutdown", "engine_1", "engine_2")`.
-* `list` of `lists` of `strings`. Like above but multiple lists with commands can be inside the outer list. Example: `"data", LIST(LIST("engineShutdown", "engine_1", "engine_2"), LIST("setThrottle", "throttle_value", "minimum_throttle"))`.
+* `string` containing a command name (`string`). This can only be used to send a single command that doesn't require any parameters. Example: `"data", "setUpfgTime"`,
+* `list` containing a single command name (`string`) followed by parameters (types depend on the command, see table below). Example: `"data", LIST("engineShutdown", "engine_1", "engine_2")`,
+* `list` of `lists`. Allows for sending multiple commands in a single message. The outer list is a list of commands, and each of the inner lists has to follow the above format (regardless of whether the given command takes parameters or not). Example: `"data", LIST(LIST("setThrottle", 0.7, 0.5), LIST("setUpfgTime"))`.
 
-Available Commands | Parameter Type | Description
----                | ---            | ---
-setUpfgTime        | `scalar`       | (**OPTIONAL**), defaults to now (`TIME:SECONDS`). Change time when the UPFG guidance should start. Useful if it can't be predicted before launch. Only available in passive guidance mode.
-engineShutdown     | `string`s      | Shutdown specified engines, requires engine nametags as parameters. Multiple nametags and multiple engines with the same nametag allowed. Only available in passive guidance mode.
-setThrottle        | `scalar`s      | Change the throttle setting in flight, requires desired throttle and minimum engine throttle, both as number between 0 and 1. Only available in passive guidance mode.
+Table of available commands:
+
+Command        | Parameters            | Availability  | Description
+---            | ---                   | ---           | ---
+setUpfgTime    | `scalar` (optional)   | passive phase | Change time when the UPFG guidance phase should start. Useful if it can't be predicted before launch. If called without parameters, will default to now (`TIME:SECONDS`).
+engineShutdown | multiple `string`s    | passive phase | Shutdown engines specified by nametags. Multiple nametags and multiple engines with the same nametag allowed.
+setThrottle    | 2 `scalar`s           | passive phase | Change the throttle setting in flight. Parameters, in that order: desired throttle setting, minimum engine throttle, both as numbers between 0 and 1.
