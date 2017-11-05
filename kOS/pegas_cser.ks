@@ -241,7 +241,7 @@ FUNCTION cse {
 		SET dtmax TO pack[0].
 		
 		IF dtmax<dts {
-			UNTIL NOT (dtmax>=dts) {
+			UNTIL NOT (dtmax<dts) {
 				SET dtmin TO dtmax.
 				SET xmin TO xmax.
 				SET xmax TO 2*xmax.

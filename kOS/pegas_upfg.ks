@@ -149,8 +149,7 @@ FUNCTION upfg {
 	SET iF_ TO iF_:NORMALIZED.
 	LOCAL phi IS VANG(iF_,lambda)*CONSTANT:DEGTORAD.
 	LOCAL phidot IS -phi*L/J.
-	LOCAL vthrust IS L - 0.5*L*phi^2 - J*phi*phidot - 0.5*H*phidot^2.
-	SET vthrust TO vthrust*lambda - (L*phi + J*phidot)*lambdadot:NORMALIZED.
+	LOCAL vthrust IS (L - 0.5*L*phi^2 - J*phi*phidot - 0.5*H*phidot^2)*lambda.
 	LOCAL rthrust IS S - 0.5*S*phi^2 - Q*phi*phidot - 0.5*P*phidot^2.
 	SET rthrust TO rthrust*lambda - (S*phi + Q*phidot)*lambdadot:NORMALIZED.
 	SET vbias TO vgo - vthrust.
