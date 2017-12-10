@@ -152,7 +152,7 @@ FUNCTION command_setUpfgTime {
 	IF params:EMPTY { params:ADD(TIME:SECONDS - liftoffTime:SECONDS). }
 	IF params[0]:ISTYPE("Scalar") {
 		IF params[0] <= 0 { RETURN "ERROR (UPFG cannot be activated before liftoff)". }
-		IF params[0] < (TIME:SECONDS - liftoffTime:SECONDS) { SET parms[0] TO TIME:SECONDS - liftoffTime:SECONDS. }
+		IF params[0] < (TIME:SECONDS - liftoffTime:SECONDS) { SET params[0] TO TIME:SECONDS - liftoffTime:SECONDS. }
 		SET controls["upfgActivation"] TO params[0]. RETURN TRUE.
 	} ELSE { RETURN "ERROR (Incorrect parameter type)". }
 }
