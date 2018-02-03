@@ -7,7 +7,7 @@
 FUNCTION SnC {
         DECLARE PARAMETER z.
         LOCAL az IS ABS(z).
-        IF az < 1e-4 { 
+        IF az < 1e-4 {
                 RETURN LEXICON("S", (1 - z * ( 0.05 - z / 840) ) / 6, "C", 0.5 - z * ( 1 - z / 30) / 24).
         }
         ELSE {
@@ -17,7 +17,7 @@ FUNCTION SnC {
                         RETURN LEXICON("S", (saz - SIN(x)) / (saz * az), "C", (1 - COS(x)) / az).
                 }
                 ELSE {
-                        LOCAL x IS CONSTANT:E^saz. 
+                        LOCAL x IS CONSTANT:E^saz.
                         RETURN LEXICON("S", (0.5 * (x - 1 / x) - saz) / (saz * az), "C", (0.5 * (x + 1 / x) - 1) / az).
                 }
         }
