@@ -8,3 +8,5 @@ GLOBAL upfgFinalizationTime IS 5.		//	When time-to-go gets below that, keep atti
 GLOBAL stagingKillRotTime IS 5.			//	Updating attitude commands will be forbidden that many seconds before staging (in an attempt to keep vehicle steady for a clean separation).
 GLOBAL upfgConvergenceCriterion IS 0.1.	//	Maximum difference between consecutive UPFG T-go predictions that allow accepting the solution.
 GLOBAL upfgGoodSolutionCriterion IS 15.	//	Maximum angle between guidance vectors calculated by UPFG between stages that allow accepting the solution.
+GLOBAL addKacAlarm IS FALSE.			//	Adds a new alarm to Kerbal Alarm Clock mod (if installed) which kills timewarp ahead of liftoff.
+GLOBAL kacAlarmAdvance IS 30.			//	Defines how many seconds before lift off the alarm should go off (30 seconds by default).
