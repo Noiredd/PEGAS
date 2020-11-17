@@ -101,6 +101,17 @@ Delta-v losses from sub-optimal steering are not something you need to worry abo
 Tuning might prove particularly difficult if you're getting low ingame FPS during liftoff, or your launch clamps misbehave.
 Unpredictable separation that disrupts your vehicle from flying straight can even make good settings randomly fail - beware.
 
+##### `pitchStartAlt` and `pitchControl`
+For some vessels the above solution (with `verticalAscentTime` and `pitchOverAngle`) does not give enough controllability.
+PEGAS provides another approach to guide your vehicles through the atmospheric climb with more accuracy.
+You simply give an altitude from which the rocket will start the pitch maneuver (from 90 deg, since your rocket always lifts off from vertical position).
+Then you pass several altitude/pitchAngle pairs as `pitchControl` so that PEGAS
+makes a linear regression, calculating pitch as a function of altitude.
+Each altitude/pitchAngle pair will result in one linear segment of the ascent trajectory.
+
+Both solutions require that you know your rocket to define at least one set of values.
+For more information see the [pitchControl](reference.md#pitchcontrol) section of the reference.
+
 ##### upfgActivation
 This is when the atmospheric ascent ends, and active guidance begins.
 You want to be outside the atmosphere when that happens, 40-50 km is good.
