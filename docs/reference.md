@@ -7,16 +7,30 @@ Variable of type `LEXICON`.
 Defines vehicle behavior in phases 0 and 1 (pre-launch and atmospheric ascent).
 List of possible keys:
 
-Key                | Units | Opt/req  | Meaning
----                | ---   | ---      | ---
-launchTimeAdvance  | s     | required | Launch time will be scheduled that many seconds before the launch site rotates directly under the target orbit
-verticalAscentTime | s     | required | After liftoff, vehicle will fly straight up for that many seconds before pitching over
-pitchOverAngle     | deg   | required | Vehicle will pitch over by that many degrees away from vertical
-upfgActivation     | s     | required | The active guidance phase will be activated that many seconds after liftoff
-launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability\*
-initialRoll        | deg   | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
+Key                | Units      | Opt/req  | Meaning
+---                | ---        | ---      | ---
+launchTimeAdvance  | s          | required | Launch time will be scheduled that many seconds before the launch site rotates directly under the target orbit
+verticalAscentTime | s          | required | After liftoff, vehicle will fly straight up for that many seconds before pitching over
+pitchOverAngle     | deg        | Optional** | Vehicle will pitch over by that many degrees away from vertical
+pitchStartAlt      | m          | Optional** | After liftoff, vehicle will fly straight up until this altitude.
+pitchControl       | `List`  | Optional** | A set of pitch angles & altitude pairs
+upfgActivation     | s          | required | The active guidance phase will be activated that many seconds after liftoff
+launchAzimuth      | deg        | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability\*
+initialRoll        | deg        | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
 
 \* - see notes to [`mission`](#mission) struct.
+\*\* - Of the four fields, only 2 have to be provided: First solution is to provide `verticalAscentTime` with `pitchOverAngle`. The rocket will flight Straight up until `verticalAscentTime` seconds, then pitch `pitchOverAngle` angle that would be followed until the rocket track the prograde vector; Second solution is to use `pitchStartAlt` with `pitchControl` is used to further control your initial ascent phase, as described in the bellow [`pitchControl`](#pitchControl) section.
+
+#### pitchControl
+Key of type `LIST` containing `LEXICON`s. `pitchControl` allow you to completely control your atmospheric ascent phase by setting the pitch angle as a linear function of the ASL altitude. Linear regression is made from 90 degrees (which corresponds to straight up) to a specified ending angle, with altitude starting as `pitchStartAlt`. PEGAS make the linear regression for you and lock the pitch to (a * Alt + b).
+
+As `pitchControl` is a `LIST`, you can set more than one  pitch/Alt pairs, so that PEGAS will make another linear regression using the previous end values as initial ones for the new segment. Multiple pairs of data can be  chained, but remember it's your responsibility to keep them consistent().
+
+`pitchControl` 's `LEXICON` follow these rules:
+
+Key             | Type/units | Opt/req   | Meaning
+"endAlt"        | m          | required  | The altitude in which the `endPitch` angle will be reached
+"endPitch"      | deg        | required  | The pitch angle that will be observed when reaching the paired `endAlt`
 
 ### Vehicle
 `GLOBAL vehicle IS LIST().`
