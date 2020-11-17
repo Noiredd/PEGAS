@@ -7,13 +7,13 @@ FUNCTION rodrigues {
 	DECLARE PARAMETER inVector.	//	Expects a vector
 	DECLARE PARAMETER axis.		//	Expects a vector
 	DECLARE PARAMETER angle.	//	Expects a scalar
-	
+
 	SET axis TO axis:NORMALIZED.
-	
+
 	LOCAL outVector IS inVector*COS(angle).
 	SET outVector TO outVector + VCRS(axis, inVector)*SIN(angle).
 	SET outVector TO outVector + axis*VDOT(axis, inVector)*(1-COS(angle)).
-	
+
 	RETURN outVector.
 }
 
@@ -21,7 +21,7 @@ FUNCTION rodrigues {
 FUNCTION aimAndRoll {
 	DECLARE PARAMETER aimVec.	//	Expects a vector
 	DECLARE PARAMETER rollAng.	//	Expects a scalar
-	
+
 	LOCAL rollVector IS rodrigues(UP:VECTOR, aimVec, -rollAng).
 	RETURN LOOKDIRUP(aimVec, rollVector).
 }
@@ -36,7 +36,7 @@ FUNCTION vecYZ {
 //	Engine combination parameters
 FUNCTION getThrust {
 	DECLARE PARAMETER engines.	//	Expects a list of lexicons
-	
+
 	LOCAL n IS engines:LENGTH.
 	LOCAL F IS 0.
 	LOCAL dm IS 0.
@@ -47,7 +47,7 @@ FUNCTION getThrust {
 		SET F TO F + isp*dm_*g0.
 	}
 	SET isp TO F/(dm*g0).
-	
+
 	RETURN LIST(F, dm, isp).
 }
 
@@ -60,7 +60,7 @@ FUNCTION constAccBurnTime {
 	DECLARE PARAMETER _stage.	//	Expects a lexicon containing at least partially formed logical stage.
 								//	This has to contain the following keys:
 								//	"massFuel", "massTotal", "engines", "gLim" and "minThrottle".
-	
+
 	//	Unpack the structure
 	LOCAL engineData IS getThrust(_stage["engines"]).
 	LOCAL isp IS engineData[2].
@@ -101,18 +101,18 @@ FUNCTION missionSetup {
 	} ELSE {
 		mission:ADD("altitude", mission["periapsis"]).
 	}
-	
+
 	//	Override plane definition if a map target was selected
 	IF HASTARGET {
 		SET mission["inclination"] TO TARGET:ORBIT:INCLINATION.
 		SET mission["LAN"] TO TARGET:ORBIT:LAN.
 	}
-	
+
 	//	Set default launch direction
 	IF NOT mission:HASKEY("direction") {
 		mission:ADD("direction", "nearest").
 	}
-	
+
 	//	Set inclination to launch site latitude, or fix the existing to (-180)-180 degrees range
 	IF mission:HASKEY("inclination") {
 		UNTIL mission["inclination"] > -180 { SET mission["inclination"] TO mission["inclination"] + 360. }
@@ -120,7 +120,7 @@ FUNCTION missionSetup {
 	} ELSE {
 		mission:ADD("inclination", ABS(SHIP:GEOPOSITION:LAT)).
 	}
-	
+
 	//	Calculate LAN for the "right now" launch, or fix the existing to 0-360 degrees range
 	IF mission:HASKEY("LAN") {
 		UNTIL mission["LAN"] > 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
@@ -139,7 +139,7 @@ FUNCTION missionSetup {
 //	Generate a PEGAS-compatible target struct from user-specified one
 FUNCTION targetSetup {
 	//	Expects a global variable "mission" as lexicon
-	
+
 	//	Calculate velocity and flight path angle at given criterion using vis-viva equation and conservation of specific relative angular momentum
 	LOCAL pe IS mission["periapsis"]*1000 + SHIP:BODY:RADIUS.
 	LOCAL ap IS mission["apoapsis"]*1000 + SHIP:BODY:RADIUS.
@@ -149,7 +149,7 @@ FUNCTION targetSetup {
 	LOCAL srm IS pe * vpe.								//	specific relative angular momentum
 	LOCAL targetVelocity IS SQRT(SHIP:BODY:MU * (2/targetAltitude - 1/sma)).
 	LOCAL flightPathAngle IS ARCCOS( srm/(targetVelocity*targetAltitude) ).
-	
+
 	RETURN LEXICON(
 				"radius", targetAltitude,
 				"velocity", targetVelocity,
@@ -162,7 +162,7 @@ FUNCTION targetSetup {
 FUNCTION nodeVector {
 	DECLARE PARAMETER inc.				//	Inclination of the desired orbit. Expects a scalar.
 	DECLARE PARAMETER dir IS "north".	//	Launch direction. Expects a string, either "north" or "south".
-	
+
 	//	From right spherical triangle composed of inclination, latitude and "b",
 	//	which is angular difference between the desired node vector and projection
 	//	of the vector pointing at the launch site onto the equatorial plane.
@@ -185,11 +185,11 @@ FUNCTION nodeVector {
 //	Time to next launch opportunity in given direction
 FUNCTION orbitInterceptTime {
 	DECLARE PARAMETER launchDir IS mission["direction"].	//	Passing as parameter for recursive calls.
-	
+
 	//	Expects a global variable "mission" as lexicon
 	LOCAL targetInc IS mission["inclination"].
 	LOCAL targetLan IS mission["lan"].
-	
+
 	//	For "nearest" launch opportunity:
 	IF launchDir = "nearest" {
 		LOCAL timeToNortherly IS orbitInterceptTime("north").
@@ -212,7 +212,7 @@ FUNCTION orbitInterceptTime {
 		LOCAL deltaDir IS VDOT(V(0,1,0), VCRS(targetNode, currentNode)).
 		IF deltaDir < 0 { SET nodeDelta TO 360 - nodeDelta. }
 		LOCAL deltaTime IS SHIP:ORBIT:BODY:ROTATIONPERIOD * nodeDelta/360.
-		
+
 		RETURN deltaTime.
 	}
 }
@@ -220,13 +220,13 @@ FUNCTION orbitInterceptTime {
 //	Launch azimuth to a given orbit
 FUNCTION launchAzimuth {
 	//	Expects global variables "upfgTarget" and "mission" as lexicons
-	
+
 	LOCAL targetInc IS mission["inclination"].
 	LOCAL targetAlt IS upfgTarget["radius"].
 	LOCAL targetVel IS upfgTarget["velocity"].
 	LOCAL siteLat IS SHIP:GEOPOSITION:LAT.
 	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site!", 5, PRIORITY_HIGH ). }
-	
+
 	LOCAL Binertial IS COS(targetInc)/COS(siteLat).
 	IF Binertial < -1 { SET Binertial TO -1. }
 	IF Binertial > 1 { SET Binertial TO 1. }
@@ -237,7 +237,7 @@ FUNCTION launchAzimuth {
 	LOCAL VrotX IS Vorbit*SIN(Binertial)-Vbody.
 	LOCAL VrotY IS Vorbit*COS(Binertial).
 	LOCAL azimuth IS ARCTAN2(VrotY, VrotX).
-	
+
 	//	In MATLAB an azimuth of 0 is due east, while in KSP it's due north.
 	//	Return the valid value depending on the launch direction:
 	IF mission["direction"] = "north" {
@@ -256,7 +256,7 @@ FUNCTION missionValidation {
 		DECLARE PARAMETER input.		//	Expects scalar
 		DECLARE PARAMETER reference.	//	Expects scalar
 		DECLARE PARAMETER threshold.	//	Expects scalar
-		
+
 		IF ABS(input-reference)<threshold { RETURN TRUE. } ELSE { RETURN FALSE. }
 	}
 	FUNCTION errorMessage {
@@ -274,7 +274,7 @@ FUNCTION missionValidation {
 		RETURN output + ")".
 	}
 	//	Expects global variable "mission" as lexicon.
-	
+
 	//	Some local variables for tracking mission success/partial success/failure
 	LOCAL success IS TRUE.
 	LOCAL failure IS FALSE.
@@ -282,7 +282,7 @@ FUNCTION missionValidation {
 	LOCAL apsisFailureThreshold IS 50000.
 	LOCAL angleSuccessThreshold IS 0.1.
 	LOCAL angleFailureThreshold IS 1.
-	
+
 	//	Check every condition
 	IF NOT difference(SHIP:ORBIT:PERIAPSIS, mission["periapsis"]*1000, apsisSuccessThreshold) {
 		SET success TO FALSE.
@@ -312,7 +312,7 @@ FUNCTION missionValidation {
 		}
 		PRINT "Long. of AN: " + errorMessage(SHIP:ORBIT:LAN, mission["LAN"]).
 	}
-	
+
 	//	If at least one condition is not a success - we only have a partial. If at least one condition
 	//	is a failure - we have a failure.
 	IF failure {
@@ -355,7 +355,7 @@ FUNCTION setupUPFG {
 //	Acquire vehicle position data
 FUNCTION acquireState {
 	//	Expects a global variable "liftoffTime" as scalar
-	
+
 	RETURN LEXICON(
 		"time", TIME:SECONDS - liftoffTime:SECONDS,
 		"mass", SHIP:MASS*1000,
@@ -368,14 +368,14 @@ FUNCTION acquireState {
 FUNCTION targetNormal {
 	DECLARE PARAMETER targetInc.	//	Expects a scalar
 	DECLARE PARAMETER targetLan.	//	Expects a scalar
-	
+
 	//	First create a vector pointing to the highest point in orbit by rotating the prime vector by a right angle.
 	LOCAL highPoint IS rodrigues(SOLARPRIMEVECTOR, V(0,1,0), 90-targetLan).
 	//	Then create a temporary axis of rotation (short form for 90 deg rotation).
 	LOCAL rotAxis IS V(-highPoint:Z, highPoint:Y, highPoint:X).
 	//	Finally rotate about this axis by a right angle to produce normal vector.
 	LOCAL normalVec IS rodrigues(highPoint, rotAxis, 90-targetInc).
-	
+
 	RETURN -vecYZ(normalVec).
 }
 
@@ -387,13 +387,13 @@ FUNCTION setSystemEvents {
 	FUNCTION makeEvent {
 		DECLARE PARAMETER timeAfterLiftoff.	//	Expects a scalar
 		DECLARE PARAMETER eventMessage.		//	Expects a string
-		
+
 		RETURN LEXICON("time", timeAfterLiftoff, "type", "dummy", "message", eventMessage, "data", LIST()).
 	}
-	
+
 	//	Expects a global variable "liftoffTime" as scalar and "systemEvents" as list
 	LOCAL timeToLaunch IS liftoffTime:SECONDS - TIME:SECONDS.
-	
+
 	//	Prepare events table
 	IF timeToLaunch > 18000 { systemEvents:ADD(makeEvent(-18000,"5 hours to launch")). }
 	IF timeToLaunch > 3600  { systemEvents:ADD(makeEvent(-3600,"1 hour to launch")). }
@@ -412,7 +412,7 @@ FUNCTION setSystemEvents {
 	systemEvents:ADD(makeEvent(-3,"3 SECONDS TO LAUNCH")).
 	systemEvents:ADD(makeEvent(-2,"2 SECONDS TO LAUNCH")).
 	systemEvents:ADD(makeEvent(-1,"1 SECONDS TO LAUNCH")).
-	
+
 	//	Initialize the first event
 	systemEventHandler().
 }
@@ -430,7 +430,7 @@ FUNCTION setVehicle {
 	//	Sets up defaults: acceleration limit (none, 0.0), throttle (1.0), and UPFG MODE
 	//	Calculates engine fuel mass flow (if thrust value was given instead) and adjusts for given throttle
 	//	Calculates max stage burn time
-	
+
 	//	Expects a global variable "vehicle" as list of lexicons and "controls" and "mission" as lexicon.
 
 	LOCAL i IS 0.
@@ -471,14 +471,14 @@ FUNCTION recalculateVehicleMass {
 	//	Vehicles basing on sustainer cores start the active guidance phase with a stage whose mass is not known at system
 	//	initialization - instead, only dry mass of a stage is known, and mass of the fuel needs to be calculated at the
 	//	moment of stage activation.
-	
+
 	//	Expects global variables "vehicle" as lexicon and "nextStageTime" as scalar.
 	DECLARE PARAMETER stageID.
 	DECLARE PARAMETER timeAhead IS 0.		//	If we need to know what will the mass be at some time from "now", passing
 											//	a positive scalar here will cause subtraction of mass burned by the engines.
 	DECLARE PARAMETER recalcNext IS FALSE.	//	TRUE will cause recalculation of the constant-acceleration stage (if present).
 	DECLARE PARAMETER updateEvent IS FALSE.	//	TRUE will cause the "nextStageTime" to shift by the change in stage burn times.
-	
+
 	LOCAL combinedEngines IS getThrust(vehicle[stageID]["engines"]).
 	SET vehicle[stageID]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*timeAhead.
 	SET vehicle[stageID]["massFuel"]  TO vehicle[stageID]["massTotal"] - vehicle[stageID]["massDry"].
@@ -509,9 +509,9 @@ FUNCTION recalculateVehicleMass {
 //	Calculates the time after which a given stage would exceed its acceleration limit
 FUNCTION accLimitViolationTime {
 	DECLARE PARAMETER baseStage.	//	Expects a lexicon
-	
+
 	IF baseStage["gLim"] = 0 { RETURN -1. }
-	
+
 	LOCAL fdmisp IS getThrust(baseStage["engines"]).
 	RETURN (baseStage["massTotal"] - fdmisp[0]/baseStage["gLim"]/g0) / fdmisp[1].
 }
@@ -520,7 +520,7 @@ FUNCTION accLimitViolationTime {
 FUNCTION createAccelerationLimitedStage {
 	DECLARE PARAMETER baseStage.	//	Expects a lexicon
 	DECLARE PARAMETER accLimTime.	//	Time after which the given stage exceeds the limit. Expects a scalar
-	
+
 	//	Create a new stage
 	LOCAL gLimStage IS LEXICON("mode", 2, "name", "Constant acceleration", "gLim", baseStage["gLim"], "engines", baseStage["engines"]).
 	//	Default throttle is irrelevant since it will be dynamically calculated anyway
@@ -539,7 +539,7 @@ FUNCTION createAccelerationLimitedStage {
 	gLimStage:ADD("massFuel", baseStage["massFuel"] - burnedFuelMass).
 	gLimStage:ADD("massDry", gLimStage["massTotal"] - gLimStage["massFuel"]).
 	gLimStage:ADD("maxT", constAccBurnTime(gLimStage)).
-	
+
 	RETURN gLimStage.
 }
 
@@ -554,9 +554,9 @@ FUNCTION initializeVehicle {
 	//	following function is supposed to do.
 
 	//	Expects a global variable "vehicle" as list of lexicons, "upfgConvergenceDelay" as scalar
-	
+
 	LOCAL currentTime IS TIME:SECONDS.
-	
+
 	//	If a stage has a staging sequence defined, this means it is a Saturn-like stage which needs no update. Otherwise,
 	//	it is a sustainer stage and only its initial (and, hence, dry) mass is known. Actual mass needs to be calculated.
 	IF NOT vehicle[0]["staging"]["ignition"] {
@@ -585,7 +585,7 @@ FUNCTION initializeVehicle {
 			}
 		}
 	}
-	
+
 	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
 }
 
@@ -598,20 +598,20 @@ FUNCTION systemEventHandler {
 			WHEN TIME:SECONDS >= liftoffTime:SECONDS + systemEvents[systemEventPointer]["time"] THEN { SET systemEventFlag TO TRUE. }
 		}
 	}
-	
+
 	//	Expects global variables "liftoffTime" as TimeSpan, "systemEvents" as list, "systemEventFlag" as bool and "systemEventPointer" as scalar.
 	//	First call initializes and exits without messaging
 	IF systemEventPointer = -1 {	//	This var is initialized at -1, so meeting this condition is only possible on first run.
 		setNextEvent().
 		RETURN.
 	}
-	
+
 	//	Handle event
 	pushUIMessage( systemEvents[systemEventPointer]["message"], 3, PRIORITY_LOW ).
-	
+
 	//	Reset event flag
 	SET systemEventFlag TO FALSE.
-	
+
 	//	Create new event trigger
 	setNextEvent().
 }
@@ -625,7 +625,7 @@ FUNCTION userEventHandler {
 			WHEN TIME:SECONDS >= liftoffTime:SECONDS + sequence[userEventPointer]["time"] THEN { SET userEventFlag TO TRUE. }
 		}
 	}
-	
+
 	//	Expects global variables "sequence" and "vehicle" as list, "userEventFlag" as bool,
 	//	"liftoffTime", "steeringRoll", "userEventPointer", "upfgStage" and "nextStageTime" as scalars.
 	//	First call initializes and exits without doing anything
@@ -633,7 +633,7 @@ FUNCTION userEventHandler {
 		setNextEvent().
 		RETURN.
 	}
-	
+
 	//	Handle event
 	LOCAL eType IS sequence[userEventPointer]["type"].
 	IF      eType = "print" OR eType = "p" { }
@@ -700,10 +700,10 @@ FUNCTION userEventHandler {
 	IF sequence[userEventPointer]:HASKEY("message") {
 		pushUIMessage( sequence[userEventPointer]["message"] ).
 	}
-	
+
 	//	Reset event flag
 	SET userEventFlag TO FALSE.
-	
+
 	//	Create new event trigger
 	setNextEvent().
 }
@@ -729,10 +729,10 @@ FUNCTION stageEventHandler {
 			}
 		}
 	}
-	
+
 	//	Expects global variables "liftOffTime" as TimeSpan, "vehicle" as list, "controls" as lexicon, "upfgStage" as scalar and "stageEventFlag" as bool.
 	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicle
-	
+
 	//	First call (we know because upfgStage is still at initial value) only sets up the event for first guided stage.
 	IF upfgStage = -1 {
 		//	We cannot use setNextEvent because it directly reads vehicle[upfgStage], but we have to do a part of its job
@@ -741,7 +741,7 @@ FUNCTION stageEventHandler {
 		SET upfgStage TO upfgStage + 1.
 		RETURN.
 	}
-	
+
 	//	Handle event
 	LOCAL event IS vehicle[upfgStage]["staging"].
 	LOCAL stageName IS vehicle[upfgStage]["name"].
@@ -763,7 +763,7 @@ FUNCTION stageEventHandler {
 	IF event["ignition"] {
 		IF event["ullage"] = "rcs" {
 			GLOBAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
-			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {	RCS ON. 
+			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {	RCS ON.
 															SET SHIP:CONTROL:FORE TO 1.0.
 															pushUIMessage(stageName + " - RCS ullage on"). }
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
@@ -798,10 +798,10 @@ FUNCTION stageEventHandler {
 		SET stagingInProgress TO FALSE.
 	}
 	pushUIMessage(stageName + " - activation").
-	
+
 	//	Reset event flag
 	SET stageEventFlag TO FALSE.
-	
+
 	//	Create new event trigger
 	setNextEvent(currentTime, eventDelay).
 }
@@ -813,7 +813,7 @@ FUNCTION upfgStagingNotify {
 	//	Allows stageEventHandler to let upfgSteeringControl know that staging had occured.
 	//	Easier to modify this function in case more information needs to be passed rather
 	//	than stageEventHandler itself.
-	
+
 	//	Expects global variables "upfgConverged" and "usc_stagingNoticed" as bool.
 	SET upfgConverged TO FALSE.
 	SET usc_stagingNoticed TO FALSE.
@@ -839,17 +839,17 @@ FUNCTION upfgSteeringControl {
 		SET upfgConverged TO FALSE.
 		pushUIMessage( "UPFG reset", 5, PRIORITY_CRITICAL ).
 	}
-	
-	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector and 
+
+	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector and
 	//	"upfgConvergenceCriterion", "upfgGoodSolutionCriterion" and "steeringRoll" as scalars.
-	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and 
+	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and
 	//	"usc_lastIterationTime" as scalar.
 	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
 	DECLARE PARAMETER upfgStage.	//	Expects a scalar
 	DECLARE PARAMETER upfgTarget.	//	Expects a lexicon
 	DECLARE PARAMETER upfgState.	//	Expects a lexicon
 	DECLARE PARAMETER upfgInternal.	//	Expects a lexicon
-	
+
 	//	First run marked by undefined globals
 	IF NOT (DEFINED usc_lastGoodVector) {
 		GLOBAL usc_lastGoodVector IS V(1,0,0).
@@ -857,13 +857,13 @@ FUNCTION upfgSteeringControl {
 		GLOBAL usc_stagingNoticed IS FALSE.
 		GLOBAL usc_lastIterationTime IS upfgState["time"].
 	}
-	
+
 	//	Run UPFG
 	LOCAL currentIterationTime IS upfgState["time"].
 	LOCAL lastTgo IS upfgInternal["tgo"].
 	LOCAL currentVehicle IS vehicle:SUBLIST(upfgStage,vehicle:LENGTH-upfgStage).
 	LOCAL upfgOutput IS upfg(currentVehicle, upfgTarget, upfgState, upfgInternal).
-	
+
 	//	Convergence check. The rule is that time-to-go as calculated between iterations
 	//	should not change significantly more than the time difference between those iterations.
 	//	Uses upfgState as timestamp, for equal grounds for comparison.
@@ -909,7 +909,7 @@ FUNCTION upfgSteeringControl {
 //	Throttle controller
 FUNCTION throttleControl {
 	//	Expects global variables "vehicle" as list, "upfgStage", "throttleSetting" and "throttleDisplay" as scalars and "stagingInProgress" as bool.
-	
+
 	//	If we're guiding a stage nominally, it's simple. But if the stage is about to change into the next one,
 	//	value of "upfgStage" is already incremented. In this case we shouldn't use the next stage values (this
 	//	would ruin constant-acceleration stages).
@@ -918,7 +918,7 @@ FUNCTION throttleControl {
 		SET whichStage TO upfgStage - 1.
 		IF vehicle[whichStage]["shutdownRequired"] { RETURN. }
 	}
-	
+
 	IF vehicle[whichStage]["mode"] = 1 {
 		SET throttleSetting TO vehicle[whichStage]["throttle"].
 		SET throttleDisplay TO throttleSetting.
@@ -937,4 +937,17 @@ FUNCTION throttleControl {
 		SET throttleDisplay TO desiredThrottle.
 	}
 	ELSE { pushUIMessage( "throttleControl stage error (stage=" + upfgStage + "(" + whichStage + "), mode=" + vehicle[whichStage]["mode"] + ")!", 5, PRIORITY_CRITICAL ). }.
+}
+
+//Convert any number to scientific notation with sigNums the number of significative numbers.
+FUNCTION toSCI{
+	DECLARE PARAMETER number.
+	DECLARE PARAMETER sigNums IS 3.
+
+	//To avoid asking the non existing log10 of 0.
+	if number = 0 return "NaN".
+
+	//using obsolute value because log10 is not defined for negative numbers also.
+  SET exp to FLOOR(LOG10(ABS(number))).
+    return ROUND(number*10^(-exp), sigNums-1) + "E" + (exp).
 }
