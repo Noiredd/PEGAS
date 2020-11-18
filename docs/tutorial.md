@@ -81,6 +81,12 @@ Getting it perfect (so that the UPFG-generated pitch matches prograde) might tur
 Tuning those variables might prove particularly difficult if you're getting low ingame FPS during liftoff, or your launch clamps misbehave.
 Unpredictable separation that disrupts your vehicle from flying straight can even make a good settings randomly fail. Beware.
 
+#####  `pitchStartAlt` and `pitchControl`
+For some vessels the above solution (with `verticalAscentTime` and `pitchOverAngle`) do not give enough controllability. PEGAS provides now a new solution to guide your vehicles with more accuracy for the atmospheric climb.
+You simply gives an altitude from which the rocket will start the pitch maneuver (from 90 deg, since your rocket always liftoff from vertical position). Then you pass a couple of altitude/pitchAngle to `pitchControl` so that PEGAS
+makes a linear regression and formulates pitch function of altitude. `pitchControl` can receive multiple altitude/pitchAngle pairs, it will make multiple segments according to their values and each segment will be driver by a linear regression.
+Like the other solution, this one require that you know your rocket to define at least one set of value. for more informations see [pitchControl](references.md#pitchControl)
+
 ##### upfgActivation
 This is when the atmospheric ascent ends, and active guidance begins.
 You want to be outside the atmosphere when that happens, 40-50 km is good.

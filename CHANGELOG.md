@@ -1,5 +1,10 @@
 ### Change log
 
+## [v1.2](https://github.com/Aram1d/PEGAS/releases/tag/v1.2) (2020-18-11)
+
+##### Features:
+*  Implementation of a new initial ascent guidance using linear regression.
+
 ## [v1.1](https://github.com/Noiredd/PEGAS/releases/tag/v1.1) (2017-11-05)
 Multiple fixes for bugs identified after the initial release and new features requested since.
 

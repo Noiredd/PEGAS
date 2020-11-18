@@ -71,56 +71,105 @@ setComms(). 			//	Setting up communications
 
 //	PEGAS TAKES CONTROL OF THE MISSION
 createUI().
+
 //	Prepare control for vertical ascent
 LOCK THROTTLE TO throttleSetting.
 LOCK STEERING TO steeringVector.
-SET ascentFlag TO 0.	//	0 = vertical, 1 = pitching over, 2 = notify about holding prograde, 3 = just hold prograde
+
+//initial data for bilinear control of pitch, if used.
+IF controls:HASKEY("pitchControl") {
+	SET pitchCtrlTrigger TO controls["pitchStartAlt"].
+	SET pitchCtrlIterator TO controls["pitchControl"]:iterator.
+}
+
 //	Main loop - wait on launch pad, lift-off and passive guidance
 UNTIL ABORT {
 	//	Sequence handling
 	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
-	//	Control handling
-	IF ascentFlag = 0 {
-		//	The vehicle is going straight up for given amount of time
-		IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] {
-			//	Then it changes attitude for an initial pitchover "kick"
-			SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],90-controls["pitchOverAngle"]):VECTOR, steeringRoll).
-			SET ascentFlag TO 1.
-			pushUIMessage( "Pitching over by " + ROUND(controls["pitchOverAngle"],1) + " degrees." ).
+
+	// linear control of pitch angle against Altitude is used by default if "pitchControl" key exists:
+	IF controls:HASKEY("pitchControl") {
+
+			//Resetting the a and b values of the linear regression on each alitude trigger
+			IF SHIP:ALTITUDE > pitchCtrlTrigger {
+				pitchCtrlIterator:NEXT.
+
+				//Specific to the first ttime.
+				IF pitchCtrlIterator:INDEX = 0 {
+					set beginPitch to 90.
+					set beginAlt to controls["pitchStartAlt"].
+				}
+
+				ELSE{
+					set beginPitch to controls["pitchControl"][pitchCtrlIterator:INDEX-1]["endPitch"].
+					set beginAlt to controls["pitchControl"][pitchCtrlIterator:INDEX-1]["endAlt"].
+				}
+
+				set endPitch to controls["pitchControl"][pitchCtrlIterator:INDEX]["endPitch"].
+				set endAlt to controls["pitchControl"][pitchCtrlIterator:INDEX]["endAlt"].
+
+				set aPitch to (endPitch-beginPitch)/(endAlt-beginAlt).
+				set bPitch to  endPitch-(aPitch*endAlt).
+
+
+				SET pitchCtrlTrigger to controls["pitchControl"][pitchCtrlIterator:INDEX]["endAlt"].
+				pushUIMessage( "Pitch follow " + toSCI(aPitch) + " * ALT + " + toSCI(bPitch)).
+			}
+
+		IF DEFINED aPitch and DEFINED bPitch {
+			SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],aPitch*SHIP:ALTITUDE+bPitch):VECTOR, steeringRoll).
 		}
 	}
-	ELSE IF ascentFlag = 1 {
-		//	It keeps this attitude until velocity vector matches it closely
-		IF TIME:SECONDS < liftoffTime:SECONDS + controls["verticalAscentTime"] + 3 {
-			//	Delay this check for the first few seconds to allow the vehicle to pitch away from current prograde
-		} ELSE {
-			//	Attitude must be recalculated at every iteration though
-			SET velocityAngle TO VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-			IF controls["pitchOverAngle"] - velocityAngle < 0.1 {
-				SET ascentFlag TO 2.
+
+
+	//If no "pitchControl" key exists, use the prograde tracking mode:
+	ELSE{
+		SET ascentFlag TO 0.	//	0 = vertical, 1 = pitching over, 2 = notify about holding prograde, 3 = just hold prograde
+		//	Control handling using initial pitch angle then catching prograde vector.
+		IF ascentFlag = 0 {
+			//	The vehicle is going straight up for given amount of time
+			IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] {
+				//	Then it changes attitude for an initial pitchover "kick"
+				SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],90-controls["pitchOverAngle"]):VECTOR, steeringRoll).
+				SET ascentFlag TO 1.
+				pushUIMessage( "Pitching over by " + ROUND(controls["pitchOverAngle"],1) + " degrees." ).
 			}
 		}
-		//	As a safety check - do not stay deadlocked in this state for too long (might be unnecessary).
-		IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] + pitchOverTimeLimit {
-			SET ascentFlag TO 2.
-			pushUIMessage( "Pitchover time limit exceeded!", 5, PRIORITY_HIGH ).
+		ELSE IF ascentFlag = 1 {
+			//	It keeps this attitude until velocity vector matches it closely
+			IF TIME:SECONDS < liftoffTime:SECONDS + controls["verticalAscentTime"] + 3 {
+				//	Delay this check for the first few seconds to allow the vehicle to pitch away from current prograde
+			} ELSE {
+				//	Attitude must be recalculated at every iteration though
+				SET velocityAngle TO VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
+				IF controls["pitchOverAngle"] - velocityAngle < 0.1 {
+					SET ascentFlag TO 2.
+				}
+			}
+			//	As a safety check - do not stay deadlocked in this state for too long (might be unnecessary).
+			IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] + pitchOverTimeLimit {
+				SET ascentFlag TO 2.
+				pushUIMessage( "Pitchover time limit exceeded!", 5, PRIORITY_HIGH ).
+			}
+		}
+		ELSE IF ascentFlag = 2 {
+			//	We cannot blindly hold prograde though, because this will provide no azimuth control
+			//	Much better option is to read current velocity angle and aim for that, but correct for azimuth
+			SET velocityAngle TO 90-VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
+			SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],velocityAngle):VECTOR, steeringRoll).
+			//	There are two almost identical cases, in the first we set the initial message, in the next we just keep attitude.
+			pushUIMessage( "Holding prograde at " + ROUND(mission["launchAzimuth"],1) + " deg azimuth." ).
+			SET ascentFlag TO 3.
+		}
+		ELSE {
+			SET velocityAngle TO 90-VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
+			SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],velocityAngle):VECTOR, steeringRoll).
 		}
 	}
-	ELSE IF ascentFlag = 2 {
-		//	We cannot blindly hold prograde though, because this will provide no azimuth control
-		//	Much better option is to read current velocity angle and aim for that, but correct for azimuth
-		SET velocityAngle TO 90-VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-		SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],velocityAngle):VECTOR, steeringRoll).
-		//	There are two almost identical cases, in the first we set the initial message, in the next we just keep attitude.
-		pushUIMessage( "Holding prograde at " + ROUND(mission["launchAzimuth"],1) + " deg azimuth." ).
-		SET ascentFlag TO 3.
-	}
-	ELSE {
-		SET velocityAngle TO 90-VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-		SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],velocityAngle):VECTOR, steeringRoll).
-	}
+
+
 	//	The passive guidance loop ends a few seconds before actual ignition of the first UPFG-controlled stage.
 	//	This is to give UPFG time to converge. Actual ignition occurs via stagingEvents.
 	IF TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"] - upfgConvergenceDelay {
@@ -133,6 +182,7 @@ UNTIL ABORT {
 	WAIT 0.
 }
 
+//END OF Programmed guidance.
 
 //	ACTIVE GUIDANCE
 createUI().
