@@ -19,7 +19,7 @@ SET TERMINAL:HEIGHT TO 26 + 14.	//	Few more lines for debugging
 FUNCTION createUI {
 	CLEARSCREEN.
 	PRINT ".-----------------------------------------.".
-	PRINT "| PEGAS                              v1.1 |".
+	PRINT "| PEGAS                              v1.2 |".
 	PRINT "| Powered Explicit Guidance Ascent System |".
 	PRINT "|-----------------------------------------|".
 	PRINT "| T   h  m  s |                           |".
@@ -43,7 +43,7 @@ FUNCTION createUI {
 	PRINT "|-----------------------------------------|".
 	PRINT "|                                         |".
 	PRINT "*-----------------------------------------*".
-	
+
 	textPrint(SHIP:NAME, 6, 2, 41, "L").
 	refreshUI().
 }
@@ -55,7 +55,7 @@ FUNCTION textPrint {
 	DECLARE PARAMETER start.		//	First column to write to, inclusive (scalar).
 	DECLARE PARAMETER end.			//	Last column to write to, exclusive (scalar).
 	DECLARE PARAMETER align IS "l".	//	Align: "l"eft or "r"ight.
-	
+
 	SET align TO align:TOLOWER().
 	LOCAL flen IS end - start.
 	//	If message is too long to fit in the field - trim, depending on type.
@@ -78,7 +78,7 @@ FUNCTION numberPrint {
 	DECLARE PARAMETER end.			//	Last column to write to, exclusive (scalar).
 	DECLARE PARAMETER prec IS 1.	//	Decimal places (scalar)
 	DECLARE PARAMETER align IS "r".	//	Align: "l"eft or "r"ight.
-	
+
 	LOCAL str IS "" + ROUND(val, prec).
 	//	Make sure the number has all the decimal places it needs to have
 	IF prec > 0 {
@@ -95,7 +95,7 @@ FUNCTION numberPrint {
 //	Specialized function for printing current time and T+.
 FUNCTION timePrint {
 	//	Expects a global variable "liftoffTime" as timespan.
-	
+
 	LOCAL currentTime IS TIME.
 	LOCAL deltaT IS currentTime.
 	LOCAL sign IS "".
@@ -106,14 +106,14 @@ FUNCTION timePrint {
 		SET sign TO "-".
 		SET deltaT TO liftoffTime - currentTime.
 	}
-	
+
 	textPrint(sign, 4, 3, 4, "L").
 	numberPrint(deltaT:HOUR, 4, 4, 6, 0).
 	numberPrint(deltaT:MINUTE, 4, 7, 9, 0).
 	numberPrint(deltaT:SECOND, 4, 10, 12, 0).
 	textPrint(currentTime:CALENDAR+",", 4, 15, 32, "R").
 	textPrint(currentTime:CLOCK, 4, 33, 41, "R").
-	
+
 	RETURN currentTime.
 }
 
@@ -122,14 +122,14 @@ FUNCTION refreshUI {
 	//	Expects global variables "liftoffTime" as timespan, "throttleSetting" as scalar, "controls", "mission", "upfgTarget" and "upfgInternal" as lexicon and "upfgConverged" as bool.
 
 	LOCAL currentTime IS timePrint().
-	
+
 	//	Section offsets, for easier extendability
 	LOCAL vehicleInfoOffset IS 8.	//	Reads: vehicle info section starts at row 8
 	LOCAL orbitalInfoOffset IS 14.
 	LOCAL currentOrbitOffset IS 15.	//	Horizontal offset for the current orbit info
 	LOCAL targetOrbitOffset IS 29.	//	Horizontal offset for the target orbit info
 	LOCAL messageBoxOffset IS 23.
-	
+
 	//	First figure out what phase of the flight are we in: passively or actively guided.
 	IF NOT (DEFINED upfgInternal) {
 		//	Don't try to access any UPFG-related variables
@@ -165,13 +165,13 @@ FUNCTION refreshUI {
 			numberPrint(timeToNextStage, vehicleInfoOffset, 35, 39, 0).
 		} ELSE { textPrint("", vehicleInfoOffset, 9, 33). }
 	}
-	
+
 	//	Print physical information
 	LOCAL throttle_ IS throttleDisplay.
 	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
 	numberPrint(100*throttle_, vehicleInfoOffset + 2, 17, 21, 0).
 	numberPrint(currentAcc, vehicleInfoOffset + 3, 17, 21).
-	
+
 	//	Print current vehicle state
 	numberPrint(SHIP:ALTITUDE/1000,			orbitalInfoOffset + 0, currentOrbitOffset, currentOrbitOffset + 7).
 	numberPrint(SHIP:VERTICALSPEED,			orbitalInfoOffset + 2, currentOrbitOffset, currentOrbitOffset + 7).
@@ -179,7 +179,7 @@ FUNCTION refreshUI {
 	numberPrint(SHIP:ORBIT:APOAPSIS/1000,	orbitalInfoOffset + 4, currentOrbitOffset, currentOrbitOffset + 7).
 	numberPrint(SHIP:ORBIT:INCLINATION,		orbitalInfoOffset + 5, currentOrbitOffset, currentOrbitOffset + 7, 2).
 	numberPrint(SHIP:ORBIT:LAN,				orbitalInfoOffset + 6, currentOrbitOffset, currentOrbitOffset + 7, 2).
-	
+
 	//	Print target state
 	numberPrint(mission["altitude"],		orbitalInfoOffset + 0, targetOrbitOffset, targetOrbitOffset + 7).
 	numberPrint(upfgTarget["velocity"],		orbitalInfoOffset + 1, targetOrbitOffset, targetOrbitOffset + 7).
@@ -188,12 +188,12 @@ FUNCTION refreshUI {
 	numberPrint(mission["apoapsis"],		orbitalInfoOffset + 4, targetOrbitOffset, targetOrbitOffset + 7).
 	numberPrint(mission["inclination"],		orbitalInfoOffset + 5, targetOrbitOffset, targetOrbitOffset + 7, 2).
 	numberPrint(mission["LAN"],				orbitalInfoOffset + 6, targetOrbitOffset, targetOrbitOffset + 7, 2).
-	
+
 	//	Calculate and print angle between orbits
 	LOCAL currentOrbitNormal IS targetNormal(SHIP:ORBIT:INCLINATION, SHIP:ORBIT:LAN).
 	LOCAL relativeAngle IS VANG(currentOrbitNormal, upfgTarget["normal"]).
 	numberPrint(relativeAngle, orbitalInfoOffset + 7, 24, 29, 2).
-	
+
 	//	Handle messages
 	IF uiMessage["received"] {
 		//	If we have any message
@@ -221,7 +221,7 @@ FUNCTION pushUIMessage {
 	DECLARE PARAMETER message.		//	Expects a string.
 	DECLARE PARAMETER ttl IS 5.		//	Message time-to-live (scalar).
 	DECLARE PARAMETER priority IS PRIORITY_NORMAL.
-	
+
 	//	If we already have a message - only accept the new one if it's important enough
 	IF uiMessage["received"] {
 		IF priority >= uiMessage["priority"] {
