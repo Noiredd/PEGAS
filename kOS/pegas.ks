@@ -1,13 +1,5 @@
-//	If no boot file was loaded, this check will immediately crash PEGAS, saving time that would otherwise be wasted on loading libraries.
-IF NOT (DEFINED vehicle) OR NOT (DEFINED sequence) OR NOT (DEFINED controls) OR NOT (DEFINED mission) {
-	PRINT "".
-	PRINT "No boot file loaded! Crashing...".
-	PRINT "".
-	SET _ TO sequence.
-	SET _ TO controls.
-	SET _ TO vehicle.
-	SET _ TO mission.
-}
+//	Check if all necessary variables have been defined, exit early otherwise.
+RUN pegas_precheck.
 
 //	Load settings and libraries.
 RUN pegas_settings.
