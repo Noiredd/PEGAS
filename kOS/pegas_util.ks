@@ -695,6 +695,9 @@ FUNCTION userEventHandler {
 			sequence[userEventPointer]:ADD("message", "Rolling to " + steeringRoll + " degrees").
 		}
 	}
+    ELSE IF eType = "delegate" OR eType = "d" {
+		sequence[userEventPointer]["function"]:CALL().
+	}
 	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + sequence[userEventPointer]["message"] + "')!", 5, PRIORITY_HIGH ). }
 	//	Print event message, if requested
 	IF sequence[userEventPointer]:HASKEY("message") {

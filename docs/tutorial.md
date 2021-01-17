@@ -156,7 +156,8 @@ This is how you control timed events, like:
 * separation of the strap-on boosters,
 * jettisoning the payload fairing,
 * rolling to given attitude,
-* throttle (only in the atmospheric ascent phase)\*.
+* throttle (only in the atmospheric ascent phase)\*,
+* execution of custom functions (kOS [delegates](http://ksp-kos.github.io/KOS_DOC/language/delegates.html)).
 
 See the reference to all possible events and how to use them.  
 As you see, both `sequence` and `vehicle` can cause a staging (equivalent to hitting spacebar).

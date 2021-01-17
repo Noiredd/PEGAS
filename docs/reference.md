@@ -95,6 +95,7 @@ message  | `string`   | Optional\*. Message that will be printed in the terminal
 throttle | `scalar`   | **Used only if** `type` **is** `"throttle"`. Desired throttle setting, value in range \[0-1\].
 massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the system of mass amount lost in the process.
 angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
+function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#structure:KOSDELEGATE) | **Used only if** `type` **is** `"delegate"`. Function to be called. Shall expect no arguments.
 
 \* - for events of type `throttle` and `roll` message will be automatically generated.
 
@@ -107,6 +108,7 @@ stage    | s       | Hits spacebar (a single `STAGE.` command in kOS).
 jettison | j       | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
 throttle | t       | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
 roll     | r       | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
+delegate | d       | Calls a function passed as a [kOS delegate](http://ksp-kos.github.io/KOS_DOC/language/delegates.html).
 
 \* - can be used instead of the full event type name.
 
