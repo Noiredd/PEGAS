@@ -1,7 +1,7 @@
 //	Settings for PEGAS
-GLOBAL kOS_IPU IS 500.					//	Required to run the script fast enough.
-GLOBAL cserVersion IS "old".			//	Which version of the CSER function to use: "old" for the standard one, "new" for pand5461's implementation.
-										//	"Old" CSER requires IPU of about 500, while "new" has not been extensively tested yet.
+GLOBAL kOS_IPU IS 400.					//	Required to run the script fast enough.
+GLOBAL cserVersion IS "new".			//	Which version of the CSER function to use. "new" implementation (by pand5461) has been extensively tested and is the default one.
+										//	In case of problems, you can try switching to "old" CSER, but remember to bump up the IPU to about 500.
 GLOBAL pitchOverTimeLimit IS 20.		//	In atmospheric part of ascent, when the vehicle pitches over, the wait for velocity vector to align will be forcibly broken after that many seconds.
 GLOBAL upfgConvergenceDelay IS 5.		//	Transition from passive (atmospheric) to active guidance occurs that many seconds before "upfgActivation" (to give UPFG time to converge).
 GLOBAL upfgFinalizationTime IS 5.		//	When time-to-go gets below that, keep attitude stable and simply count down time to cutoff.
