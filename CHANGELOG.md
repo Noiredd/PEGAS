@@ -1,5 +1,17 @@
 ### Change log
 
+## [v1.2](https://github.com/Noiredd/PEGAS/releases/tag/v1.2) (2021-01-17)
+New CSE routine, delegate events, and several minor fixes.
+
+##### Features:
+* new Conic State Extrapolation routine by [pand5461](https://github.com/pand5461),
+* delegate events - call any function at any time via `sequence`
+* cleaner settings system
+
+##### Fixes:
+* fixed a typo in the comms module
+* cleaner pre-check routine with better feedback
+
 ## [v1.1](https://github.com/Noiredd/PEGAS/releases/tag/v1.1) (2017-11-05)
 Multiple fixes for bugs identified after the initial release and new features requested since.
 
@@ -11,15 +23,14 @@ Multiple fixes for bugs identified after the initial release and new features re
 * stages can explicitly shut down engines (useful for Falcon 9 style missions),
 * LAN and inclination as optional parameters,
 * launch direction (northerly and southerly, as well as "nearest opportunity"),
-* automatic seizing control from the kOS CPU part.
+* automatic seizing of control from the kOS CPU part.
 
-##### Bug fixes:
+##### Fixes:
 * throttling obeys the way [Realism Overhaul works](https://github.com/Noiredd/PEGAS/issues/12),
 * sustainer-type stages are now handled properly,
 * minor code clean-ups, GUI and documentation fixes.
 
 ## [v1.0](https://github.com/Noiredd/PEGAS/releases/tag/v1.0) (2017-07-30)
-
 Initial release of PEGAS in its current form (all old code has been removed), introducing the Unified Powered Flight Guidance (UPFG) algorithm.
 
 ##### Features:

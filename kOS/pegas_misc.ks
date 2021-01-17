@@ -119,7 +119,7 @@ FUNCTION timePrint {
 
 //	Just fill in the blanks, do not redraw the whole GUI.
 FUNCTION refreshUI {
-	//	Expects global variables "liftoffTime" as timespan, "throttleSetting" as scalar, "controls", "mission", "upfgTarget" and "upfgInternal" as lexicon and "upfgConverged" as bool.
+	//	Expects global variables "liftoffTime" as timespan, "throttleDisplay" as scalar, "controls", "mission", "upfgTarget" and "upfgInternal" as lexicon and "upfgConverged" as bool.
 
 	LOCAL currentTime IS timePrint().
 	
