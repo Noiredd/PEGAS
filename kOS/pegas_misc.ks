@@ -19,7 +19,7 @@ SET TERMINAL:HEIGHT TO 26 + 14.	//	Few more lines for debugging
 FUNCTION createUI {
 	CLEARSCREEN.
 	PRINT ".-----------------------------------------.".
-	PRINT "| PEGAS                              v1.1 |".
+	PRINT "| PEGAS                                   |".
 	PRINT "| Powered Explicit Guidance Ascent System |".
 	PRINT "|-----------------------------------------|".
 	PRINT "| T   h  m  s |                           |".
@@ -45,6 +45,7 @@ FUNCTION createUI {
 	PRINT "*-----------------------------------------*".
 	
 	textPrint(SHIP:NAME, 6, 2, 41, "L").
+	textPrint(_PEGAS_VERSION_, 1, 20, 41, "R").
 	refreshUI().
 }
 

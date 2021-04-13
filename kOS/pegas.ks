@@ -1,3 +1,5 @@
+GLOBAL _PEGAS_VERSION_ IS "v1.3-alpha".
+
 //	Check if all necessary variables have been defined, exit early otherwise.
 RUN pegas_precheck.
 
