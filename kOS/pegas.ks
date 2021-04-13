@@ -31,6 +31,7 @@ GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see th
 GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR).
 GLOBAL steeringRoll IS 0.
 GLOBAL upfgConverged IS FALSE.
+GLOBAL upfgEverConverged IS FALSE.
 GLOBAL stagingInProgress IS FALSE.
 
 
@@ -101,17 +102,14 @@ UNTIL ABORT {
 		}
 	}
 	ELSE IF ascentFlag = 2 {
-		//	We cannot blindly hold prograde though, because this will provide no azimuth control
-		//	Much better option is to read current velocity angle and aim for that, but correct for azimuth
-		SET velocityAngle TO 90-VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-		SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],velocityAngle):VECTOR, steeringRoll).
-		//	There are two almost identical cases, in the first we set the initial message, in the next we just keep attitude.
+		//	Enter the minimal angle of attack phase. This case is different only in that we push a transition message.
+		SET steeringVector TO minAoASteering(steeringRoll).
 		pushUIMessage( "Holding prograde at " + ROUND(mission["launchAzimuth"],1) + " deg azimuth." ).
 		SET ascentFlag TO 3.
 	}
 	ELSE {
-		SET velocityAngle TO 90-VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-		SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],velocityAngle):VECTOR, steeringRoll).
+		//	Maintain minimal AoA trajectory
+		SET steeringVector TO minAoASteering(steeringRoll).
 	}
 	//	The passive guidance loop ends a few seconds before actual ignition of the first UPFG-controlled stage.
 	//	This is to give UPFG time to converge. Actual ignition occurs via stagingEvents.

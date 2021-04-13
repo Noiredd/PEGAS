@@ -811,6 +811,16 @@ FUNCTION stageEventHandler {
 
 //	THROTTLE AND STEERING CONTROLS
 
+//	Calculate a steering vector for minimal angle of attack flight (surface-relative)
+FUNCTION minAoASteering {
+	//	Expects a global variable "mission" as lexicon.
+	DECLARE PARAMETER desiredRoll IS 0.	//	Expects a scalar
+
+	//	This is not a "zero AoA steering" by following the current surface velocity vector - we still provide azimuth control
+	SET surfVelAngle TO 90 - VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
+	RETURN aimAndRoll(HEADING(mission["launchAzimuth"], surfVelAngle):VECTOR, desiredRoll).
+}
+
 //	Interface between stageEventHandler and upfgSteeringControl.
 FUNCTION upfgStagingNotify {
 	//	Allows stageEventHandler to let upfgSteeringControl know that staging had occured.
@@ -843,8 +853,9 @@ FUNCTION upfgSteeringControl {
 		pushUIMessage( "UPFG reset", 5, PRIORITY_CRITICAL ).
 	}
 	
-	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector and 
-	//	"upfgConvergenceCriterion", "upfgGoodSolutionCriterion" and "steeringRoll" as scalars.
+	//	Expects global variables "upfgConverged", "upfgEverConverged" and "stagingInProgress" as bool,
+	//	"steeringVector" as vector, "upfgConvergenceCriterion", "upfgGoodSolutionCriterion" and "steeringRoll"
+	//	as scalars.
 	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and 
 	//	"usc_lastIterationTime" as scalar.
 	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
@@ -899,12 +910,16 @@ FUNCTION upfgSteeringControl {
 	//	If we have enough number of consecutive good results - we're converged.
 	IF usc_convergeFlags:LENGTH = 2 {
 		SET upfgConverged TO TRUE.
+		SET upfgEverConverged TO TRUE.
 		SET usc_convergeFlags TO LIST(TRUE, TRUE).
 	}
 	//	Check if we can steer
 	IF upfgConverged AND NOT stagingInProgress {
 		SET steeringVector TO aimAndRoll(vecYZ(upfgOutput[1]["vector"]), steeringRoll).
 		SET usc_lastGoodVector TO upfgOutput[1]["vector"].
+	} ELSE IF NOT upfgEverConverged {
+		//	Remain in the min-AoA mode if this is the first run of UPFG
+		SET steeringVector TO minAoASteering(steeringRoll).
 	}
 	RETURN upfgOutput[0].
 }
