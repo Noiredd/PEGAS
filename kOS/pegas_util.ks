@@ -853,9 +853,9 @@ FUNCTION upfgSteeringControl {
 		pushUIMessage( "UPFG reset", 5, PRIORITY_CRITICAL ).
 	}
 	
-	//	Expects global variables "upfgConverged", "upfgEverConverged" and "stagingInProgress" as bool,
-	//	"steeringVector" as vector, "upfgConvergenceCriterion", "upfgGoodSolutionCriterion" and "steeringRoll"
-	//	as scalars.
+	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector,
+	//	"upfgConvergenceCriterion", "upfgGoodSolutionCriterion", "steeringRoll" and "liftoffTime" as scalars,
+	//	"vehicle" as list, and "controls" as lexicon.
 	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and 
 	//	"usc_lastIterationTime" as scalar.
 	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
@@ -910,17 +910,17 @@ FUNCTION upfgSteeringControl {
 	//	If we have enough number of consecutive good results - we're converged.
 	IF usc_convergeFlags:LENGTH = 2 {
 		SET upfgConverged TO TRUE.
-		SET upfgEverConverged TO TRUE.
 		SET usc_convergeFlags TO LIST(TRUE, TRUE).
 	}
 	//	Check if we can steer
-	IF upfgConverged AND NOT stagingInProgress {
+	LOCAL isItUpfgActivationTime IS TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"].
+	IF upfgConverged AND NOT stagingInProgress AND isItUpfgActivationTime {
 		SET steeringVector TO aimAndRoll(vecYZ(upfgOutput[1]["vector"]), steeringRoll).
 		SET usc_lastGoodVector TO upfgOutput[1]["vector"].
-	} ELSE IF NOT upfgEverConverged {
+	} ELSE IF NOT isItUpfgActivationTime {
 		//	Remain in the min-AoA mode if this is the first run of UPFG
 		SET steeringVector TO minAoASteering(steeringRoll).
-	}
+	}	//	Otherwise we leave the steering vector untouched to maintain constant attitude
 	RETURN upfgOutput[0].
 }
 

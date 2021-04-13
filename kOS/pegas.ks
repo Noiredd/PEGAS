@@ -31,7 +31,6 @@ GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see th
 GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR).
 GLOBAL steeringRoll IS 0.
 GLOBAL upfgConverged IS FALSE.
-GLOBAL upfgEverConverged IS FALSE.
 GLOBAL stagingInProgress IS FALSE.
 
 
