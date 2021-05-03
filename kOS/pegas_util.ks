@@ -607,7 +607,7 @@ FUNCTION initializeVehicle {
 	//	and "upfgConvergenceDelay" as scalar.
 	
 	LOCAL currentTime IS TIME:SECONDS.
-	
+
 	//	If a stage has a staging sequence defined, this means it is a Saturn-like stage which needs no update. Otherwise,
 	//	it is a sustainer stage and only its initial (and, hence, dry) mass is known. Actual mass needs to be calculated.
 	IF NOT vehicle[0]["staging"]["ignition"] {
@@ -616,15 +616,14 @@ FUNCTION initializeVehicle {
 		recalculateVehicleMass(0, upfgConvergenceDelay).
 	}
 
-	//	Detect jettison events and create virtual stages
+	//	Detect vehicle-modifying events and create virtual stages for them.
+	//	Works by finding the stage during which the event takes place and separating that stage into two stages.
+	//	The first (virtual) stage burns until the event, treating the unburned fuel as dry mass. The next stage
+	//	starts at that point, modified according to the event type.
 	LOCAL eventIndex IS 0.
 	FOR event IN sequence {
-		//	Handle the jettison events.
-		//	Works by finding the stage during which the event takes place and separating that stage into two stages.
-		//	The first (virtual) stage burns until the jettison moment, treating the unburned fuel as dry mass. The
-		//	second stage starts at that point, its dry mass reduced by the amount given in the event description.
 		IF event["type"] = "jettison" {
-			//	Find the relevant stage
+			//	Handle the jettison events, starting by finding the relevant stage
 			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
 			//	In case the correct stage has not been found, we're unable to proceed.
 			IF foundStageData:LENGTH = 0 {
@@ -653,6 +652,42 @@ FUNCTION initializeVehicle {
 			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Finally, update the original stage
+			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
+			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
+			SET vehicle[eventStage]["maxT"] TO startToJettison.
+		} ELSE IF event["type"] = "shutdown" {
+			//	Handle the engine shutdown events, basic idea similar to jettisons.
+			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
+			IF foundStageData:LENGTH = 0 {
+				LOCAL msgText IS "Shutdown [event #" + eventIndex + "] outside the vehicle sequence!".
+				pushUIMessage(msgText, 10, PRIORITY_HIGH).
+				BREAK.
+			}
+			LOCAL eventStage IS foundStageData[0].
+			LOCAL stageStartTime IS foundStageData[1].
+			//	Go through the engines and separate these that aren't being shut down
+			LOCAL totalFlow IS 0.
+			LOCAL remainingFlow IS 0.
+			SET remainingEngines TO LIST().
+			FOR engine IN vehicle[eventStage]["engines"] {
+				SET totalFlow TO totalFlow + engine["flow"].
+				IF engine["tag"] <> event["engineTag"] {
+					remainingEngines:ADD(engine).
+					SET remainingFlow TO remainingFlow + engine["flow"].
+				}
+			}
+			//	Compute the amount of fuel burned until the shutdown
+			LOCAL startToJettison IS event["time"] - stageStartTime.
+			LOCAL fuelBurnedUntil IS totalFlow * startToJettison.
+			//	Create the "after" stage
+			SET afterStage TO vehicle[eventStage]:COPY().
+			SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
+			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
+			SET afterStage["maxT"] TO afterStage["massFuel"] / remainingFlow.
+			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
+			SET afterStage["engines"] TO remainingEngines.
+			vehicle:INSERT(eventStage + 1, afterStage).
+			//	Update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
 			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
 			SET vehicle[eventStage]["maxT"] TO startToJettison.
