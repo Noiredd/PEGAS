@@ -562,6 +562,32 @@ FUNCTION getStageDelays {
 	RETURN totalDelays.
 }
 
+//	Find the index of a vehicle stage that will be active at a given time.
+FUNCTION stageActiveAtTime {
+	//	Iterates through stages until it finds one whose (cumulative) start time occurs before the given timestamp, and
+	//	whose end time occurs after the timestamp.
+	//	Returns the list containing: [0] the index of found stage, [1] its start time.
+	//	If no such stage can be found, an empty list is returned.
+
+	//	Expects global variable "vehicle" as list of lexicons, and "controls" as a lexicon.
+
+	DECLARE PARAMETER gTime.	//	Expects a scalar.
+
+	LOCAL stageStartTime IS controls["upfgActivation"].
+	LOCAL stageIndex IS 0.
+	FOR stage_ in vehicle {
+		SET stageStartTime TO stageStartTime + getStageDelays(stage_).
+		LOCAL stageEnds IS stageStartTime + stage_["maxT"].
+		IF gTime > stageStartTime and gTime < stageEnds {
+			RETURN LIST(stageIndex, stageStartTime).
+		}
+		SET stageStartTime TO stageStartTime + stage_["maxT"].
+		SET stageIndex TO stageIndex + 1.
+	}
+
+	RETURN LIST().	//	In case of failure
+}
+
 //	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
 //	initializes the automatic staging sequence. Accounts for jettison events defined in vehicle sequence by adding virtual
 //	stages to the vehicle description.
@@ -576,7 +602,8 @@ FUNCTION initializeVehicle {
 	//	them into account.
 	//	With all this done, the final task can be completed: handling of the acceleration-limited stages.
 
-	//	Expects global variables "vehicle" and "sequence" as list of lexicons, and "upfgConvergenceDelay" as scalar.
+	//	Expects global variables "vehicle" and "sequence" as list of lexicons, "controls" as lexicon,
+	//	and "upfgConvergenceDelay" as scalar.
 	
 	LOCAL currentTime IS TIME:SECONDS.
 	
@@ -597,25 +624,15 @@ FUNCTION initializeVehicle {
 		//	second stage starts at that point, its dry mass reduced by the amount given in the event description.
 		IF event["type"] = "jettison" {
 			//	Find the relevant stage
-			LOCAL stageStartTime IS controls["upfgActivation"].
-			LOCAL eventStage IS 0.
-			LOCAL stageFound IS FALSE.
-			FOR stage_ in vehicle {
-				SET stageStartTime TO stageStartTime + getStageDelays(stage_).
-				LOCAL stageEnds IS stageStartTime + stage_["maxT"].
-				IF event["time"] > stageStartTime and event["time"] < stageEnds {
-					SET stageFound TO TRUE.
-					BREAK.
-				}
-				SET stageStartTime TO stageStartTime + stage_["maxT"].
-				SET eventStage TO eventStage + 1.
-			}
+			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
 			//	In case the correct stage has not been found, we're unable to proceed.
-			IF NOT stageFound {
+			IF foundStageData:LENGTH = 0 {
 				LOCAL msgText IS "Jettison [event #" + eventIndex + "] outside the vehicle sequence!".
 				pushUIMessage(msgText, 10, PRIORITY_HIGH).
 				BREAK.	//	All of the other events would also be outside the sequence
 			}
+			LOCAL eventStage IS foundStageData[0].
+			LOCAL stageStartTime IS foundStageData[1].
 			//	Since we've found the stage, we split it into two virtual stages
 			//	First calculate when does the event happen
 			LOCAL startToJettison IS event["time"] - stageStartTime.
