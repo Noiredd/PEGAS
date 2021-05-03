@@ -127,8 +127,8 @@ UNTIL ABORT {
 
 //	ACTIVE GUIDANCE
 createUI().
-//	Initialize UPFG
-initializeVehicle().
+//	Initialize UPFG and all the structures it requires
+initializeVehicleForUPFG().
 SET upfgState TO acquireState().
 SET upfgInternal TO setupUPFG().
 //	Main loop - iterate UPFG (respective function controls attitude directly)

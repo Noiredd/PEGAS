@@ -472,14 +472,14 @@ FUNCTION recalculateVehicleMass {
 	//	Vehicles basing on sustainer cores start the active guidance phase with a stage whose mass is not known at system
 	//	initialization - instead, only dry mass of a stage is known, and mass of the fuel needs to be calculated at the
 	//	moment of stage activation.
-	
+
 	//	Expects global variables "vehicle" as lexicon and "nextStageTime" as scalar.
 	DECLARE PARAMETER stageID.
 	DECLARE PARAMETER timeAhead IS 0.		//	If we need to know what will the mass be at some time from "now", passing
 											//	a positive scalar here will cause subtraction of mass burned by the engines.
 	DECLARE PARAMETER recalcNext IS FALSE.	//	TRUE will cause recalculation of the constant-acceleration stage (if present).
 	DECLARE PARAMETER updateEvent IS FALSE.	//	TRUE will cause the "nextStageTime" to shift by the change in stage burn times.
-	
+
 	LOCAL combinedEngines IS getThrust(vehicle[stageID]["engines"]).
 	SET vehicle[stageID]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*timeAhead.
 	SET vehicle[stageID]["massFuel"]  TO vehicle[stageID]["massTotal"] - vehicle[stageID]["massDry"].
@@ -487,13 +487,13 @@ FUNCTION recalculateVehicleMass {
 	SET vehicle[stageID]["maxT"] TO vehicle[stageID]["massFuel"] / combinedEngines[1].
 	//	If the stage is followed by a constant acceleration stage - it has to be recalculated as well
 	IF recalcNext AND stageID < vehicle:LENGTH - 1 AND vehicle[stageID+1]["mode"] = 2 {
-		//	This is almost the same as initializeVehicle code, with one difference: if the (physical) stage requires
+		//	This is almost the same as initializeVehicleForUPFG, with one difference: if the (physical) stage requires
 		//	explicit shutting down of its engines, this information needs to be retrieved.
 		//back to the stage cause the creator will use it to create the new stage, we'll delete it later
 		SET vehicle[stageID]["shutdownRequired"] TO vehicle[stageID+1]["shutdownRequired"].
 		//	Remove the old stage
 		vehicle:REMOVE(stageID+1).
-		//	Repeat the steps from initializeVehicle
+		//	Repeat the steps from initializeVehicleForUPFG
 		LOCAL accLimTime IS accLimitViolationTime(vehicle[stageID]).
 		IF accLimTime > 0 AND accLimTime < vehicle[stageID]["maxT"] {
 			LOCAL gLimStage IS createAccelerationLimitedStage(vehicle[stageID], accLimTime).
@@ -592,7 +592,7 @@ FUNCTION stageActiveAtTime {
 //	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
 //	initializes the automatic staging sequence. Accounts for jettison events defined in vehicle sequence by adding virtual
 //	stages to the vehicle description.
-FUNCTION initializeVehicle {
+FUNCTION initializeVehicleForUPFG {
 	//	The first actively guided stage can be a whole new stage (think: Saturn V, S-II), or a sustainer stage that continues
 	//	a burn started at liftoff (Atlas V, STS). In the former case, all information is known at liftoff and no updates are
 	//	necessary. For the latter, the amount of fuel remaining in the tank is only known at the moment of ignition of the
@@ -771,7 +771,7 @@ FUNCTION userEventHandler {
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
 	ELSE IF eType = "jettison" OR eType = "j" {
-		//	We used to handle the reduction of vehicle mass here, but it has since been moved to initializeVehicle a few lines up.
+		//	We used to handle the reduction of vehicle mass here, but it has since been moved to initializeVehicleForUPFG a few lines up.
 		STAGE.
 	}
 	ELSE IF eType = "throttle" OR eType = "t" {
@@ -851,7 +851,7 @@ FUNCTION stageEventHandler {
 	}
 	
 	//	Expects global variables "liftOffTime" as TimeSpan, "vehicle" as list, "controls" as lexicon, "upfgStage" as scalar and "stageEventFlag" as bool.
-	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicle
+	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicleForUPFG
 	
 	//	First call (we know because upfgStage is still at initial value) only sets up the event for first guided stage.
 	IF upfgStage = -1 {
