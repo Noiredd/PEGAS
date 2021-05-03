@@ -455,6 +455,7 @@ FUNCTION setVehicle {
 		//	Engine update
 		FOR e IN v["engines"] {
 			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*g0) * v["throttle"]). }
+			IF NOT e:HASKEY("tag") { e:ADD("tag", ""). }
 		}
 		//	Add the shutdown flag - it is optional, but functions rely on its presence
 		IF NOT v:HASKEY("shutdownRequired") { v:ADD("shutdownRequired", FALSE). }
@@ -680,7 +681,7 @@ FUNCTION initializeVehicle {
 			}
 		}
 	}
-	
+
 	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
 }
 
@@ -720,7 +721,7 @@ FUNCTION userEventHandler {
 			WHEN TIME:SECONDS >= liftoffTime:SECONDS + sequence[userEventPointer]["time"] THEN { SET userEventFlag TO TRUE. }
 		}
 	}
-	
+
 	//	Expects global variables "sequence" and "vehicle" as list, "userEventFlag" as bool,
 	//	"liftoffTime", "steeringRoll", "userEventPointer", "upfgStage" and "nextStageTime" as scalars.
 	//	First call initializes and exits without doing anything
@@ -728,9 +729,10 @@ FUNCTION userEventHandler {
 		setNextEvent().
 		RETURN.
 	}
-	
+
 	//	Handle event
-	LOCAL eType IS sequence[userEventPointer]["type"].
+	LOCAL event IS sequence[userEventPointer].
+	LOCAL eType IS event["type"].
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
 	ELSE IF eType = "jettison" OR eType = "j" {
@@ -741,37 +743,52 @@ FUNCTION userEventHandler {
 		//	Throttling is only allowed during the passive guidance phase, as it would ruin burn time predictions used by
 		//	UPFG for guidance and stageEvent system for stage timing.
 		IF upfgStage < 0 {
-			IF NOT sequence[userEventPointer]:HASKEY("message") {
-				IF sequence[userEventPointer]["throttle"] < throttleSetting {
-					sequence[userEventPointer]:ADD("message", "Throttling down to " + 100*sequence[userEventPointer]["throttle"] + "%").
+			IF NOT event:HASKEY("message") {
+				IF event["throttle"] < throttleSetting {
+					event:ADD("message", "Throttling down to " + 100*event["throttle"] + "%").
 				} ELSE {
-					sequence[userEventPointer]:ADD("message", "Throttling up to " + 100*sequence[userEventPointer]["throttle"] + "%").
+					event:ADD("message", "Throttling up to " + 100*event["throttle"] + "%").
 				}
 			}
-			SET throttleSetting TO sequence[userEventPointer]["throttle"].
+			SET throttleSetting TO event["throttle"].
 			SET throttleDisplay TO throttleSetting.
 		} ELSE {
 			pushUIMessage( "Throttle ignored in active guidance!", 5, PRIORITY_HIGH ).
 		}
 	}
-	ELSE IF eType = "roll" OR eType = "r" {
-		SET steeringRoll TO sequence[userEventPointer]["angle"].
-		IF NOT sequence[userEventPointer]:HASKEY("message") {
-			sequence[userEventPointer]:ADD("message", "Rolling to " + steeringRoll + " degrees").
+	ELSE IF eType = "shutdown" OR eType = "u" {
+		//	Find the tagged engines
+		LOCAL taggedEngines IS SHIP:PARTSTAGGED(event["engineTag"]).
+		IF taggedEngines:LENGTH = 0 {
+			pushUIMessage("NO ENGINES TAGGED '" + event["engineTag"] + "' FOUND!", 10, PRIORITY_CRITICAL).
+		}
+		//	Shut them down
+		FOR engine IN taggedEngines {
+			engine:SHUTDOWN().
+		}
+		IF NOT event:HASKEY("message") {
+			event:ADD("message", "Shutting down engine(s) tagged '" + event["engineTag"] + "'.").
 		}
 	}
-    ELSE IF eType = "delegate" OR eType = "d" {
-		sequence[userEventPointer]["function"]:CALL().
+	ELSE IF eType = "roll" OR eType = "r" {
+		SET steeringRoll TO event["angle"].
+		IF NOT event:HASKEY("message") {
+			event:ADD("message", "Rolling to " + steeringRoll + " degrees").
+		}
 	}
-	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + sequence[userEventPointer]["message"] + "')!", 5, PRIORITY_HIGH ). }
+	ELSE IF eType = "delegate" OR eType = "d" {
+		event["function"]:CALL().
+	}
+	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + event["message"] + "')!", 5, PRIORITY_HIGH ). }
+
 	//	Print event message, if requested
-	IF sequence[userEventPointer]:HASKEY("message") {
-		pushUIMessage( sequence[userEventPointer]["message"] ).
+	IF event:HASKEY("message") {
+		pushUIMessage( event["message"] ).
 	}
-	
+
 	//	Reset event flag
 	SET userEventFlag TO FALSE.
-	
+
 	//	Create new event trigger
 	setNextEvent().
 }
