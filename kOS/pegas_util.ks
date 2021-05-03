@@ -543,8 +543,28 @@ FUNCTION createAccelerationLimitedStage {
 	RETURN gLimStage.
 }
 
+//	Calculate the sum of all delays before the actual ignition of a given stage.
+FUNCTION getStageDelays {
+	DECLARE PARAMETER thisStage.    //	Expects a lexicon.
+
+	LOCAL staging IS thisStage["staging"].
+	LOCAL totalDelays IS 0.
+	IF staging:HASKEY("waitBeforeJettison") {
+		SET totalDelays TO totalDelays + staging["waitBeforeJettison"].
+	}
+	IF staging:HASKEY("waitBeforeIgnition") {
+		SET totalDelays TO totalDelays + staging["waitBeforeIgnition"].
+	}
+	IF staging:HASKEY("ullageBurnDuration") {
+		SET totalDelays TO totalDelays + staging["ullageBurnDuration"].
+	}
+
+	RETURN totalDelays.
+}
+
 //	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
-//	initializes the automatic staging sequence.
+//	initializes the automatic staging sequence. Accounts for jettison events defined in vehicle sequence by adding virtual
+//	stages to the vehicle description.
 FUNCTION initializeVehicle {
 	//	The first actively guided stage can be a whole new stage (think: Saturn V, S-II), or a sustainer stage that continues
 	//	a burn started at liftoff (Atlas V, STS). In the former case, all information is known at liftoff and no updates are
@@ -552,8 +572,11 @@ FUNCTION initializeVehicle {
 	//	stage (due to uncertainty in engine spool-up at ignition, and potentially changing time of activation of UPFG). Thus,
 	//	the stage - and potentially also its derived const-acc stage - can only be initialized in flight. And this is what the
 	//	following function is supposed to do.
+	//	The second task is to handle the jettison events by creating virtual stages for each of them, allowing UPFG to take
+	//	them into account.
+	//	With all this done, the final task can be completed: handling of the acceleration-limited stages.
 
-	//	Expects a global variable "vehicle" as list of lexicons, "upfgConvergenceDelay" as scalar
+	//	Expects global variables "vehicle" and "sequence" as list of lexicons, and "upfgConvergenceDelay" as scalar.
 	
 	LOCAL currentTime IS TIME:SECONDS.
 	
@@ -564,9 +587,64 @@ FUNCTION initializeVehicle {
 		//	information will be used:
 		recalculateVehicleMass(0, upfgConvergenceDelay).
 	}
+
+	//	Detect jettison events and create virtual stages
+	LOCAL eventIndex IS 0.
+	FOR event IN sequence {
+		//	Handle the jettison events.
+		//	Works by finding the stage during which the event takes place and separating that stage into two stages.
+		//	The first (virtual) stage burns until the jettison moment, treating the unburned fuel as dry mass. The
+		//	second stage starts at that point, its dry mass reduced by the amount given in the event description.
+		IF event["type"] = "jettison" {
+			//	Find the relevant stage
+			LOCAL stageStartTime IS controls["upfgActivation"].
+			LOCAL eventStage IS 0.
+			LOCAL stageFound IS FALSE.
+			FOR stage_ in vehicle {
+				SET stageStartTime TO stageStartTime + getStageDelays(stage_).
+				LOCAL stageEnds IS stageStartTime + stage_["maxT"].
+				IF event["time"] > stageStartTime and event["time"] < stageEnds {
+					SET stageFound TO TRUE.
+					BREAK.
+				}
+				SET stageStartTime TO stageStartTime + stage_["maxT"].
+				SET eventStage TO eventStage + 1.
+			}
+			//	In case the correct stage has not been found, we're unable to proceed.
+			IF NOT stageFound {
+				LOCAL msgText IS "Jettison [event #" + eventIndex + "] outside the vehicle sequence!".
+				pushUIMessage(msgText, 10, PRIORITY_HIGH).
+				BREAK.	//	All of the other events would also be outside the sequence
+			}
+			//	Since we've found the stage, we split it into two virtual stages
+			//	First calculate when does the event happen
+			LOCAL startToJettison IS event["time"] - stageStartTime.
+			//	Then the fuel mass burned over that time
+			LOCAL combinedFlow IS 0.
+			FOR engine IN vehicle[eventStage]["engines"] {
+				SET combinedFlow TO combinedFlow + engine["flow"].
+			}
+			LOCAL fuelBurnedUntil IS combinedFlow * startToJettison.
+			//	Now, create the "after" stage and insert it into the vehicle description
+			SET afterStage TO vehicle[eventStage]:COPY().
+			SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
+			SET afterStage["massDry"] TO afterStage["massDry"] - event["massLost"].
+			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
+			SET afterStage["maxT"] TO afterStage["maxt"] - startToJettison.
+			//	CRUCIAL: this new stage is already ignited, so we MUST NOT try to start it again!
+			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
+			vehicle:INSERT(eventStage + 1, afterStage).
+			//	Finally, update the original stage
+			SET vehicle[eventStage]["massFuel"] TO vehicle[eventStage]["massFuel"] - fuelBurnedUntil.
+			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massDry"] + fuelBurnedUntil.
+			SET vehicle[eventStage]["maxT"] TO vehicle[eventStage]["maxT"] - afterStage["maxT"].
+		}
+		SET eventIndex TO eventIndex + 1.	//	Increment the counter
+	}
+
 	//	Acceleration limits are handled in the following loop
 	FROM { LOCAL i IS 0. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
-		IF vehicle[i]["gLim"]>0 {
+		IF vehicle[i]["gLim"] > 0 {
 			//	Calculate when will the acceleration limit be exceeded
 			LOCAL accLimTime IS accLimitViolationTime(vehicle[i]).
 			//	If this time is greater than the stage's max burn time - we're good.
@@ -639,37 +717,7 @@ FUNCTION userEventHandler {
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
 	ELSE IF eType = "jettison" OR eType = "j" {
-		//	Jettisoning some mass results in change of vehicle dynamics. The following mechanism allows the system to
-		//	deal with this loss, which otherwise would have negative effects on constant-acceleration stages.
-		//	The jettisoned mass is subtracted from the current stage's mass (dry and total), and all subsequent stages'
-		//	until one that separates the preceding one is found. In case of a const-acc stage, its burn time is also
-		//	recalculated. If it so happens that the jettison has occurred during const-acc, changing the burn time is
-		//	not enough to ensure safe separation (since the triggers were already set) - in this case, the next stage's
-		//	(if there is any) separation delay is increased.
-		//	It is theoretically possible that the stage right after the updated constant-acceleration stage will have
-		//	no separation nor ignition, and thus no delay can be applied, but since this vehicle configuration is hardly
-		//	realistic, this case IS NOT covered here (and will be simply ignored).
-		LOCAL dm IS sequence[userEventPointer]["massLost"].
-		FROM { LOCAL i IS upfgStage. } UNTIL i = vehicle:LENGTH STEP { SET i TO i+1. } DO {
-			//	Reduce mass of this stage
-			SET vehicle[i]["massTotal"] TO vehicle[i]["massTotal"] - dm.
-			SET vehicle[i]["massDry"] TO vehicle[i]["massDry"] - dm.
-			//	Recalculate burn time of const-acc stages
-			IF vehicle[i]["mode"] = 2 {
-				LOCAL newBurnTime IS constAccBurnTime(vehicle[i]).
-				//	If this stage is not being flown - changing the burn time will suffice
-				IF i <> upfgStage {
-					SET vehicle[i]["maxT"] TO newBurnTime.
-				} ELSE IF i+1 < vehicle:LENGTH {
-					//	Otherwise, we have to increase a delay on the subsequent stage
-					LOCAL addDelay IS newBurnTime - vehicle[i]["maxT"].
-					SET nextStageTime TO nextStageTime + addDelay.
-				}
-			}
-			//	Exit the loop if the subsequent stage separates (either via staging or ignition)
-			IF (i+1 < vehicle:LENGTH) AND (vehicle[i+1]["staging"]["jettison"] OR vehicle[i+1]["staging"]["ignition"]) { BREAK. }
-		}
-		//	Finally, stage
+		//	We used to handle the reduction of vehicle mass here, but it has since been moved to initializeVehicle a few lines up.
 		STAGE.
 	}
 	ELSE IF eType = "throttle" OR eType = "t" {
