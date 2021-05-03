@@ -647,14 +647,14 @@ FUNCTION initializeVehicle {
 			SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
 			SET afterStage["massDry"] TO afterStage["massDry"] - event["massLost"].
 			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
-			SET afterStage["maxT"] TO afterStage["maxt"] - startToJettison.
+			SET afterStage["maxT"] TO afterStage["maxT"] - startToJettison.
 			//	CRUCIAL: this new stage is already ignited, so we MUST NOT try to start it again!
 			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Finally, update the original stage
-			SET vehicle[eventStage]["massFuel"] TO vehicle[eventStage]["massFuel"] - fuelBurnedUntil.
-			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massDry"] + fuelBurnedUntil.
-			SET vehicle[eventStage]["maxT"] TO vehicle[eventStage]["maxT"] - afterStage["maxT"].
+			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
+			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
+			SET vehicle[eventStage]["maxT"] TO startToJettison.
 		}
 		SET eventIndex TO eventIndex + 1.	//	Increment the counter
 	}
