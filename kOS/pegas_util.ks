@@ -622,7 +622,10 @@ FUNCTION initializeVehicleForUPFG {
 	//	starts at that point, modified according to the event type.
 	LOCAL eventIndex IS 0.
 	FOR event IN sequence {
-		IF event["type"] = "jettison" {
+		IF event["time"] < controls["upfgActivation"] {
+			//	Ignore events that happened before UPFG kicked in. Whatever they did is of no concern anymore.
+		}
+		ELSE IF event["type"] = "jettison" {
 			//	Handle the jettison events, starting by finding the relevant stage
 			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
 			//	In case the correct stage has not been found, we're unable to proceed.
