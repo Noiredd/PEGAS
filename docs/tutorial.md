@@ -171,6 +171,12 @@ You **need to** have an entry at time zero that releases the launch clamps.
 
 \* - this hasn't yet been tested.
 
+##### Note about delegate events
+If like to organize your code into boot files with vehicle configs and mission scripts with target parameters, you will run into a problem that's well explained in [this section](https://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#attribute:KOSDELEGATE:ISDEAD) of kOS documentation.
+In short, a delegate only lives as long as the script that it comes from.
+After you've dropped out of that script, the delegate is "dead" (`KOSDelegate:ISDEAD`) and any attempt to call it will **error out** the kOS interpreter.
+This means you should define all delegates you want to execute via `sequence` in the same script that starts PEGAS (`RUN pegas.`).
+
 ### [Mission](reference.md#mission)
 All previous variables can be understood as specific to the launch vehicle; this one is specific to each mission.
 It defines the target orbit (or, target *state* - nothing stops you from performing an ICBM-like launch to a suborbital trajectory), and the mass of payload to deliver there.
