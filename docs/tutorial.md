@@ -157,6 +157,7 @@ This is how you control timed events, like:
 * jettisoning the payload fairing,
 * rolling to given attitude,
 * throttle (only in the atmospheric ascent phase)\*,
+* shutdown of a specific engine,
 * execution of custom functions (kOS [delegates](http://ksp-kos.github.io/KOS_DOC/language/delegates.html)).
 
 See the reference to all possible events and how to use them.  

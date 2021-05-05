@@ -61,11 +61,16 @@ Key    | Units | Meaning
 isp    | s     | Vacuum specific impulse of the engine
 thrust | N     | Vacuum thrust of the engine
 *flow* | kg/s  | **Optional key**: instead of specifying `thrust`, one can directly use mass flow
+tag    | `string` | **Optional key**: only matters when using a shutdown event; designates the engines that will be shut down
 
 Trick: if your vehicle has multiple engines of the same type, you can go away with a list containing just one element.
 The only thing you need to do is input the combined thrust of all engines.
 For example, a single engine version of the Centaur upper stage, would look like `LEXICON("isp",422,"thrust",67000)`.
 A double engine version can be easily created by writing: `LEXICON("isp",422,"thrust",2*67000)`.
+
+This trick obviously will not work if you want to shut down some engines mid-flight but leave the others running (like Saturn V and others).
+In this case you have to write two separate lexicons, one for the engine(s) that are shut down (tag these), one for the remaining ones.
+Needless to say, the same tag **must** be used here, in the `sequence`, and in the part editor as well.
 
 #### Staging
 Key of type `LEXICON`.
@@ -102,9 +107,10 @@ message  | `string`   | Optional\*. Message that will be printed in the terminal
 throttle | `scalar`   | **Used only if** `type` **is** `"throttle"`. Desired throttle setting, value in range \[0-1\].
 massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the system of mass amount lost in the process.
 angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
+engineTag| `string`   | **Used only if** `type` **is** `"shutdown"`. Engines with this tag will be shut down. **DO NOT** assign this tag to any non-engine part!
 function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#structure:KOSDELEGATE) | **Used only if** `type` **is** `"delegate"`. Function to be called. Shall expect no arguments.
 
-\* - for events of type `throttle` and `roll` message will be automatically generated.
+\* - for events of type `throttle`, `shutdown` and `roll`, the message will be automatically generated if you don't include any.
 
 Available event types:
 
@@ -114,6 +120,7 @@ print    | p       | Prints `message` in the GUI, nothing else.
 stage    | s       | Hits spacebar (a single `STAGE.` command in kOS).
 jettison | j       | Like `stage` but accounts for the mass lost during the event (subtracting the value under `massLost` key).
 throttle | t       | Sets the throttle to given value (`throttle` key) - only works during the passive guidance phase.
+shutdown | u       | Shuts down all engines with a specific name tag. This requires not only tagging a part in the editor, but also the engine in `vehicle` config (see above)!
 roll     | r       | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
 delegate | d       | Calls a function passed as a [kOS delegate](http://ksp-kos.github.io/KOS_DOC/language/delegates.html).
 
