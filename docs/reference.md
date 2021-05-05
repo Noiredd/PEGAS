@@ -126,6 +126,10 @@ delegate | d       | Calls a function passed as a [kOS delegate](http://ksp-kos.
 
 \* - can be used instead of the full event type name.
 
+Some of the events listed here have the power to modify the `vehicle` definition, examples include jettison and shutdown.
+For a basic explanation how that works and why it's relevant, [read this](magic.md).
+For an in-depth look, analyze the function `initializeVehicleForUPFG` in [`pegas_util.ks`](../kOS/pegas_util.ks).
+
 ### Mission
 `GLOBAL mission IS LEXICON().`
 
