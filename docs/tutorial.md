@@ -63,23 +63,31 @@ Vehicles that reach orbit faster will need less advance time, while those long b
 ##### verticalAscentTime and pitchOverAngle
 Atmospheric ascent is difficult from a guidance standpoint, and doing it automatically is far beyond the scope of this project.
 Instead, you have control over it using two parameters.
-The process is simple: after a certain *time* after liftoff, your vehicle will pitch over by a certain *angle*.
-It will hold this attitude until the velocity vector matches it, and then it will lock to prograde, so as to minimize the angle of attack (and hence risk of a RUD).  
-Rules are that the earlier you pitch over and the larger its angle, the shallower your ascent.
-In a worst case, your vehicle will fall back to the ocean (or, more likely, get torn apart due to flying too fast too low).
-On the other hand, if you pitch over too little and too late, your gravity turn will not *turn* you enough, and your vehicle will be going too vertically.
-Additionally, the more TWR your vehicle has, the sooner and more aggressively you can turn - a good overview on that is given by [ferram in the RO wiki](https://github.com/KSP-RO/RealismOverhaul/wiki/Ferram-on-Ascent-Profile-and-TWR).  
-This is a doubly important parameter, since it directly influences UPFG phase.
-It is difficult to give any clues regarding what your altitude and apoapse should be when the atmospheric ascent ends, because different vehicles behave differently.
-Generally though, if you target a 200 km orbit and UPFG engages when you're on 45 km with a 50 km apoapsis, or on 120 km with 350 km apoapsis - it's a hint that your gravity turn was too shallow/too steep.  
-You can get a hint on what to do if you look at the pitch that UPFG calculated after activation.
-If it pitches significantly above prograde, it means that your ascent was too shallow and UPFG needs to gain some more vertical velocity.
-If it pitches below prograde (it may even point below horizon in some cases!), your ascent was probably too steep.
+The process is simple: after a certain *time* after liftoff (`verticalAscentTime`), your vehicle will pitch over by a certain *angle* (`pitchOverAngle`).
+It will hold this attitude until the velocity vector matches it, and then it will lock to prograde, so as to minimize the angle of attack (and hence risk of a RUD).
 
-Getting `verticalAscentTime` and `pitchOverAngle` right might take several attempts.
-Getting it perfect (so that the UPFG-generated pitch matches prograde) might turn out impossible - not without finer control over the ascent.  
-Tuning those variables might prove particularly difficult if you're getting low ingame FPS during liftoff, or your launch clamps misbehave.
-Unpredictable separation that disrupts your vehicle from flying straight can even make a good settings randomly fail. Beware.
+Rules are that the earlier you pitch over and by the larger angle, the shallower your ascent.
+In the worst case, your vehicle will fall back to the ocean (or, more likely, get torn apart due to flying too fast too low).
+On the other hand, if you pitch over too little and too late, your gravity turn will not *turn* you enough, and your vehicle will be going too vertically.
+Additionally, the more TWR your vehicle has, the sooner and more aggressively you can turn - a good overview on that is given by [ferram in the RO wiki](https://github.com/KSP-RO/RealismOverhaul/wiki/Ferram-on-Ascent-Profile-and-TWR).
+
+This is a doubly important parameter, since it directly influences the active guidance phase.
+It is difficult to give any clues regarding what your altitude and apoapse should be when the atmospheric ascent ends, because different vehicles behave differently.
+Generally though, if you target a 200 km orbit and UPFG engages when you're on 45 km with a 50 km apoapsis, or on 120 km with 350 km apoapsis - it's a hint that your gravity turn was too shallow/too steep.
+In extreme cases, UPFG will refuse to converge and your mission will fail.
+
+**How to get these right?**
+First, you need to figure out some rough values by trial and error.
+If you get UPFG to converge and it doesn't need to pitch 60 degrees from the current prograde, you're in the ballpark.
+When UPFG converges, look at the pitch it calculated - to simplify things: the closer the active guidance pitch was close to the current prograde, the better your atmospheric ascent was.
+If it pitched significantly above prograde, it means that your ascent was too shallow and UPFG needs to gain some more vertical velocity - reduce the `pitchOverAngle` or increase the `verticalAscentTime` slightly.
+If it pitched way below (it may even point below the horizon in extreme cases!), your ascent was probably too steep - adjust parameters in the opposite manner.
+
+Getting them right might take several attempts.
+Getting them perfect (so that the UPFG-generated pitch matches prograde) might turn out impossible, and is not really worth trying.
+Delta-v losses from sub-optimal steering are not something you need to worry about unless you're trying to fly missions on the absolute limits of capability of your launch vehicle.  
+Tuning might prove particularly difficult if you're getting low ingame FPS during liftoff, or your launch clamps misbehave.
+Unpredictable separation that disrupts your vehicle from flying straight can even make good settings randomly fail - beware.
 
 ##### upfgActivation
 This is when the atmospheric ascent ends, and active guidance begins.
