@@ -658,6 +658,7 @@ FUNCTION initializeVehicleForUPFG {
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
 			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
 			SET vehicle[eventStage]["maxT"] TO startToJettison.
+			SET vehicle[eventStage]["shutdownRequired"] TO FALSE.	//	If this is needed, it's on the subsequent stage
 		} ELSE IF event["type"] = "shutdown" {
 			//	Handle the engine shutdown events, basic idea similar to jettisons.
 			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
@@ -694,6 +695,7 @@ FUNCTION initializeVehicleForUPFG {
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
 			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
 			SET vehicle[eventStage]["maxT"] TO startToJettison.
+			SET vehicle[eventStage]["shutdownRequired"] TO FALSE.
 		}
 		SET eventIndex TO eventIndex + 1.	//	Increment the counter
 	}
