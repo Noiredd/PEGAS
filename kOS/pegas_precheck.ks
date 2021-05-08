@@ -30,8 +30,5 @@ IF missingConfigVars:LENGTH > 0 {
     PRINT " ".
     PRINT " ".
     PRINT " ".
-	SET _ TO sequence.
-	SET _ TO controls.
-	SET _ TO vehicle.
-	SET _ TO mission.
+	SET _ TO __DELIBERATE_CRASH__.
 }

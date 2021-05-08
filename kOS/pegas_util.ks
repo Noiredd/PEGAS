@@ -433,13 +433,17 @@ FUNCTION setVehicle {
 	
 	//	Expects a global variable "vehicle" as list of lexicons and "controls" and "mission" as lexicon.
 
+	LOCAL errorsFound IS FALSE.
 	LOCAL i IS 0.
 	FOR v IN vehicle {
 		//	Mass calculations
 		IF v:HASKEY("massTotal") AND v:HASKEY("massDry")		{ v:ADD("massFuel",  v["massTotal"]-v["massDry"]).	}
 		ELSE IF v:HASKEY("massTotal") AND v:HASKEY("massFuel")	{ v:ADD("massDry",   v["massTotal"]-v["massFuel"]).	}
 		ELSE IF v:HASKEY("massFuel") AND v:HASKEY("massDry")	{ v:ADD("massTotal", v["massFuel"] +v["massDry"]).	}
-		ELSE { PRINT "Vehicle is ill-defined: missing mass keys in stage " + i. }
+		ELSE {
+			PRINT "Vehicle error: missing mass keys in stage " + i.
+			SET errorsFound TO TRUE.
+		}
 		IF mission:HASKEY("payload") {
 			SET v["massTotal"] TO v["massTotal"] + mission["payload"].
 			SET v["massDry"] TO v["massDry"] + mission["payload"].
@@ -457,6 +461,16 @@ FUNCTION setVehicle {
 			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*g0) * v["throttle"]). }
 			IF NOT e:HASKEY("tag") { e:ADD("tag", ""). }
 		}
+		//	Check if the staging configuration has the correct flags
+		IF NOT v:HASKEY("staging") {
+			PRINT "Vehicle error: undefined staging for stage " + i.
+			SET errorsFound TO TRUE.
+		} ELSE {
+			IF NOT v["staging"]:HASKEY("jettison") OR NOT v["staging"]:HASKEY("ignition") {
+				PRINT "Vehicle error: misconfigured staging for stage " + i.
+				SET errorsFound TO TRUE.
+			}
+		}
 		//	Add the shutdown flag - it is optional, but functions rely on its presence
 		IF NOT v:HASKEY("shutdownRequired") { v:ADD("shutdownRequired", FALSE). }
 		//	Calculate max burn time
@@ -464,6 +478,18 @@ FUNCTION setVehicle {
 		v:ADD("maxT", v["massFuel"] / combinedEngines[1]).
 		//	Increment loop counter
 		SET i TO i+1.
+	}
+
+	//	Crash the system if known errors were found
+	IF errorsFound {
+		PRINT "ERRORS IN VEHICLE CONFIGURATION FOUND".
+		PRINT "For your convenience, PEGAS will now crash.".
+		PRINT " ".
+		PRINT " ".
+		PRINT " ".
+		PRINT " ".
+		PRINT " ".
+		SET _ TO __DELIBERATE_CRASH__.
 	}
 }
 
