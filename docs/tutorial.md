@@ -141,8 +141,17 @@ By contrast, you could be flying an Atlas V, and waiting till its booster burns 
 You can define `upfgActivation` so that UPFG is engaged while the booster burns, and specify no ignition event for that stage.
 It *would be* quite cumbersome to have to calculate the vehicle's mass at that point before the flight - but PEGAS has one trick to make it easier.
 If a first actively guided stage requires no ignition, it assumes the stage has been burning from time zero: it checks the current mass, compares that with the dry mass of the stage and infers the amount of fuel left in the tanks.
-In this case, the only thing you need to do is provide that dry mass, and set the `upfgActivation` to virtually any moment.  
-This also works if you decide to drop the SRBs and activate UPFG in one go, simply by stating `"jettison", TRUE` in the [`staging`](reference.md#staging) entry.
+In this case, the only thing you need to do is provide that dry mass, and set the `upfgActivation` to virtually any moment.
+
+##### Jettison but no ignition?
+Following the above Atlas V example, you might think that it would save you some work on the configuration, if you dropped the SRBs and activated UPFG at the exact same time,
+(simply by stating `"jettison", TRUE`, but `"ignition", FALSE` in the [`staging`](reference.md#staging) entry).
+This will **FAIL** your mission!
+PEGAS will measure the mass of the vehicle **with** the SRBs, while your vehicle definition must be stated without including them anymore.
+Therefore, PEGAS will assume the SRB mass is *fuel* and erroneously calculate the burn time of the sustainer.
+
+You should AVOID stages with `"jettison", TRUE, "ignition", FALSE` in general.
+If you only need to jettison something, use the `sequence` (see below).
 
 ##### Note about constant-acceleration phases
 PEGAS has the capability to run vehicles with acceleration-limited stages (eg. Space Shuttle, Atlas V).

@@ -877,12 +877,10 @@ FUNCTION stageEventHandler {
 	}
 	IF event["jettison"] {
 		GLOBAL stageJettisonTime IS currentTime + event["waitBeforeJettison"].
-		//	If we only jettison something but not ignite any new engines, means that this stage is a sustainer-type stage, which
-		//	needs additional recalculation of the mass parameters. We store this flag globally here (the trigger must access it).
-		GLOBAL needsMassRecalculation IS NOT event["ignition"].
-		WHEN TIME:SECONDS >= stageJettisonTime THEN {	STAGE.
-														IF needsMassRecalculation { recalculateVehicleMass(upfgStage, 0, TRUE, TRUE). }
-														pushUIMessage(stageName + " - separation"). }
+		WHEN TIME:SECONDS >= stageJettisonTime THEN {
+			STAGE.
+			pushUIMessage(stageName + " - separation").
+		}
 		SET eventDelay TO eventDelay + event["waitBeforeJettison"].
 	}
 	IF event["ignition"] {
