@@ -139,7 +139,7 @@ FUNCTION missionSetup {
 //	Generate a PEGAS-compatible target struct from user-specified one
 FUNCTION targetSetup {
 	//	Expects a global variable "mission" as lexicon
-	
+
 	//	Calculate velocity and flight path angle at given criterion using vis-viva equation and conservation of specific relative angular momentum
 	LOCAL pe IS mission["periapsis"]*1000 + SHIP:BODY:RADIUS.
 	LOCAL ap IS mission["apoapsis"]*1000 + SHIP:BODY:RADIUS.
@@ -149,13 +149,13 @@ FUNCTION targetSetup {
 	LOCAL srm IS pe * vpe.								//	specific relative angular momentum
 	LOCAL targetVelocity IS SQRT(SHIP:BODY:MU * (2/targetAltitude - 1/sma)).
 	LOCAL flightPathAngle IS ARCCOS( srm/(targetVelocity*targetAltitude) ).
-	
+
 	RETURN LEXICON(
-				"radius", targetAltitude,
-				"velocity", targetVelocity,
-				"angle", flightPathAngle,
-				"normal", V(0,0,0)				//	temporarily unset - due to KSP's silly coordinate system this needs to be recalculated every time step, so we will not bother with it for now
-				).
+		"radius", targetAltitude,
+		"velocity", targetVelocity,
+		"angle", flightPathAngle,
+		"normal", V(0,0,0)	//	temporarily unset - due to KSP's silly coordinate system this needs to be recalculated every time step, so we will not bother with it for now
+	).
 }
 
 //	Ascending node vector of the orbit passing right over the launch site
@@ -828,10 +828,10 @@ FUNCTION stageEventHandler {
 			}
 		}
 	}
-	
+
 	//	Expects global variables "liftOffTime" as TimeSpan, "vehicle" as list, "controls" as lexicon, "upfgStage" as scalar and "stageEventFlag" as bool.
 	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicleForUPFG
-	
+
 	//	First call (we know because upfgStage is still at initial value) only sets up the event for first guided stage.
 	IF upfgStage = -1 {
 		//	We cannot use setNextEvent because it directly reads vehicle[upfgStage], but we have to do a part of its job
@@ -840,11 +840,11 @@ FUNCTION stageEventHandler {
 		SET upfgStage TO upfgStage + 1.
 		RETURN.
 	}
-	
+
 	//	Handle event
 	LOCAL event IS vehicle[upfgStage]["staging"].
 	LOCAL stageName IS vehicle[upfgStage]["name"].
-	LOCAL eventDelay IS 0.			//	Many things occur sequentially - this keeps track of the time between subsequent events.
+	LOCAL eventDelay IS 0.	//	Keep track of time between subsequent events.
 	IF upfgStage > 0 AND vehicle[upfgStage-1]["shutdownRequired"] {
 		SET throttleSetting TO 0.
 		SET throttleDisplay TO 0.
@@ -860,45 +860,59 @@ FUNCTION stageEventHandler {
 	IF event["ignition"] {
 		IF event["ullage"] = "rcs" {
 			GLOBAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
-			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {	RCS ON. 
-															SET SHIP:CONTROL:FORE TO 1.0.
-															pushUIMessage(stageName + " - RCS ullage on"). }
+			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {
+				RCS ON.
+				SET SHIP:CONTROL:FORE TO 1.0.
+				pushUIMessage(stageName + " - RCS ullage on").
+			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
-			WHEN TIME:SECONDS >= engineIgnitionTime THEN {	STAGE.
-															SET stagingInProgress TO FALSE.
-															pushUIMessage(stageName + " - ignition"). }
+			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
+				STAGE.
+				SET stagingInProgress TO FALSE.
+				pushUIMessage(stageName + " - ignition").
+			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
 			GLOBAL ullageShutdownTime IS currentTime + eventDelay + event["postUllageBurn"].
-			WHEN TIME:SECONDS >= ullageShutdownTime THEN {	SET SHIP:CONTROL:FORE TO 0.0.
-															RCS OFF.
-															pushUIMessage(stageName + " - RCS ullage off"). }
+			WHEN TIME:SECONDS >= ullageShutdownTime THEN {
+				SET SHIP:CONTROL:FORE TO 0.0.
+				RCS OFF.
+				pushUIMessage(stageName + " - RCS ullage off").
+			}
 		} ELSE IF event["ullage"] = "srb" {
 			GLOBAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
-			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {	STAGE.
-															pushUIMessage(stageName + " - SRB ullage ignited"). }
+			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {
+				STAGE.
+				pushUIMessage(stageName + " - SRB ullage ignited").
+			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
-			WHEN TIME:SECONDS >= engineIgnitionTime THEN {	STAGE.
-															SET stagingInProgress TO FALSE.
-															pushUIMessage(stageName + " - ignition"). }
+			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
+				STAGE.
+				SET stagingInProgress TO FALSE.
+				pushUIMessage(stageName + " - ignition").
+			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
 		} ELSE IF event["ullage"] = "none" {
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
-			WHEN TIME:SECONDS >= engineIgnitionTime THEN {	STAGE.
-															SET stagingInProgress TO FALSE.
-															pushUIMessage(stageName + " - ignition"). }
+			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
+				STAGE.
+				SET stagingInProgress TO FALSE.
+				pushUIMessage(stageName + " - ignition").
+			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
-		} ELSE { pushUIMessage( "Unknown event type (" + event["ullage"] + ")!", 5, PRIORITY_HIGH ). }
+		} ELSE {
+			pushUIMessage( "Unknown event type (" + event["ullage"] + ")!", 5, PRIORITY_HIGH ).
+		}
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
 		SET stagingInProgress TO FALSE.
 	}
 	pushUIMessage(stageName + " - activation").
-	
+
 	//	Reset event flag
 	SET stageEventFlag TO FALSE.
-	
+
 	//	Create new event trigger
 	setNextEvent(currentTime, eventDelay).
 }

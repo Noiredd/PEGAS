@@ -47,7 +47,9 @@ SET upfgTarget TO targetSetup().
 SET currentTime TO TIME.
 SET timeToOrbitIntercept TO orbitInterceptTime().
 GLOBAL liftoffTime IS currentTime + timeToOrbitIntercept - controls["launchTimeAdvance"].
-IF timeToOrbitIntercept < controls["launchTimeAdvance"] { SET liftoffTime TO liftoffTime + SHIP:BODY:ROTATIONPERIOD. }
+IF timeToOrbitIntercept < controls["launchTimeAdvance"] {
+	SET liftoffTime TO liftoffTime + SHIP:BODY:ROTATIONPERIOD.
+}
 //	Calculate launch azimuth if not specified
 IF NOT mission:HASKEY("launchAzimuth") {
 	mission:ADD("launchAzimuth", launchAzimuth()).
@@ -145,7 +147,7 @@ UNTIL ABORT {
 	SET upfgInternal TO upfgSteeringControl(vehicle, upfgStage, upfgTarget, upfgState, upfgInternal).
 	//	Manage throttle, with the exception of initial portion of guided flight (where we're technically still flying the first stage).
 	IF upfgStage >= 0 { throttleControl(). }
-	//	For the final seconds of the flight, just hold attitude and wait.
+	//	Transition to the attitude hold mode for the final seconds of the flight
 	IF upfgConverged AND upfgInternal["tgo"] < upfgFinalizationTime { BREAK. }
 	//	UI
 	refreshUI().
@@ -158,8 +160,9 @@ UNTIL ABORT {
 	LOCAL finalizeDT IS TIME:SECONDS - previousTime.
 	SET previousTime TO TIME:SECONDS.
 	SET upfgInternal["tgo"] TO upfgInternal["tgo"] - finalizeDT.
-	IF upfgInternal["tgo"] < finalizeDT { BREAK. }	//	Exit loop before entering the next refresh cycle
-													//	We could have done "tgo < 0" but this would mean that the previous loop tgo was 0.01 yet we still didn't break
+	//	Exit the loop before entering the next refresh cycle.
+	//	We can't do "tgo < 0" as then we still didn't break if the previous loop tgo was 0.01 or so.
+	IF upfgInternal["tgo"] < finalizeDT { BREAK. }
 	refreshUI().
 	WAIT 0.
 }

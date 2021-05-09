@@ -1,13 +1,15 @@
 //	Miscellaneous, user interface related functions.
 
 //	Initialize messaging system
-GLOBAL uiMessage IS LEXICON("content", "",
-							"timeToLive", 0,
-							"priority", 0,
-							"deadline", TIME:SECONDS,
-							"received", FALSE,
-							"printed", FALSE).
-//	Initializing "enum" type priorities for messaging system
+GLOBAL uiMessage IS LEXICON(
+	"content", "",
+	"timeToLive", 0,
+	"priority", 0,
+	"deadline", TIME:SECONDS,
+	"received", FALSE,
+	"printed", FALSE
+).
+//	Initialize "enum" type priorities for messaging system
 GLOBAL PRIORITY_LOW IS 0.
 GLOBAL PRIORITY_NORMAL IS 1.	//	Default priority
 GLOBAL PRIORITY_HIGH IS 2.
