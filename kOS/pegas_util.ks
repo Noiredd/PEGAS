@@ -476,6 +476,9 @@ FUNCTION setVehicle {
 		//	Calculate max burn time
 		LOCAL combinedEngines IS getThrust(v["engines"]).
 		v:ADD("maxT", v["massFuel"] / combinedEngines[1]).
+		//	Internal flags
+		v:ADD("followedByVirtual", FALSE).
+		v:ADD("isVirtualStage", FALSE).
 		//	Increment loop counter
 		SET i TO i+1.
 	}
@@ -606,13 +609,17 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["maxT"] TO afterStage["maxT"] - startToJettison.
 			//	CRUCIAL: this new stage is already ignited, so we MUST NOT try to start it again!
 			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
+			//	Mark the new stage as a virtual one
+			SET afterStage["isVirtualStage"] TO TRUE.
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Finally, update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
 			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
 			SET vehicle[eventStage]["maxT"] TO startToJettison.
 			SET vehicle[eventStage]["shutdownRequired"] TO FALSE.	//	If this is needed, it's on the subsequent stage
-		} ELSE IF event["type"] = "shutdown" {
+			SET vehicle[eventStage]["followedByVirtual"] TO TRUE.
+		}
+		ELSE IF event["type"] = "shutdown" {
 			//	Handle the engine shutdown events, basic idea similar to jettisons.
 			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
 			IF foundStageData:LENGTH = 0 {
@@ -643,12 +650,14 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["maxT"] TO afterStage["massFuel"] / remainingFlow.
 			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
 			SET afterStage["engines"] TO remainingEngines.
+			SET afterStage["isVirtualStage"] TO TRUE.
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
 			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
 			SET vehicle[eventStage]["maxT"] TO startToJettison.
 			SET vehicle[eventStage]["shutdownRequired"] TO FALSE.
+			SET vehicle[eventStage]["followedByVirtual"] TO TRUE.
 		}
 		SET eventIndex TO eventIndex + 1.	//	Increment the counter
 	}
@@ -674,11 +683,13 @@ FUNCTION initializeVehicleForUPFG {
 				SET gLimStage["massFuel"] TO gLimStage["massFuel"] - burnedFuelMass.
 				SET gLimStage["maxT"] TO constAccBurnTime(gLimStage).
 				//	Insert it into the list
+				SET gLimStage["isVirtualStage"] TO TRUE.
 				vehicle:INSERT(i + 1, gLimStage).
 				//	Adjust the current stage's burn time
 				SET vehicle[i]["maxT"] TO accLimTime.
 				//	And remember that it cannot shutdown before the virtual staging
 				SET vehicle[i]["shutdownRequired"] TO FALSE.
+				SET vehicle[i]["followedByVirtual"] TO TRUE.
 				//	Additional increment, so that we don't process the new stage next
 				SET i TO i + 1.
 			}
