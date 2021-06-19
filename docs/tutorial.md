@@ -211,6 +211,17 @@ Those steps get your vehicle ready (you may enclose them in a single script and 
 
 If something is going wrong mid-flight, you can use the standard action group `ABORT` to make PEGAS relinquish all control and exit.
 
+### Kerbal Alarm Clock support
+PEGAS can add a KAC alarm which will automatically kill time-warp ahead of liftoff. This means that you can safely speed up time and KAC will make sure that you won't overshoot and miss the launch time.
+
+To enable this feature, open the `pegas_settings.ks` file and set the `addKacAlarm` variable to `TRUE`. Additionally, you can specify how many seconds before liftoff the alarm should go off by changing the `kacAlarmAdvance` variable.
+
+The alarm is added as soon as pegas starts up and calculates the liftoff time. Once it adds the alarm, a message will appear on the terminal UI confirming that an alarm has been added to KAC. Once that message appears, you can sefaly initiate time-warp and KAC will handle stopping it at the right time. If KAC is not installed, the message will say that adding the alarm failed.
+
+KAC alarm will only be added if it will go off more than 5 seconds from the time it was set up. This means that if you left the `kacAlarmAdvance` as 30 seconds, an alarm will only be added if its over 35 seconds until liftoff. This is to avoid the alarm going off almost immediately after being created.
+
+Please note that this feature requires [Kerbal Alarm Clock](https://github.com/TriggerAu/KerbalAlarmClock/releases) mod to be installed.
+
 ##### Suspected bug in kOS
 Note that if you revert flight while controls are locked by kOS, the attempt to lock them again (in the new flight) will result in `object reference not set` error.
 When that happens you will have to leave and reenter the vehicle view.
