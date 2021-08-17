@@ -479,6 +479,7 @@ FUNCTION setVehicle {
 		//	Internal flags
 		v:ADD("followedByVirtual", FALSE).
 		v:ADD("isVirtualStage", FALSE).
+		v:ADD("virtualStageType", "regular").
 		//	Increment loop counter
 		SET i TO i+1.
 	}
@@ -609,8 +610,9 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["maxT"] TO afterStage["maxT"] - startToJettison.
 			//	CRUCIAL: this new stage is already ignited, so we MUST NOT try to start it again!
 			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
-			//	Mark the new stage as a virtual one
+			//	Mark the new stage as a virtual one and label it
 			SET afterStage["isVirtualStage"] TO TRUE.
+			SET afterStage["virtualStageType"] TO "virtual (post-jettison)".
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Finally, update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
@@ -651,6 +653,7 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
 			SET afterStage["engines"] TO remainingEngines.
 			SET afterStage["isVirtualStage"] TO TRUE.
+			SET afterStage["virtualStageType"] TO "virtual (engine-off)".
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
@@ -684,6 +687,7 @@ FUNCTION initializeVehicleForUPFG {
 				SET gLimStage["maxT"] TO constAccBurnTime(gLimStage).
 				//	Insert it into the list
 				SET gLimStage["isVirtualStage"] TO TRUE.
+				SET gLimStage["virtualStageType"] TO "virtual (const-acc)".
 				vehicle:INSERT(i + 1, gLimStage).
 				//	Adjust the current stage's burn time
 				SET vehicle[i]["maxT"] TO accLimTime.
@@ -924,7 +928,13 @@ FUNCTION stageEventHandler {
 		//	If this event does not need ignition, staging is over at this moment
 		SET stagingInProgress TO FALSE.
 	}
-	pushUIMessage(stageName + " - activation").
+
+	//	Print messages for regular stages and constant-acceleration mode activation.
+	IF NOT vehicle[upfgStage]["isVirtualStage"] {
+		pushUIMessage(stageName + " - activation").
+	} ELSE IF vehicle[upfgStage]["mode"] = 2 {
+		pushUIMessage("Constant acceleration mode activated.").
+	}
 
 	//	Reset event flag
 	SET stageEventFlag TO FALSE.

@@ -16,7 +16,7 @@ GLOBAL PRIORITY_HIGH IS 2.
 GLOBAL PRIORITY_CRITICAL IS 3.
 //	Set screen dimensions
 SET TERMINAL:WIDTH TO 43.
-SET TERMINAL:HEIGHT TO 26 + 14.	//	Few more lines for debugging
+SET TERMINAL:HEIGHT TO 43.	//	Few more lines for debugging
 
 FUNCTION createUI {
 	CLEARSCREEN.
@@ -24,17 +24,19 @@ FUNCTION createUI {
 	PRINT "| PEGAS                                   |".
 	PRINT "| Powered Explicit Guidance Ascent System |".
 	PRINT "|-----------------------------------------|".
-	PRINT "| T   h  m  s |                           |".
+	PRINT "|                                         |".	//	Vehicle name
 	PRINT "|-----------------------------------------|".
-	PRINT "|                                         |".
+	PRINT "| T   h  m  s |                           |".	//	Current time
 	PRINT "|-----------------------------------------|".
-	PRINT "| Stage:                          (    s) |".
-	PRINT "| UPFG status  =                          |".
-	PRINT "| Throttle     =      %    Tgo =      s   |".
-	PRINT "| Acceleration =      m/s2 Vgo =      m/s |".
+	PRINT "| Stage:                                  |".	//	Vehicle info
+	PRINT "| Stage type:                             |".
+	PRINT "| UPFG status:                            |".
+	PRINT "| Tgo(stage)   =      s    Tgo =      s   |".
+	PRINT "| Throttle     =      %    Vgo =      m/s |".
+	PRINT "| Acceleration =      m/s2 (     G)       |".
 	PRINT "|-----------------------------------------|".
 	PRINT "|               Current       Target      |".
-	PRINT "| Altitude    |        km   |        km   |".
+	PRINT "| Altitude    |        km   |        km   |".	//	Orbital info
 	PRINT "| Velocity    |        m/s  |        m/s  |".
 	PRINT "| Vertical    |        m/s  |        m/s  |".
 	PRINT "| Periapsis   |        km   |        km   |".
@@ -43,10 +45,10 @@ FUNCTION createUI {
 	PRINT "| Long. of AN |        deg  |        deg  |".
 	PRINT "| Angle between orbits:       deg         |".
 	PRINT "|-----------------------------------------|".
-	PRINT "|                                         |".
+	PRINT "|                                         |".	//	Message box
 	PRINT "*-----------------------------------------*".
 	
-	textPrint(SHIP:NAME, 6, 2, 41, "L").
+	textPrint(SHIP:NAME, 4, 2, 41, "L").
 	textPrint(_PEGAS_VERSION_, 1, 20, 41, "R").
 	refreshUI().
 }
@@ -110,12 +112,12 @@ FUNCTION timePrint {
 		SET deltaT TO liftoffTime - currentTime.
 	}
 	
-	textPrint(sign, 4, 3, 4, "L").
-	numberPrint(deltaT:HOUR, 4, 4, 6, 0).
-	numberPrint(deltaT:MINUTE, 4, 7, 9, 0).
-	numberPrint(deltaT:SECOND, 4, 10, 12, 0).
-	textPrint(currentTime:CALENDAR+",", 4, 15, 32, "R").
-	textPrint(currentTime:CLOCK, 4, 33, 41, "R").
+	textPrint(sign, 6, 3, 4, "L").
+	numberPrint(deltaT:HOUR, 6, 4, 6, 0).
+	numberPrint(deltaT:MINUTE, 6, 7, 9, 0).
+	numberPrint(deltaT:SECOND, 6, 10, 12, 0).
+	textPrint(currentTime:CALENDAR+",", 6, 15, 32, "R").
+	textPrint(currentTime:CLOCK, 6, 33, 41, "R").
 	
 	RETURN currentTime.
 }
@@ -124,65 +126,95 @@ FUNCTION timePrint {
 FUNCTION refreshUI {
 	//	Expects global variables "liftoffTime" as timespan, "throttleDisplay" as scalar, "controls", "mission", "upfgTarget" and "upfgInternal" as lexicon and "upfgConverged" as bool.
 
+	//	Print and acquire current time
 	LOCAL currentTime IS timePrint().
-	
+
 	//	Section offsets, for easier extendability
 	LOCAL vehicleInfoOffset IS 8.	//	Reads: vehicle info section starts at row 8
-	LOCAL orbitalInfoOffset IS 14.
+	LOCAL orbitalInfoOffset IS vehicleInfoOffset + 8.
 	LOCAL currentOrbitOffset IS 15.	//	Horizontal offset for the current orbit info
 	LOCAL targetOrbitOffset IS 29.	//	Horizontal offset for the target orbit info
-	LOCAL messageBoxOffset IS 23.
-	
-	//	First figure out what phase of the flight are we in: passively or actively guided.
+	LOCAL messageBoxOffset IS orbitalInfoOffset + 9.
+
+	//	Vehicle info fields depend on the current flight phase (passive/active guidance).
+	//	For clarity, first acquire all the necessary information.
+	LOCAL isFlying IS TIME:SECONDS > liftoffTime:SECONDS.
+	LOCAL isActive IS FALSE.
+	LOCAL stageName IS "".
+	LOCAL stageType IS "".
+	LOCAL upfgStatus IS "".
+	LOCAL stageTgo IS 0.
+	LOCAL totalTgo IS 0.
+	LOCAL totalVgo IS 0.
+	//	Exception: the following is not a vehicle param but orbital info. We still check it
+	//	here, as we want to display different velocities: in passive (=atmospheric) phase
+	//	the surface velocity is of interest, but in active phase it's the orbital one.
+	LOCAL currentVelocity IS 0.
+	//	Figure out what phase of the flight are we in.
 	IF NOT (DEFINED upfgInternal) {
-		//	Don't try to access any UPFG-related variables
-		textPrint("INACTIVE", vehicleInfoOffset + 1, 17, 41).
-		textPrint("N/A", vehicleInfoOffset + 2, 33, 37, "R").
-		textPrint("N/A", vehicleInfoOffset + 3, 33, 37, "R").
-		//	In passive flight, assuming we're low in the atmosphere, print ground speed.
-		numberPrint(SHIP:VELOCITY:SURFACE:MAG, orbitalInfoOffset + 1, currentOrbitOffset, 22).
-		//	Print time until activation of UPFG (only if we're flying at all)
-		IF TIME:SECONDS > liftoffTime:SECONDS {
-			numberPrint(liftoffTime:SECONDS + controls["upfgActivation"] - upfgConvergenceDelay - currentTime:SECONDS, vehicleInfoOffset, 35, 39, 0).
-		}
+		//	Passive guidance phase
+		SET stageName TO "".
+		SET stageType TO "passively guided".
+		SET upfgStatus TO "inactive".
+		// Time until activation of UPFG
+		SET stageTgo TO liftoffTime:SECONDS + controls["upfgActivation"] - upfgConvergenceDelay - currentTime:SECONDS.
+		SET currentVelocity TO SHIP:VELOCITY:SURFACE:MAG.
 	} ELSE {
+		SET isActive TO TRUE.
+		SET stageName TO vehicle[upfgStage]["name"].
+		SET stageType TO vehicle[upfgStage]["virtualStageType"].
+		SET currentVelocity TO SHIP:VELOCITY:ORBIT:MAG.
+		//	Time until the stage burns out (and, potentially, the next one's ignition sequence starts)
+		SET stageTgo TO nextStageTime - currentTime:SECONDS.
 		//	Print convergence flag
 		IF stagingInProgress {
-			textPrint("STAGING", vehicleInfoOffset + 1, 17, 41).
+			SET stageName TO "".
+			IF vehicle[upfgStage]["isVirtualStage"] {
+				SET upfgStatus TO "transition (virtual)".
+			} ELSE {
+				SET upfgStatus TO "STAGING".
+			}
 		} ELSE {
 			IF upfgConverged {
-				textPrint("CONVERGED", vehicleInfoOffset + 1, 17, 41).
-				numberPrint(upfgInternal["tgo"], vehicleInfoOffset + 2, 33, 37, 0).
-				numberPrint(upfgInternal["vgo"]:MAG, vehicleInfoOffset + 3, 33, 37, 0).
+				SET upfgStatus TO "CONVERGED".
+				SET totalTgo TO upfgInternal["tgo"].
+				SET totalVgo TO upfgInternal["vgo"]:MAG.
 			} ELSE {
-				textPrint("converging...", vehicleInfoOffset + 1, 17, 41).
+				SET upfgStatus TO "converging...".
 			}
 		}
-		//	In active flight we're going to orbit
-		numberPrint(SHIP:VELOCITY:ORBIT:MAG, orbitalInfoOffset + 1, currentOrbitOffset, 22).
-		//	Print name of the current stage and time till next (just not during staging, this would be confusing)
-		IF NOT stagingInProgress {
-			textPrint(vehicle[upfgStage]["name"], vehicleInfoOffset, 9, 33 ).
-			LOCAL timeToNextStage IS 0.
-			SET timeToNextStage TO nextStageTime - currentTime:SECONDS. //	Time until the stage burns out (and, potentially, the next one's ignition sequence starts)
-			numberPrint(timeToNextStage, vehicleInfoOffset, 35, 39, 0).
-		} ELSE { textPrint("", vehicleInfoOffset, 9, 33). }
 	}
-	
+
 	//	Print physical information
+	textPrint(stageName, vehicleInfoOffset + 0, 9, 41).
+	textPrint(stageType, vehicleInfoOffset + 1, 14, 41).
+	textPrint(upfgStatus, vehicleInfoOffset + 2, 15, 41).
+	IF isFlying {
+		//	Don't print time until next event while we're still on the ground
+		numberPrint(stageTgo, vehicleInfoOffset + 3, 17, 21, 0).
+	}
+	IF NOT isActive {
+		textPrint("N/A", vehicleInfoOffset + 3, 33, 37, "R").
+		textPrint("N/A", vehicleInfoOffset + 4, 33, 37, "R").
+	} ELSE IF upfgConverged {
+		numberPrint(totalTgo, vehicleInfoOffset + 3, 33, 37, 0).
+		numberPrint(totalVgo, vehicleInfoOffset + 4, 33, 37, 0).
+	}
 	LOCAL throttle_ IS throttleDisplay.
 	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
-	numberPrint(100*throttle_, vehicleInfoOffset + 2, 17, 21, 0).
-	numberPrint(currentAcc, vehicleInfoOffset + 3, 17, 21).
-	
-	//	Print current vehicle state
+	numberPrint(100*throttle_, vehicleInfoOffset + 4, 17, 21, 0).
+	numberPrint(currentAcc, vehicleInfoOffset + 5, 17, 21).
+	numberPrint(currentAcc / g0, vehicleInfoOffset + 5, 28, 32, 1).
+
+	//	Print current vehicle orbital info
 	numberPrint(SHIP:ALTITUDE/1000,			orbitalInfoOffset + 0, currentOrbitOffset, currentOrbitOffset + 7).
+	numberPrint(currentVelocity,			orbitalInfoOffset + 1, currentOrbitOffset, currentOrbitOffset + 7).
 	numberPrint(SHIP:VERTICALSPEED,			orbitalInfoOffset + 2, currentOrbitOffset, currentOrbitOffset + 7).
 	numberPrint(SHIP:ORBIT:PERIAPSIS/1000,	orbitalInfoOffset + 3, currentOrbitOffset, currentOrbitOffset + 7).
 	numberPrint(SHIP:ORBIT:APOAPSIS/1000,	orbitalInfoOffset + 4, currentOrbitOffset, currentOrbitOffset + 7).
 	numberPrint(SHIP:ORBIT:INCLINATION,		orbitalInfoOffset + 5, currentOrbitOffset, currentOrbitOffset + 7, 2).
 	numberPrint(SHIP:ORBIT:LAN,				orbitalInfoOffset + 6, currentOrbitOffset, currentOrbitOffset + 7, 2).
-	
+
 	//	Print target state
 	numberPrint(mission["altitude"],		orbitalInfoOffset + 0, targetOrbitOffset, targetOrbitOffset + 7).
 	numberPrint(upfgTarget["velocity"],		orbitalInfoOffset + 1, targetOrbitOffset, targetOrbitOffset + 7).
@@ -191,12 +223,12 @@ FUNCTION refreshUI {
 	numberPrint(mission["apoapsis"],		orbitalInfoOffset + 4, targetOrbitOffset, targetOrbitOffset + 7).
 	numberPrint(mission["inclination"],		orbitalInfoOffset + 5, targetOrbitOffset, targetOrbitOffset + 7, 2).
 	numberPrint(mission["LAN"],				orbitalInfoOffset + 6, targetOrbitOffset, targetOrbitOffset + 7, 2).
-	
+
 	//	Calculate and print angle between orbits
 	LOCAL currentOrbitNormal IS targetNormal(SHIP:ORBIT:INCLINATION, SHIP:ORBIT:LAN).
 	LOCAL relativeAngle IS VANG(currentOrbitNormal, upfgTarget["normal"]).
 	numberPrint(relativeAngle, orbitalInfoOffset + 7, 24, 29, 2).
-	
+
 	//	Handle messages
 	IF uiMessage["received"] {
 		//	If we have any message
