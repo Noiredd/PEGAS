@@ -961,9 +961,9 @@ FUNCTION upfgStagingNotify {
 	//	Easier to modify this function in case more information needs to be passed rather
 	//	than stageEventHandler itself.
 	
-	//	Expects global variables "upfgConverged" and "usc_stagingNoticed" as bool.
+	//	Expects global variables "upfgConverged" as bool, and "usc_convergeFlags" as list.
 	SET upfgConverged TO FALSE.
-	SET usc_stagingNoticed TO FALSE.
+	usc_convergeFlags:CLEAR().
 }
 
 //	Intelligent wrapper around UPFG that controls steering vector.
@@ -986,32 +986,31 @@ FUNCTION upfgSteeringControl {
 		SET upfgConverged TO FALSE.
 		pushUIMessage( "UPFG reset", 5, PRIORITY_CRITICAL ).
 	}
-	
+
 	//	Expects global variables "upfgConverged" and "stagingInProgress" as bool, "steeringVector" as vector,
 	//	"upfgConvergenceCriterion", "upfgGoodSolutionCriterion", "steeringRoll" and "liftoffTime" as scalars,
 	//	"vehicle" as list, and "controls" as lexicon.
-	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, "usc_stagingNoticed" as bool and 
+	//	Owns global variables "usc_lastGoodVector" as vector, "usc_convergeFlags" as list, and
 	//	"usc_lastIterationTime" as scalar.
 	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
 	DECLARE PARAMETER upfgStage.	//	Expects a scalar
 	DECLARE PARAMETER upfgTarget.	//	Expects a lexicon
 	DECLARE PARAMETER upfgState.	//	Expects a lexicon
 	DECLARE PARAMETER upfgInternal.	//	Expects a lexicon
-	
+
 	//	First run marked by undefined globals
 	IF NOT (DEFINED usc_lastGoodVector) {
 		GLOBAL usc_lastGoodVector IS V(1,0,0).
 		GLOBAL usc_convergeFlags IS LIST().
-		GLOBAL usc_stagingNoticed IS FALSE.
 		GLOBAL usc_lastIterationTime IS upfgState["time"].
 	}
-	
+
 	//	Run UPFG
 	LOCAL currentIterationTime IS upfgState["time"].
 	LOCAL lastTgo IS upfgInternal["tgo"].
-	LOCAL currentVehicle IS vehicle:SUBLIST(upfgStage,vehicle:LENGTH-upfgStage).
+	LOCAL currentVehicle IS vehicle:SUBLIST(upfgStage, vehicle:LENGTH-upfgStage).
 	LOCAL upfgOutput IS upfg(currentVehicle, upfgTarget, upfgState, upfgInternal).
-	
+
 	//	Convergence check. The rule is that time-to-go as calculated between iterations
 	//	should not change significantly more than the time difference between those iterations.
 	//	Uses upfgState as timestamp, for equal grounds for comparison.
@@ -1040,11 +1039,11 @@ FUNCTION upfgSteeringControl {
 		} ELSE {
 			usc_convergeFlags:ADD(TRUE).
 		}
-	} ELSE { SET usc_convergeFlags TO LIST(). }
-	//	If we have enough number of consecutive good results - we're converged.
-	IF usc_convergeFlags:LENGTH = 2 {
+	} ELSE { usc_convergeFlags:CLEAR(). }
+	//	If we have enough consecutive good results - we're converged.
+	IF usc_convergeFlags:LENGTH > 2 {
 		SET upfgConverged TO TRUE.
-		SET usc_convergeFlags TO LIST(TRUE, TRUE).
+		usc_convergeFlags:CLEAR().	//	No need to gather any more flags and make the list grow indefinitely
 	}
 	//	Check if we can steer
 	LOCAL isItUpfgActivationTime IS TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"].
