@@ -48,20 +48,6 @@ SET currentTime TO TIME.
 SET timeToOrbitIntercept TO orbitInterceptTime().
 GLOBAL liftoffTime IS currentTime + timeToOrbitIntercept - controls["launchTimeAdvance"].
 IF timeToOrbitIntercept < controls["launchTimeAdvance"] { SET liftoffTime TO liftoffTime + SHIP:BODY:ROTATIONPERIOD. }
-//	Add alarm if requested
-IF addKacAlarm {
-	//	Make sure Kerbal Alarm Clock is installed before trying to add the alarm.
-	IF ADDONS:AVAILABLE("KAC") {
-		//	Only add the alarm if it will go off more that 5 seconds from now. Otherwise it's not really needed.
-		IF liftoffTime - kacAlarmAdvance > currentTime + 5 {
-			ADDALARM("Raw", liftoffTime:SECONDS - kacAlarmAdvance, "Launch Alarm", SHIP:NAME + " is launching in " + kacAlarmAdvance + " seconds.").
-			pushUIMessage("Alarm added to KAC.").
-		}
-	} ELSE {
-		//	If KAC is not available, display a UI message
-		pushUIMessage("Failed to add KAC alarm! KAC not installed.").
-	}
-}
 //	Calculate launch azimuth if not specified
 IF NOT mission:HASKEY("launchAzimuth") {
 	mission:ADD("launchAzimuth", launchAzimuth()).
