@@ -14,6 +14,7 @@ RUN pegas_upfg.
 RUN pegas_util.
 RUN pegas_misc.
 RUN pegas_comm.
+RUN pegas_addons.
 
 //	The following is absolutely necessary to run UPFG fast enough.
 SET CONFIG:IPU TO kOS_IPU.
@@ -34,6 +35,9 @@ GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR
 GLOBAL steeringRoll IS 0.
 GLOBAL upfgConverged IS FALSE.
 GLOBAL stagingInProgress IS FALSE.
+
+//	Load user addons
+scanAddons().
 
 
 //	PREFLIGHT ACTIVITIES
@@ -63,6 +67,7 @@ setSystemEvents().		//	Set up countdown messages
 setUserEvents().		//	Initialize vehicle sequence
 setVehicle().			//	Complete vehicle definition (as given by user)
 setComms(). 			//	Setting up communications
+callHooks("init").		//	System initialized, run hooks
 
 
 //	PEGAS TAKES CONTROL OF THE MISSION
@@ -73,6 +78,8 @@ LOCK STEERING TO steeringVector.
 SET ascentFlag TO 0.	//	0 = vertical, 1 = pitching over, 2 = notify about holding prograde, 3 = just hold prograde
 //	Main loop - wait on launch pad, lift-off and passive guidance
 UNTIL ABORT {
+	//	User hooks
+	callHooks("passivePre").
 	//	Sequence handling
 	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
@@ -123,6 +130,8 @@ UNTIL ABORT {
 	//	UI - recalculate UPFG target solely for printing relative angle
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
 	refreshUI().
+	//	User hooks
+	callHooks("passivePost").
 	WAIT 0.
 }
 
@@ -133,8 +142,12 @@ createUI().
 initializeVehicleForUPFG().
 SET upfgState TO acquireState().
 SET upfgInternal TO setupUPFG().
+//	Call user hooks
+callHooks("activeInit").
 //	Main loop - iterate UPFG (respective function controls attitude directly)
 UNTIL ABORT {
+	//	User hooks
+	callHooks("activePre").
 	//	Sequence handling
 	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
@@ -151,6 +164,8 @@ UNTIL ABORT {
 	IF upfgConverged AND upfgInternal["tgo"] < upfgFinalizationTime { BREAK. }
 	//	UI
 	refreshUI().
+	//	User hooks
+	callHooks("activePost").
 	WAIT 0.
 }
 //	Final orbital insertion loop
@@ -175,3 +190,5 @@ SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0.
 WAIT 0.
 missionValidation().
 refreshUI().
+//	Execute the final hooks
+callHooks("final").

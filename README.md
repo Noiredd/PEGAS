@@ -12,7 +12,8 @@ Short list of what PEGAS is capable of:
   * longitude of ascending node
   * or, alternatively, selecting an existing target,
 * executing timed events (engine ignition, payload fairing jettison, or anything you want - via delegates),
-* automatic staging, complete with ullage handling.
+* automatic staging, complete with ullage handling,
+* ...and nearly anything else you want - via [addons](docs/addons.md)!
 
 More info on my KSP [forum thread](http://forum.kerbalspaceprogram.com/index.php?/topic/142213-pegas-powered-explicit-guidance-ascent-system-devlog/), also see my [prototype repository](https://github.com/Noiredd/PEGAS-MATLAB).
 
