@@ -39,9 +39,3 @@ It mostly focuses on explanation of the underlying guidance algorithm, only show
 For that I strongly recommend reading the [tutorial](docs/tutorial.md).
 
 <a href="https://youtu.be/NEQD7AQoLXk" target="_blank"><img src="http://img.youtube.com/vi/NEQD7AQoLXk/0.jpg" width="240" height="180" border="10" /></a>
-
-### Note about this repository
-I have been using tabs throughout the whole code, having its length set to 4 spaces in all my editors.
-I was unaware that github uses length of 8 - as a result, some of the `.ks` files look *really* bad.
-If your eyes hurt, you can force github to display them with tab size of 4 spaces by adding `?ts=4` to the URL of the file you're viewing.
-Unfortunately, I know of no way to make it a global setting (or even configure it for the repository).
