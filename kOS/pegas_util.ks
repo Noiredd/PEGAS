@@ -381,42 +381,6 @@ FUNCTION targetNormal {
 
 //	EVENT HANDLING FUNCTIONS
 
-//	Setup system events, currently only countdown messages
-FUNCTION setSystemEvents {
-	//	Local function - countdown event generator
-	FUNCTION makeEvent {
-		DECLARE PARAMETER timeAfterLiftoff.	//	Expects a scalar
-		DECLARE PARAMETER eventMessage.		//	Expects a string
-
-		RETURN LEXICON("time", timeAfterLiftoff, "type", "dummy", "message", eventMessage, "data", LIST()).
-	}
-
-	//	Expects a global variable "liftoffTime" as scalar and "systemEvents" as list
-	LOCAL timeToLaunch IS liftoffTime:SECONDS - TIME:SECONDS.
-
-	//	Prepare events table
-	IF timeToLaunch > 18000 { systemEvents:ADD(makeEvent(-18000,"5 hours to launch")). }
-	IF timeToLaunch > 3600  { systemEvents:ADD(makeEvent(-3600,"1 hour to launch")). }
-	IF timeToLaunch > 1800  { systemEvents:ADD(makeEvent(-1800,"30 minutes to launch")). }
-	IF timeToLaunch > 600   { systemEvents:ADD(makeEvent(-600,"10 minutes to launch")). }
-	IF timeToLaunch > 300   { systemEvents:ADD(makeEvent(-300,"5 minutes to launch")). }
-	IF timeToLaunch > 60    { systemEvents:ADD(makeEvent(-60,"1 minute to launch")). }
-	IF timeToLaunch > 30	{ systemEvents:ADD(makeEvent(-30,"30 seconds to launch")). }
-	systemEvents:ADD(makeEvent(-10,"10 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-9,"9 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-8,"8 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-7,"7 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-6,"6 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-5,"5 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-4,"4 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-3,"3 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-2,"2 SECONDS TO LAUNCH")).
-	systemEvents:ADD(makeEvent(-1,"1 SECONDS TO LAUNCH")).
-
-	//	Initialize the first event
-	systemEventHandler().
-}
-
 //	Setup user events (vehicle sequence)
 FUNCTION setUserEvents {
 	//	Just a wrapper to a handler which automatically does the setup on its first run.
@@ -703,36 +667,9 @@ FUNCTION initializeVehicleForUPFG {
 	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
 }
 
-//	Executes a system event. Currently only supports message printing.
-FUNCTION systemEventHandler {
-	//	Local function needed here, so we can safely exit the handler on first run without excessive nesting
-	FUNCTION setNextEvent {
-		SET systemEventPointer TO systemEventPointer + 1.
-		IF systemEventPointer < systemEvents:LENGTH {
-			WHEN TIME:SECONDS >= liftoffTime:SECONDS + systemEvents[systemEventPointer]["time"] THEN { SET systemEventFlag TO TRUE. }
-		}
-	}
-
-	//	Expects global variables "liftoffTime" as TimeSpan, "systemEvents" as list, "systemEventFlag" as bool and "systemEventPointer" as scalar.
-	//	First call initializes and exits without messaging
-	IF systemEventPointer = -1 {	//	This var is initialized at -1, so meeting this condition is only possible on first run.
-		setNextEvent().
-		RETURN.
-	}
-
-	//	Handle event
-	pushUIMessage( systemEvents[systemEventPointer]["message"], 3, PRIORITY_LOW ).
-
-	//	Reset event flag
-	SET systemEventFlag TO FALSE.
-
-	//	Create new event trigger
-	setNextEvent().
-}
-
 //	Executes a user (sequence) event.
 FUNCTION userEventHandler {
-	//	Mechanism is very similar to systemEventHandler
+	//	`WHEN`-based mechanics, in which handling n-th event spawns a timer for handling the n+1-th one.
 	FUNCTION setNextEvent {
 		SET userEventPointer TO userEventPointer + 1.
 		IF userEventPointer < sequence:LENGTH {
@@ -813,7 +750,7 @@ FUNCTION userEventHandler {
 
 //	Executes an automatic staging event. Spawns additional triggers.
 FUNCTION stageEventHandler {
-	//	Structure is very similar to systemEventHandler, but with a little twist.
+	//	Structure is very similar to userEventHandler, but with a little twist.
 	//	Before activating a stage, the vehicle's attitude is held constant. During this period, to save time and ignite the new stage
 	//	with UPFG at least closer to convergence, we want to calculate steering for the next stage. Therefore, we decide that the
 	//	phrase "current stage" shall mean "the currently guided stage, or the one that will be guided next if this one is almost spent".
