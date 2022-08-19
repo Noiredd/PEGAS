@@ -22,8 +22,7 @@ SET CONFIG:IPU TO kOS_IPU.
 //	Initialize global flags and constants
 GLOBAL upfgStage IS -1.				//	Seems wrong (we use "vehicle[upfgStage]") but first run of stageEventHandler increments this automatically
 GLOBAL stageEventFlag IS FALSE.
-GLOBAL userEventPointer IS -1.		//	As above
-GLOBAL userEventFlag IS FALSE.
+GLOBAL userEventPointer IS -1.		//	Index of the last executed userEvent (-1 means none yet)
 GLOBAL commsEventFlag IS FALSE.
 GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
 GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see throttleControl() for details.
@@ -76,7 +75,7 @@ UNTIL ABORT {
 	//	User hooks
 	callHooks("passivePre").
 	//	Sequence handling
-	IF   userEventFlag = TRUE {   userEventHandler(). }
+	userEventHandler().
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Control handling
 	IF ascentFlag = 0 {
@@ -143,7 +142,7 @@ UNTIL ABORT {
 	//	User hooks
 	callHooks("activePre").
 	//	Sequence handling
-	IF   userEventFlag = TRUE {   userEventHandler(). }
+	userEventHandler().
 	IF  stageEventFlag = TRUE {  stageEventHandler(). }
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Update UPFG target and vehicle state

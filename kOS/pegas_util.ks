@@ -669,24 +669,28 @@ FUNCTION initializeVehicleForUPFG {
 
 //	Executes a user (sequence) event.
 FUNCTION userEventHandler {
-	//	`WHEN`-based mechanics, in which handling n-th event spawns a timer for handling the n+1-th one.
-	FUNCTION setNextEvent {
-		SET userEventPointer TO userEventPointer + 1.
-		IF userEventPointer < sequence:LENGTH {
-			WHEN TIME:SECONDS >= liftoffTime:SECONDS + sequence[userEventPointer]["time"] THEN { SET userEventFlag TO TRUE. }
-		}
+	//	Clock-based mechanics that is uniform across calls (first call is just like any other) and fully in control
+	//	First we check if we have any events left to execute, and if so - what time should we execute it at.
+	//	Finally, we check whether it's time to handle it.
+	//	Expects global variables:
+	//	"sequence" as list,
+	//	"vehicle" as list,
+	//	"liftoffTime" as scalar,
+	//	"steeringRoll" as scalar,
+	//	"userEventPointer" as scalar,
+	//	"upfgStage" as scalar,
+	//	"nextStageTime" as scalar.
+	LOCAL nextEventPointer IS userEventPointer + 1.
+	IF nextEventPointer >= sequence:LENGTH {
+		RETURN.	//	No more events in the sequence
+	}
+	LOCAL nextEventTime IS liftoffTime:SECONDS + sequence[nextEventPointer]["time"].
+	IF TIME:SECONDS < nextEventTime {
+		RETURN.	//	Not yet time to handle this one.
 	}
 
-	//	Expects global variables "sequence" and "vehicle" as list, "userEventFlag" as bool,
-	//	"liftoffTime", "steeringRoll", "userEventPointer", "upfgStage" and "nextStageTime" as scalars.
-	//	First call initializes and exits without doing anything
-	IF userEventPointer = -1 {
-		setNextEvent().
-		RETURN.
-	}
-
-	//	Handle event
-	LOCAL event IS sequence[userEventPointer].
+	//	If we got this far, means it's time to handle the event
+	LOCAL event IS sequence[nextEventPointer].
 	LOCAL eType IS event["type"].
 	IF      eType = "print" OR eType = "p" { }
 	ELSE IF eType = "stage" OR eType = "s" { STAGE. }
@@ -741,11 +745,8 @@ FUNCTION userEventHandler {
 		pushUIMessage( event["message"] ).
 	}
 
-	//	Reset event flag
-	SET userEventFlag TO FALSE.
-
-	//	Create new event trigger
-	setNextEvent().
+	//	Mark the event as handled by incrementing the pointer
+	SET userEventPointer TO userEventPointer + 1.
 }
 
 //	Executes an automatic staging event. Spawns additional triggers.
