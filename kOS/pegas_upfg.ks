@@ -44,13 +44,13 @@ FUNCTION upfg {
 		tu:ADD(ve[i]/aT[i]).
 		tb:ADD(vehicle[i]["maxT"]).
 	}
-	
+
 	//	2
 	LOCAL dt IS t-tp.
 	LOCAL dvsensed IS v-vprev.
 	LOCAL vgo IS vgo-dvsensed.
 	SET tb[0] TO tb[0] - previous["tb"].
-	
+
 	//	3
 	IF SM[0]=1 {
 		SET aT[0] TO fT[0] / m.
@@ -60,7 +60,7 @@ FUNCTION upfg {
 	SET tu[0] TO ve[0] / aT[0].
 	LOCAL L IS 0.
 	LOCAL Li IS LIST().
-	
+
 	FROM { LOCAL i IS 0. } UNTIL i>=n-1 STEP { SET i TO i+1. } DO {
 		IF SM[i]=1 {
 			Li:ADD( ve[i]*LN(tu[i]/(tu[i]-tb[i])) ).
@@ -73,7 +73,7 @@ FUNCTION upfg {
 		}
 	}
 	Li:ADD(vgo:MAG - L).
-	
+
 	LOCAL tgoi IS LIST().
 	FROM { LOCAL i IS 0. } UNTIL i>=n STEP { SET i TO i+1. } DO {
 		IF SM[i]=1 {
@@ -87,10 +87,10 @@ FUNCTION upfg {
 			tgoi:ADD(tgoi[i-1] + tb[i]).
 		}
 	}
-	
+
 	LOCAL L1 IS Li[0].
 	LOCAL tgo IS tgoi[n-1].
-	
+
 	//	4
 	SET L TO 0.
 	LOCAL J IS 0.
@@ -103,7 +103,7 @@ FUNCTION upfg {
 	LOCAL Qi IS LIST().
 	LOCAL Pi IS LIST().
 	LOCAL tgoi1 IS 0.
-	
+
 	FROM { LOCAL i IS 0. } UNTIL i>=n STEP { SET i TO i+1. } DO {
 		IF i>0 {
 			SET tgoi1 TO tgoi[i-1].
@@ -119,12 +119,12 @@ FUNCTION upfg {
 			Qi:ADD( Si[i]*(tb[i]/3+tgoi1) ).
 			Pi:ADD( (1/6)*Si[i]*(tgoi[i]^2 + 2*tgoi[i]*tgoi1 + 3*tgoi1^2) ).
 		}
-		
+
 		SET Ji[i] TO Ji[i] + Li[i]*tgoi1.
 		SET Si[i] TO Si[i] + L*tb[i].
 		SET Qi[i] TO Qi[i] + J*tb[i].
 		SET Pi[i] TO Pi[i] + H*tb[i].
-		
+
 		SET L TO L+Li[i].
 		SET J TO J+Ji[i].
 		SET S TO S+Si[i].
@@ -132,7 +132,7 @@ FUNCTION upfg {
 		SET P TO P+Pi[i].
 		SET H TO J*tgoi[i] - Q.
 	}
-	
+
 	//	5
 	LOCAL lambda IS vgo:NORMALIZED.
 	IF previous["tgo"]>0 {
@@ -154,7 +154,7 @@ FUNCTION upfg {
 	SET rthrust TO rthrust*lambda - (S*phi + Q*phidot)*lambdadot:NORMALIZED.
 	SET vbias TO vgo - vthrust.
 	SET rbias TO rgo - rthrust.
-	
+
 	//	6
 	//	TODO: angle rates
 	LOCAL _up IS r:NORMALIZED.
@@ -166,7 +166,7 @@ FUNCTION upfg {
 	IF VDOT(inplane,tangent)<0 {
 		SET yaw TO -yaw.
 	}
-	
+
 	//	7
 	LOCAL rc1 IS r - 0.1*rthrust - (tgo/30)*vthrust.
 	LOCAL vc1 IS v + 1.2*rthrust/tgo - 0.1*vthrust.
@@ -174,7 +174,7 @@ FUNCTION upfg {
 	SET cser TO pack[2].
 	SET rgrav TO pack[0] - rc1 - vc1*tgo.
 	LOCAL vgrav IS pack[1] - vc1.
-	
+
 	//	8
 	LOCAL rp IS r + v*tgo + rgrav + rthrust.
 	SET rp TO rp - VDOT(rp,iy)*iy.
@@ -188,7 +188,7 @@ FUNCTION upfg {
 	LOCAL vop IS V(SIN(gamma), 0, COS(gamma)).
 	LOCAL vd IS V(VDOT(vv1,vop), VDOT(vv2,vop), VDOT(vv3,vop))*vdval.
 	SET vgo TO vd - v - vgrav + vbias.
-	
+
 	//	RETURN - build new internal state instead of overwriting the old one
 	LOCAL current IS LEXICON(
 		"cser", cser,

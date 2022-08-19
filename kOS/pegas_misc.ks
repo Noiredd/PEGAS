@@ -47,7 +47,7 @@ FUNCTION createUI {
 	PRINT "|-----------------------------------------|".
 	PRINT "|                                         |".	//	Message box
 	PRINT "*-----------------------------------------*".
-	
+
 	textPrint(SHIP:NAME, 4, 2, 41, "L").
 	textPrint(_PEGAS_VERSION_, 1, 20, 41, "R").
 	refreshUI().
@@ -60,7 +60,7 @@ FUNCTION textPrint {
 	DECLARE PARAMETER start.		//	First column to write to, inclusive (scalar).
 	DECLARE PARAMETER end.			//	Last column to write to, exclusive (scalar).
 	DECLARE PARAMETER align IS "l".	//	Align: "l"eft or "r"ight.
-	
+
 	SET align TO align:TOLOWER().
 	LOCAL flen IS end - start.
 	//	If message is too long to fit in the field - trim, depending on type.
@@ -83,7 +83,7 @@ FUNCTION numberPrint {
 	DECLARE PARAMETER end.			//	Last column to write to, exclusive (scalar).
 	DECLARE PARAMETER prec IS 1.	//	Decimal places (scalar)
 	DECLARE PARAMETER align IS "r".	//	Align: "l"eft or "r"ight.
-	
+
 	LOCAL str IS "" + ROUND(val, prec).
 	//	Make sure the number has all the decimal places it needs to have
 	IF prec > 0 {
@@ -100,7 +100,7 @@ FUNCTION numberPrint {
 //	Specialized function for printing current time and T+.
 FUNCTION timePrint {
 	//	Expects a global variable "liftoffTime" as timespan.
-	
+
 	LOCAL currentTime IS TIME.
 	LOCAL deltaT IS currentTime.
 	LOCAL sign IS "".
@@ -111,14 +111,14 @@ FUNCTION timePrint {
 		SET sign TO "-".
 		SET deltaT TO liftoffTime - currentTime.
 	}
-	
+
 	textPrint(sign, 6, 3, 4, "L").
 	numberPrint(deltaT:HOUR, 6, 4, 6, 0).
 	numberPrint(deltaT:MINUTE, 6, 7, 9, 0).
 	numberPrint(deltaT:SECOND, 6, 10, 12, 0).
 	textPrint(currentTime:CALENDAR+",", 6, 15, 32, "R").
 	textPrint(currentTime:CLOCK, 6, 33, 41, "R").
-	
+
 	RETURN currentTime.
 }
 
@@ -256,7 +256,7 @@ FUNCTION pushUIMessage {
 	DECLARE PARAMETER message.		//	Expects a string.
 	DECLARE PARAMETER ttl IS 5.		//	Message time-to-live (scalar).
 	DECLARE PARAMETER priority IS PRIORITY_NORMAL.
-	
+
 	//	If we already have a message - only accept the new one if it's important enough
 	IF uiMessage["received"] {
 		IF priority >= uiMessage["priority"] {

@@ -7,13 +7,13 @@ FUNCTION rodrigues {
 	DECLARE PARAMETER inVector.	//	Expects a vector
 	DECLARE PARAMETER axis.		//	Expects a vector
 	DECLARE PARAMETER angle.	//	Expects a scalar
-	
+
 	SET axis TO axis:NORMALIZED.
-	
+
 	LOCAL outVector IS inVector*COS(angle).
 	SET outVector TO outVector + VCRS(axis, inVector)*SIN(angle).
 	SET outVector TO outVector + axis*VDOT(axis, inVector)*(1-COS(angle)).
-	
+
 	RETURN outVector.
 }
 
@@ -21,7 +21,7 @@ FUNCTION rodrigues {
 FUNCTION aimAndRoll {
 	DECLARE PARAMETER aimVec.	//	Expects a vector
 	DECLARE PARAMETER rollAng.	//	Expects a scalar
-	
+
 	LOCAL rollVector IS rodrigues(UP:VECTOR, aimVec, -rollAng).
 	RETURN LOOKDIRUP(aimVec, rollVector).
 }
@@ -36,7 +36,7 @@ FUNCTION vecYZ {
 //	Engine combination parameters
 FUNCTION getThrust {
 	DECLARE PARAMETER engines.	//	Expects a list of lexicons
-	
+
 	LOCAL n IS engines:LENGTH.
 	LOCAL F IS 0.
 	LOCAL dm IS 0.
@@ -47,7 +47,7 @@ FUNCTION getThrust {
 		SET F TO F + isp*dm_*g0.
 	}
 	SET isp TO F/(dm*g0).
-	
+
 	RETURN LIST(F, dm, isp).
 }
 
@@ -60,7 +60,7 @@ FUNCTION constAccBurnTime {
 	DECLARE PARAMETER _stage.	//	Expects a lexicon containing at least partially formed logical stage.
 								//	This has to contain the following keys:
 								//	"massFuel", "massTotal", "engines", "gLim" and "minThrottle".
-	
+
 	//	Unpack the structure
 	LOCAL engineData IS getThrust(_stage["engines"]).
 	LOCAL isp IS engineData[2].
@@ -101,18 +101,18 @@ FUNCTION missionSetup {
 	} ELSE {
 		mission:ADD("altitude", mission["periapsis"]).
 	}
-	
+
 	//	Override plane definition if a map target was selected
 	IF HASTARGET {
 		SET mission["inclination"] TO TARGET:ORBIT:INCLINATION.
 		SET mission["LAN"] TO TARGET:ORBIT:LAN.
 	}
-	
+
 	//	Set default launch direction
 	IF NOT mission:HASKEY("direction") {
 		mission:ADD("direction", "nearest").
 	}
-	
+
 	//	Set inclination to launch site latitude, or fix the existing to (-180)-180 degrees range
 	IF mission:HASKEY("inclination") {
 		UNTIL mission["inclination"] > -180 { SET mission["inclination"] TO mission["inclination"] + 360. }
@@ -120,7 +120,7 @@ FUNCTION missionSetup {
 	} ELSE {
 		mission:ADD("inclination", ABS(SHIP:GEOPOSITION:LAT)).
 	}
-	
+
 	//	Calculate LAN for the "right now" launch, or fix the existing to 0-360 degrees range
 	IF mission:HASKEY("LAN") {
 		UNTIL mission["LAN"] > 0 { SET mission["LAN"] TO mission["LAN"] + 360. }
@@ -162,7 +162,7 @@ FUNCTION targetSetup {
 FUNCTION nodeVector {
 	DECLARE PARAMETER inc.				//	Inclination of the desired orbit. Expects a scalar.
 	DECLARE PARAMETER dir IS "north".	//	Launch direction. Expects a string, either "north" or "south".
-	
+
 	//	From right spherical triangle composed of inclination, latitude and "b",
 	//	which is angular difference between the desired node vector and projection
 	//	of the vector pointing at the launch site onto the equatorial plane.
@@ -185,11 +185,11 @@ FUNCTION nodeVector {
 //	Time to next launch opportunity in given direction
 FUNCTION orbitInterceptTime {
 	DECLARE PARAMETER launchDir IS mission["direction"].	//	Passing as parameter for recursive calls.
-	
+
 	//	Expects a global variable "mission" as lexicon
 	LOCAL targetInc IS mission["inclination"].
 	LOCAL targetLan IS mission["lan"].
-	
+
 	//	For "nearest" launch opportunity:
 	IF launchDir = "nearest" {
 		LOCAL timeToNortherly IS orbitInterceptTime("north").
@@ -212,7 +212,7 @@ FUNCTION orbitInterceptTime {
 		LOCAL deltaDir IS VDOT(V(0,1,0), VCRS(targetNode, currentNode)).
 		IF deltaDir < 0 { SET nodeDelta TO 360 - nodeDelta. }
 		LOCAL deltaTime IS SHIP:ORBIT:BODY:ROTATIONPERIOD * nodeDelta/360.
-		
+
 		RETURN deltaTime.
 	}
 }
@@ -220,13 +220,13 @@ FUNCTION orbitInterceptTime {
 //	Launch azimuth to a given orbit
 FUNCTION launchAzimuth {
 	//	Expects global variables "upfgTarget" and "mission" as lexicons
-	
+
 	LOCAL targetInc IS mission["inclination"].
 	LOCAL targetAlt IS upfgTarget["radius"].
 	LOCAL targetVel IS upfgTarget["velocity"].
 	LOCAL siteLat IS SHIP:GEOPOSITION:LAT.
 	IF targetInc < siteLat { pushUIMessage( "Target inclination below launch site!", 5, PRIORITY_HIGH ). }
-	
+
 	LOCAL Binertial IS COS(targetInc)/COS(siteLat).
 	IF Binertial < -1 { SET Binertial TO -1. }
 	IF Binertial > 1 { SET Binertial TO 1. }
@@ -237,7 +237,7 @@ FUNCTION launchAzimuth {
 	LOCAL VrotX IS Vorbit*SIN(Binertial)-Vbody.
 	LOCAL VrotY IS Vorbit*COS(Binertial).
 	LOCAL azimuth IS ARCTAN2(VrotY, VrotX).
-	
+
 	//	In MATLAB an azimuth of 0 is due east, while in KSP it's due north.
 	//	Return the valid value depending on the launch direction:
 	IF mission["direction"] = "north" {
@@ -256,7 +256,7 @@ FUNCTION missionValidation {
 		DECLARE PARAMETER input.		//	Expects scalar
 		DECLARE PARAMETER reference.	//	Expects scalar
 		DECLARE PARAMETER threshold.	//	Expects scalar
-		
+
 		IF ABS(input-reference)<threshold { RETURN TRUE. } ELSE { RETURN FALSE. }
 	}
 	FUNCTION errorMessage {
@@ -274,7 +274,7 @@ FUNCTION missionValidation {
 		RETURN output + ")".
 	}
 	//	Expects global variable "mission" as lexicon.
-	
+
 	//	Some local variables for tracking mission success/partial success/failure
 	LOCAL success IS TRUE.
 	LOCAL failure IS FALSE.
@@ -282,7 +282,7 @@ FUNCTION missionValidation {
 	LOCAL apsisFailureThreshold IS 50000.
 	LOCAL angleSuccessThreshold IS 0.1.
 	LOCAL angleFailureThreshold IS 1.
-	
+
 	//	Check every condition
 	IF NOT difference(SHIP:ORBIT:PERIAPSIS, mission["periapsis"]*1000, apsisSuccessThreshold) {
 		SET success TO FALSE.
@@ -312,7 +312,7 @@ FUNCTION missionValidation {
 		}
 		PRINT "Long. of AN: " + errorMessage(SHIP:ORBIT:LAN, mission["LAN"]).
 	}
-	
+
 	//	If at least one condition is not a success - we only have a partial. If at least one condition
 	//	is a failure - we have a failure.
 	IF failure {
@@ -355,7 +355,7 @@ FUNCTION setupUPFG {
 //	Acquire vehicle position data
 FUNCTION acquireState {
 	//	Expects a global variable "liftoffTime" as scalar
-	
+
 	RETURN LEXICON(
 		"time", TIME:SECONDS - liftoffTime:SECONDS,
 		"mass", SHIP:MASS*1000,
@@ -368,14 +368,14 @@ FUNCTION acquireState {
 FUNCTION targetNormal {
 	DECLARE PARAMETER targetInc.	//	Expects a scalar
 	DECLARE PARAMETER targetLan.	//	Expects a scalar
-	
+
 	//	First create a vector pointing to the highest point in orbit by rotating the prime vector by a right angle.
 	LOCAL highPoint IS rodrigues(SOLARPRIMEVECTOR, V(0,1,0), 90-targetLan).
 	//	Then create a temporary axis of rotation (short form for 90 deg rotation).
 	LOCAL rotAxis IS V(-highPoint:Z, highPoint:Y, highPoint:X).
 	//	Finally rotate about this axis by a right angle to produce normal vector.
 	LOCAL normalVec IS rodrigues(highPoint, rotAxis, 90-targetInc).
-	
+
 	RETURN -vecYZ(normalVec).
 }
 
@@ -387,13 +387,13 @@ FUNCTION setSystemEvents {
 	FUNCTION makeEvent {
 		DECLARE PARAMETER timeAfterLiftoff.	//	Expects a scalar
 		DECLARE PARAMETER eventMessage.		//	Expects a string
-		
+
 		RETURN LEXICON("time", timeAfterLiftoff, "type", "dummy", "message", eventMessage, "data", LIST()).
 	}
-	
+
 	//	Expects a global variable "liftoffTime" as scalar and "systemEvents" as list
 	LOCAL timeToLaunch IS liftoffTime:SECONDS - TIME:SECONDS.
-	
+
 	//	Prepare events table
 	IF timeToLaunch > 18000 { systemEvents:ADD(makeEvent(-18000,"5 hours to launch")). }
 	IF timeToLaunch > 3600  { systemEvents:ADD(makeEvent(-3600,"1 hour to launch")). }
@@ -412,7 +412,7 @@ FUNCTION setSystemEvents {
 	systemEvents:ADD(makeEvent(-3,"3 SECONDS TO LAUNCH")).
 	systemEvents:ADD(makeEvent(-2,"2 SECONDS TO LAUNCH")).
 	systemEvents:ADD(makeEvent(-1,"1 SECONDS TO LAUNCH")).
-	
+
 	//	Initialize the first event
 	systemEventHandler().
 }
@@ -564,7 +564,8 @@ FUNCTION initializeVehicleForUPFG {
 	//	If a stage has an ignition command in its staging sequence, this means it is a Saturn-like stage (i.e. a spent stage
 	//	for atmospheric flight is jettisoned, and the active guidance is engaged for a new stage) and it needs no update.
 	//	Otherwise it is a sustainer stage and only its initial (and, hence, dry) mass is known. Actual mass needs to be
-	//	measured and burn time calculated.
+	//	Otherwise it is a sustainer stage (Shuttle-like) and only its initial (and, hence, dry) mass is known. Actual mass
+	//	needs to be measured and burn time calculated.
 	IF NOT vehicle[0]["staging"]["ignition"] {
 		//	We need to know what the real mass of the vehicle will be "upfgConvergenceDelay" seconds after this moment.
 		LOCAL combinedEngines IS getThrust(vehicle[0]["engines"]).
@@ -712,20 +713,20 @@ FUNCTION systemEventHandler {
 			WHEN TIME:SECONDS >= liftoffTime:SECONDS + systemEvents[systemEventPointer]["time"] THEN { SET systemEventFlag TO TRUE. }
 		}
 	}
-	
+
 	//	Expects global variables "liftoffTime" as TimeSpan, "systemEvents" as list, "systemEventFlag" as bool and "systemEventPointer" as scalar.
 	//	First call initializes and exits without messaging
 	IF systemEventPointer = -1 {	//	This var is initialized at -1, so meeting this condition is only possible on first run.
 		setNextEvent().
 		RETURN.
 	}
-	
+
 	//	Handle event
 	pushUIMessage( systemEvents[systemEventPointer]["message"], 3, PRIORITY_LOW ).
-	
+
 	//	Reset event flag
 	SET systemEventFlag TO FALSE.
-	
+
 	//	Create new event trigger
 	setNextEvent().
 }
@@ -960,7 +961,7 @@ FUNCTION upfgStagingNotify {
 	//	Allows stageEventHandler to let upfgSteeringControl know that staging had occured.
 	//	Easier to modify this function in case more information needs to be passed rather
 	//	than stageEventHandler itself.
-	
+
 	//	Expects global variables "upfgConverged" as bool, and "usc_convergeFlags" as list.
 	SET upfgConverged TO FALSE.
 	usc_convergeFlags:CLEAR().
@@ -1060,7 +1061,7 @@ FUNCTION upfgSteeringControl {
 //	Throttle controller
 FUNCTION throttleControl {
 	//	Expects global variables "vehicle" as list, "upfgStage", "throttleSetting" and "throttleDisplay" as scalars and "stagingInProgress" as bool.
-	
+
 	//	If we're guiding a stage nominally, it's simple. But if the stage is about to change into the next one,
 	//	value of "upfgStage" is already incremented. In this case we shouldn't use the next stage values (this
 	//	would ruin constant-acceleration stages).
@@ -1069,7 +1070,7 @@ FUNCTION throttleControl {
 		SET whichStage TO upfgStage - 1.
 		IF vehicle[whichStage]["shutdownRequired"] { RETURN. }
 	}
-	
+
 	IF vehicle[whichStage]["mode"] = 1 {
 		SET throttleSetting TO vehicle[whichStage]["throttle"].
 		SET throttleDisplay TO throttleSetting.
