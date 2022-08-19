@@ -22,9 +22,6 @@ SET CONFIG:IPU TO kOS_IPU.
 //	Initialize global flags and constants
 GLOBAL upfgStage IS -1.				//	Seems wrong (we use "vehicle[upfgStage]") but first run of stageEventHandler increments this automatically
 GLOBAL stageEventFlag IS FALSE.
-GLOBAL systemEvents IS LIST().
-GLOBAL systemEventPointer IS -1.	//	Same deal as with "upfgStage"
-GLOBAL systemEventFlag IS FALSE.
 GLOBAL userEventPointer IS -1.		//	As above
 GLOBAL userEventFlag IS FALSE.
 GLOBAL commsEventFlag IS FALSE.
@@ -62,7 +59,6 @@ IF controls:HASKEY("initialRoll") {
 	SET steeringRoll TO controls["initialRoll"].
 }
 //	Set up the system for flight
-setSystemEvents().		//	Set up countdown messages
 setUserEvents().		//	Initialize vehicle sequence
 setVehicle().			//	Complete vehicle definition (as given by user)
 setComms(). 			//	Setting up communications
@@ -80,7 +76,6 @@ UNTIL ABORT {
 	//	User hooks
 	callHooks("passivePre").
 	//	Sequence handling
-	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Control handling
@@ -148,7 +143,6 @@ UNTIL ABORT {
 	//	User hooks
 	callHooks("activePre").
 	//	Sequence handling
-	IF systemEventFlag = TRUE { systemEventHandler(). }
 	IF   userEventFlag = TRUE {   userEventHandler(). }
 	IF  stageEventFlag = TRUE {  stageEventHandler(). }
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
