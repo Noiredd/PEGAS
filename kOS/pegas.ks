@@ -20,7 +20,6 @@ RUN pegas_addons.
 SET CONFIG:IPU TO kOS_IPU.
 
 //	Initialize global flags and constants
-GLOBAL g0 IS 9.8067.				//	PEGAS will launch from any planet or moon - "g0" is a standard constant for thrust computation and shall not be changed!
 GLOBAL upfgStage IS -1.				//	Seems wrong (we use "vehicle[upfgStage]") but first run of stageEventHandler increments this automatically
 GLOBAL stageEventFlag IS FALSE.
 GLOBAL systemEvents IS LIST().

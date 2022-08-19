@@ -35,11 +35,11 @@ FUNCTION upfg {
   
 	FROM { LOCAL i IS 0. } UNTIL i>=n STEP { SET i TO i+1. } DO {
 		SM:ADD(vehicle[i]["mode"]).
-		aL:ADD(vehicle[i]["gLim"]*g0).
+		aL:ADD(vehicle[i]["gLim"]*CONSTANT:g0).
 		LOCAL pack IS getThrust(vehicle[i]["engines"]).
 		fT:ADD(pack[0]).
 		md:ADD(pack[1]).
-		ve:ADD(pack[2]*g0).
+		ve:ADD(pack[2]*CONSTANT:g0).
 		aT:ADD(fT[i] / vehicle[i]["massTotal"]).
 		tu:ADD(ve[i]/aT[i]).
 		tb:ADD(vehicle[i]["maxT"]).

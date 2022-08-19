@@ -44,9 +44,9 @@ FUNCTION getThrust {
 		LOCAL isp IS engines[i]["isp"].
 		LOCAL dm_ IS engines[i]["flow"].
 		SET dm TO dm + dm_.
-		SET F TO F + isp*dm_*g0.
+		SET F TO F + isp*dm_*CONSTANT:g0.
 	}
-	SET isp TO F/(dm*g0).
+	SET isp TO F/(dm*CONSTANT:g0).
 
 	RETURN LIST(F, dm, isp).
 }
@@ -458,7 +458,7 @@ FUNCTION setVehicle {
 		v:ADD("mode", 1).
 		//	Engine update
 		FOR e IN v["engines"] {
-			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*g0) * v["throttle"]). }
+			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*CONSTANT:g0) * v["throttle"]). }
 			IF NOT e:HASKEY("tag") { e:ADD("tag", ""). }
 		}
 		//	Check if the staging configuration has the correct flags
@@ -563,7 +563,6 @@ FUNCTION initializeVehicleForUPFG {
 
 	//	If a stage has an ignition command in its staging sequence, this means it is a Saturn-like stage (i.e. a spent stage
 	//	for atmospheric flight is jettisoned, and the active guidance is engaged for a new stage) and it needs no update.
-	//	Otherwise it is a sustainer stage and only its initial (and, hence, dry) mass is known. Actual mass needs to be
 	//	Otherwise it is a sustainer stage (Shuttle-like) and only its initial (and, hence, dry) mass is known. Actual mass
 	//	needs to be measured and burn time calculated.
 	IF NOT vehicle[0]["staging"]["ignition"] {
@@ -671,7 +670,7 @@ FUNCTION initializeVehicleForUPFG {
 		IF vehicle[i]["gLim"] > 0 {
 			//	Calculate when will the acceleration limit be exceeded
 			LOCAL thrustFlowIsp IS getThrust(vehicle[i]["engines"]).
-			LOCAL accLimTime IS (vehicle[i]["massTotal"] - thrustFlowIsp[0]/vehicle[i]["gLim"]/g0) / thrustFlowIsp[1].
+			LOCAL accLimTime IS (vehicle[i]["massTotal"] - thrustFlowIsp[0]/vehicle[i]["gLim"]/CONSTANT:g0) / thrustFlowIsp[1].
 			//	If this time is greater than the stage's max burn time - we're good.
 			//	Otherwise, we create a virtual stage for the acceleration-limited flight and reduce the burn time of
 			//	the violating stage.
@@ -1074,12 +1073,13 @@ FUNCTION throttleControl {
 	IF vehicle[whichStage]["mode"] = 1 {
 		SET throttleSetting TO vehicle[whichStage]["throttle"].
 		SET throttleDisplay TO throttleSetting.
+		// TODO shouldn't we consider minThrottle here as well?
 	}
 	ELSE IF vehicle[whichStage]["mode"] = 2 {
 		LOCAL nominalThrust_ IS getThrust(vehicle[whichStage]["engines"]).
 		LOCAL nominalThrust IS nominalThrust_[0].
 		LOCAL throttleLimit IS vehicle[whichStage]["minThrottle"].
-		LOCAL desiredThrottle IS SHIP:MASS*1000*vehicle[whichStage]["gLim"]*g0 / nominalThrust.
+		LOCAL desiredThrottle IS SHIP:MASS*1000*vehicle[whichStage]["gLim"]*CONSTANT:g0 / nominalThrust.
 		//	Realism Overhaul considers in-game throttle not as absolute, but relative to the allowed throttle range of the engine.
 		//	Setting throttle to 0.5 for an engine with throttle range 0.4-1.0 actually results in a 0.7 throttle setting.
 		SET throttleSetting TO (desiredThrottle - throttleLimit) / (1 - throttleLimit).

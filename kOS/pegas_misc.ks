@@ -204,7 +204,7 @@ FUNCTION refreshUI {
 	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
 	numberPrint(100*throttle_, vehicleInfoOffset + 4, 17, 21, 0).
 	numberPrint(currentAcc, vehicleInfoOffset + 5, 17, 21).
-	numberPrint(currentAcc / g0, vehicleInfoOffset + 5, 28, 32, 1).
+	numberPrint(currentAcc / CONSTANT:g0, vehicleInfoOffset + 5, 28, 32, 1).
 
 	//	Print current vehicle orbital info
 	numberPrint(SHIP:ALTITUDE/1000,			orbitalInfoOffset + 0, currentOrbitOffset, currentOrbitOffset + 7).
