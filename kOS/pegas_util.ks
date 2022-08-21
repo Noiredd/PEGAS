@@ -381,12 +381,6 @@ FUNCTION targetNormal {
 
 //	EVENT HANDLING FUNCTIONS
 
-//	Setup user events (vehicle sequence)
-FUNCTION setUserEvents {
-	//	Just a wrapper to a handler which automatically does the setup on its first run.
-	userEventHandler().
-}
-
 //	Setup vehicle: transform user input to UPFG-compatible struct
 FUNCTION setVehicle {
 	//	Calculates missing mass inputs (user gives any 2 of 3: total, dry, fuel mass)
@@ -522,8 +516,6 @@ FUNCTION initializeVehicleForUPFG {
 
 	//	Expects global variables "vehicle" and "sequence" as list of lexicons, "controls" as lexicon,
 	//	and "upfgConvergenceDelay" as scalar.
-
-	LOCAL currentTime IS TIME:SECONDS.
 
 	//	If a stage has an ignition command in its staging sequence, this means it is a Saturn-like stage (i.e. a spent stage
 	//	for atmospheric flight is jettisoned, and the active guidance is engaged for a new stage) and it needs no update.
@@ -664,7 +656,8 @@ FUNCTION initializeVehicleForUPFG {
 		}
 	}
 
-	stageEventHandler(currentTime).	//	Schedule ignition of the first UPFG-controlled stage.
+	spawnStagingEvents().
+	SET upfgStage TO 0.	//	The vehicle is ready so we can start the actual preconvergence for the first active stage
 }
 
 //	Executes a user (sequence) event.
@@ -673,13 +666,12 @@ FUNCTION userEventHandler {
 	//	First we check if we have any events left to execute, and if so - what time should we execute it at.
 	//	Finally, we check whether it's time to handle it.
 	//	Expects global variables:
-	//	"sequence" as list,
-	//	"vehicle" as list,
-	//	"liftoffTime" as scalar,
-	//	"steeringRoll" as scalar,
-	//	"userEventPointer" as scalar,
-	//	"upfgStage" as scalar,
-	//	"nextStageTime" as scalar.
+	//	"sequence" as list
+	//	"vehicle" as list
+	//	"liftoffTime" as scalar
+	//	"steeringRoll" as scalar
+	//	"userEventPointer" as scalar
+	//	"upfgStage" as scalar
 	LOCAL nextEventPointer IS userEventPointer + 1.
 	IF nextEventPointer >= sequence:LENGTH {
 		RETURN.	//	No more events in the sequence
@@ -699,8 +691,8 @@ FUNCTION userEventHandler {
 		STAGE.
 	}
 	ELSE IF eType = "throttle" OR eType = "t" {
-		//	Throttling is only allowed during the passive guidance phase, as it would ruin burn time predictions used by
-		//	UPFG for guidance and stageEvent system for stage timing.
+		//	Throttling is only allowed during the passive guidance phase, as it would ruin burn time predictions used
+		//	for guidance and stage timing.
 		IF upfgStage < 0 {
 			IF NOT event:HASKEY("message") {
 				IF event["throttle"] < throttleSetting {
@@ -738,6 +730,12 @@ FUNCTION userEventHandler {
 	ELSE IF eType = "delegate" OR eType = "d" {
 		event["function"]:CALL().
 	}
+	ELSE IF eType = "_prestage" {
+		internalEvent_preStage().
+	}
+	ELSE IF eType = "_upfgstage" {
+		internalEvent_staging().
+	}
 	ELSE { pushUIMessage( "Unknown event type (" + eType + ", message='" + event["message"] + "')!", 5, PRIORITY_HIGH ). }
 
 	//	Print event message, if requested
@@ -747,59 +745,21 @@ FUNCTION userEventHandler {
 
 	//	Mark the event as handled by incrementing the pointer
 	SET userEventPointer TO userEventPointer + 1.
+
+	//	Run again to handle "overlapping" events
+	//	This is not infinite recursion, because if there is no overlapping event to handle, the next call will RETURN early.
+	userEventHandler().
 }
 
-//	Executes an automatic staging event. Spawns additional triggers.
-FUNCTION stageEventHandler {
-	//	Structure is very similar to userEventHandler, but with a little twist.
-	//	Before activating a stage, the vehicle's attitude is held constant. During this period, to save time and ignite the new stage
-	//	with UPFG at least closer to convergence, we want to calculate steering for the next stage. Therefore, we decide that the
-	//	phrase "current stage" shall mean "the currently guided stage, or the one that will be guided next if this one is almost spent".
-	//	Global variable "upfgStage" shall point to this exact stage and must be incremented at the very moment we decide to solve for
-	//	the next stage: upon setting the global variable "stagingInProgress".
-	FUNCTION setNextEvent {
-		DECLARE PARAMETER baseTime IS TIME:SECONDS.	//	Expects a scalar. Meaning: set next stage from this time (allows more precise calculations)
-		DECLARE PARAMETER eventDelay IS 0.			//	Expects a scalar. Meaning: if this stage ignites in "eventDelay" seconds from now, the next should ignite in "eventDelay"+"maxT" from now.
+FUNCTION internalEvent_preStage {
+	SET stagingInProgress TO TRUE.
+	SET upfgStage TO upfgStage + 1.
+	SET upfgConverged TO FALSE.
+	usc_convergeFlags:CLEAR().
+}
 
-		GLOBAL nextStageTime IS baseTime + eventDelay + vehicle[upfgStage]["maxT"].	//	Calculate how long this stage will burn, but don't set an event for the last stage
-		//	Don't do anything if this was the last stage.
-		IF upfgStage = vehicle:LENGTH - 1 {
-			RETURN.
-		}
-		//	Schedule a staging procedure:
-		//	- first event notifies UPFG, allowing it to start pre-convergence,
-		//	- second event triggers the actual staging event (via stagingEventHandler).
-		//	Difference between regular and virtual stages is that the former require a larger transition delay,
-		//	not only for pre-convergence, but also to kill vehicle rotation to allow clean and safe separation.
-		//	Virtual stages do not need such a long transition period. There still has to be some delay, as UPFG
-		//	must be run at least for one iteration in the "stagingInProgress" state to properly transition.
-		LOCAL stagingTransitionTime IS stagingKillRotTime.
-		IF NOT vehicle[upfgStage]["followedByVirtual"] {
-			SET stagingTransitionTime TO 2.	//	Arbitrarily. 1 could also work, depending on IPU and other factors.
-		}
-		WHEN TIME:SECONDS >= nextStageTime - stagingTransitionTime THEN {
-			SET stagingInProgress TO TRUE.
-			SET upfgStage TO upfgStage + 1.
-			upfgStagingNotify().
-		}
-		WHEN TIME:SECONDS >= nextStageTime THEN {
-			SET stageEventFlag TO TRUE.
-		}
-	}
-
-	//	Expects global variables "liftOffTime" as TimeSpan, "vehicle" as list, "controls" as lexicon, "upfgStage" as scalar and "stageEventFlag" as bool.
-	DECLARE PARAMETER currentTime IS TIME:SECONDS.	//	Only passed when run from initializeVehicleForUPFG
-
-	//	First call (we know because upfgStage is still at initial value) only sets up the event for first guided stage.
-	IF upfgStage = -1 {
-		//	We cannot use setNextEvent because it directly reads vehicle[upfgStage], but we have to do a part of its job
-		GLOBAL nextStageTime IS liftOffTime:SECONDS + controls["upfgActivation"].
-		WHEN TIME:SECONDS >= nextStageTime THEN { SET stageEventFlag TO TRUE. }
-		SET upfgStage TO upfgStage + 1.
-		RETURN.
-	}
-
-	//	Handle event
+FUNCTION internalEvent_staging {
+	LOCAL currentTime IS TIME:SECONDS.
 	LOCAL event IS vehicle[upfgStage]["staging"].
 	LOCAL stageName IS vehicle[upfgStage]["name"].
 	LOCAL eventDelay IS 0.	//	Keep track of time between subsequent events.
@@ -873,12 +833,6 @@ FUNCTION stageEventHandler {
 	} ELSE IF vehicle[upfgStage]["mode"] = 2 {
 		pushUIMessage("Constant acceleration mode activated.").
 	}
-
-	//	Reset event flag
-	SET stageEventFlag TO FALSE.
-
-	//	Create new event trigger
-	setNextEvent(currentTime, eventDelay).
 }
 
 //	THROTTLE AND STEERING CONTROLS
@@ -893,20 +847,9 @@ FUNCTION minAoASteering {
 	RETURN aimAndRoll(HEADING(mission["launchAzimuth"], surfVelAngle):VECTOR, desiredRoll).
 }
 
-//	Interface between stageEventHandler and upfgSteeringControl.
-FUNCTION upfgStagingNotify {
-	//	Allows stageEventHandler to let upfgSteeringControl know that staging had occured.
-	//	Easier to modify this function in case more information needs to be passed rather
-	//	than stageEventHandler itself.
-
-	//	Expects global variables "upfgConverged" as bool, and "usc_convergeFlags" as list.
-	SET upfgConverged TO FALSE.
-	usc_convergeFlags:CLEAR().
-}
-
 //	Intelligent wrapper around UPFG that controls steering vector.
 FUNCTION upfgSteeringControl {
-	//	This function is essentially oblivious to which stage it is guiding (see "stageEventHandler" for more info).
+	//	TODO: update docs
 	//	However, it pays attention to UPFG convergence and proceeding staging, ensuring that the vehicle will not
 	//	rotate during separation nor will it rotate to an oscillating, unconverged solution.
 	FUNCTION resetUPFG {
@@ -1027,4 +970,66 @@ FUNCTION throttleControl {
 		SET throttleDisplay TO desiredThrottle.
 	}
 	ELSE { pushUIMessage( "throttleControl stage error (stage=" + upfgStage + "(" + whichStage + "), mode=" + vehicle[whichStage]["mode"] + ")!", 5, PRIORITY_CRITICAL ). }.
+}
+
+//	Create sequence entries for staging events
+FUNCTION spawnStagingEvents {
+	//	For each active stage we have to schedule the preStage event and the staging event - except the FIRST ONE which is already
+	//	preStaged by now and we just need to stage it (which will possibly be a no-op if it's a sustainer). We'll iterate over the
+	//	vehicle, computing (cumulatively) burnout times for each stage and spawning events. We know exactly when everything starts:
+	//	`controls["upfgActivation"]`.
+	LOCAL stageActivationTime IS controls["upfgActivation"].
+	LOCAL vehicleIterator IS vehicle:ITERATOR.
+	//	The first active stage is already pre-staged so we only need to create the staging event
+	vehicleIterator:NEXT.
+	LOCAL stagingEvent IS LEXICON(
+		"time", stageActivationTime,
+		"type", "_upfgstage",
+		"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
+		"message", "active guidance on" // todo: clarify all messages related to staging and virtual stages
+	).
+	//	Insert it into sequence
+	insertEvent(stagingEvent).
+	//	Compute burnout time for this stage and add to sAT (this involves activation time and burn time)
+	SET stageActivationTime TO stageActivationTime + getStageDelays(vehicleIterator:VALUE) + vehicleIterator:VALUE["maxT"].
+	//	Loop over remaining stages
+	UNTIL NOT vehicleIterator:NEXT {
+		//	Construct & insert pre-stage event
+		LOCAL stagingTransitionTime IS stagingKillRotTime.
+		IF vehicleIterator:VALUE["isVirtualStage"] { SET stagingTransitionTime TO 2. }
+		LOCAL stagingEvent IS LEXICON(
+			"time", stageActivationTime - stagingTransitionTime,
+			"type", "_prestage",
+			"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
+			"message", vehicleIterator:VALUE["name"]
+		).
+		insertEvent(stagingEvent).
+		//	Construct & insert staging event
+		LOCAL stagingEvent IS LEXICON(
+			"time", stageActivationTime,
+			"type", "_upfgstage",
+			"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
+			"message", vehicleIterator:VALUE["name"]
+		).
+		insertEvent(stagingEvent).
+		//	Compute next stage time
+		SET stageActivationTime TO stageActivationTime + getStageDelays(vehicleIterator:VALUE) + vehicleIterator:VALUE["maxT"].
+	}
+}
+
+//	Insert an event into the sequence by time order
+FUNCTION insertEvent {
+	DECLARE PARAMETER event.
+	LOCAL eventTime IS event["time"].
+	//	Go over the list to find the index of insertion...
+	LOCAL index IS 0.
+	FOR this IN sequence {
+		IF eventTime < this["time"] {
+			//	This will cause insertion of the new item AFTER any other item with exact same timing
+			BREAK.
+		}
+		SET index TO index + 1.
+	}
+	//	...and insert there.
+	sequence:INSERT(index, event).
 }

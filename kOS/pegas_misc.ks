@@ -164,8 +164,10 @@ FUNCTION refreshUI {
 		SET stageName TO vehicle[upfgStage]["name"].
 		SET stageType TO vehicle[upfgStage]["virtualStageType"].
 		SET currentVelocity TO SHIP:VELOCITY:ORBIT:MAG.
-		//	Time until the stage burns out (and, potentially, the next one's ignition sequence starts)
-		SET stageTgo TO nextStageTime - currentTime:SECONDS.
+		//	Time until the stage burns out (accurate)
+		LOCAL massFlow IS getThrust(vehicle[upfgStage]["engines"])[1].
+		LOCAL fuelMass IS SHIP:MASS*1000 - vehicle[upfgStage]["massDry"].
+		SET stageTgo TO fuelMass / massFlow. // this is wrong for some reason
 		//	Print convergence flag
 		IF stagingInProgress {
 			SET stageName TO "".
