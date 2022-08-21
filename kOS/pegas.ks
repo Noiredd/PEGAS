@@ -20,8 +20,8 @@ RUN pegas_addons.
 SET CONFIG:IPU TO kOS_IPU.
 
 //	Initialize global flags and constants
-GLOBAL upfgStage IS -1.				//	Seems wrong (we use "vehicle[upfgStage]") but first run of stageEventHandler increments this automatically
-GLOBAL stageEventFlag IS FALSE.
+GLOBAL upfgStage IS -1.				//	System initializes at passive guidance
+GLOBAL stageEndTime IS TIME.		//	For Tgo calculation during active guidance (global time)
 GLOBAL userEventPointer IS -1.		//	Index of the last executed userEvent (-1 means none yet)
 GLOBAL commsEventFlag IS FALSE.
 GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
