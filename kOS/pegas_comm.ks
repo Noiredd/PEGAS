@@ -1,14 +1,11 @@
 //	Communication system functions
 
-//	Setup a trigger listening for mesages from other CPUs
-FUNCTION setComms {
-	WHEN NOT CORE:MESSAGES:EMPTY THEN {
-		SET commsEventFlag TO TRUE.
-	}
-}
-
 //	Handles communication with other CPUs
-FUNCTION commsEventHandler {
+FUNCTION commsHandler {
+	//	Only run if the message queue is not empty
+	IF CORE:MESSAGES:EMPTY {
+		RETURN.
+	}
 	//	Get the oldest message in the queue but don't delete it yet
 	LOCAL message IS CORE:MESSAGES:PEEK:CONTENT.
 	//	Create a response lexicon to send back
@@ -94,17 +91,13 @@ FUNCTION commsEventHandler {
 
 	//	After everything is done, remove the message from message queue
 	CORE:MESSAGES:POP.
-	//	Reset event flag
-	SET commsEventFlag TO FALSE.
-	//	Re-create the comms event trigger
-	setComms().
 }
 
 //	Make sure message is in the correct format
 FUNCTION verifyMessageFormat {
 	PARAMETER type.
 	PARAMETER data.
-	
+
 	//	Response is a lexicon by default. If we encounter any error, it will change type to a string,
 	//	and this is how we know that the format verification failed.
 	SET responseData TO LEXICON().
