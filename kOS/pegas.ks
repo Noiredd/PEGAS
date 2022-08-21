@@ -58,7 +58,6 @@ IF controls:HASKEY("initialRoll") {
 	SET steeringRoll TO controls["initialRoll"].
 }
 //	Set up the system for flight
-setUserEvents().		//	Initialize vehicle sequence
 setVehicle().			//	Complete vehicle definition (as given by user)
 setComms(). 			//	Setting up communications
 callHooks("init").		//	System initialized, run hooks
@@ -143,7 +142,6 @@ UNTIL ABORT {
 	callHooks("activePre").
 	//	Sequence handling
 	userEventHandler().
-	IF  stageEventFlag = TRUE {  stageEventHandler(). }
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Update UPFG target and vehicle state
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
