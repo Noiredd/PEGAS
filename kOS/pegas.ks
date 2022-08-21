@@ -10,6 +10,7 @@ IF cserVersion = "new" {
 } ELSE {
 	RUN pegas_cser.
 }
+RUN pegas_events.
 RUN pegas_upfg.
 RUN pegas_util.
 RUN pegas_misc.
@@ -22,7 +23,7 @@ SET CONFIG:IPU TO kOS_IPU.
 //	Initialize global flags and constants
 GLOBAL upfgStage IS -1.				//	System initializes at passive guidance
 GLOBAL stageEndTime IS TIME.		//	For Tgo calculation during active guidance (global time)
-GLOBAL userEventPointer IS -1.		//	Index of the last executed userEvent (-1 means none yet)
+GLOBAL eventPointer IS -1.			//	Index of the last executed event (-1 means none yet)
 GLOBAL commsEventFlag IS FALSE.
 GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
 GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see throttleControl() for details.
@@ -74,7 +75,7 @@ UNTIL ABORT {
 	//	User hooks
 	callHooks("passivePre").
 	//	Sequence handling
-	userEventHandler().
+	eventHandler().
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Control handling
 	IF ascentFlag = 0 {
@@ -140,8 +141,8 @@ callHooks("activeInit").
 UNTIL ABORT {
 	//	User hooks
 	callHooks("activePre").
-	//	Sequence handling
-	userEventHandler().
+	//	Event handling
+	eventHandler().
 	IF  commsEventFlag = TRUE {  commsEventHandler(). }
 	//	Update UPFG target and vehicle state
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
