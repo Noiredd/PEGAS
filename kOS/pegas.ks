@@ -24,7 +24,6 @@ SET CONFIG:IPU TO kOS_IPU.
 GLOBAL upfgStage IS -1.				//	System initializes at passive guidance
 GLOBAL stageEndTime IS TIME.		//	For Tgo calculation during active guidance (global time)
 GLOBAL eventPointer IS -1.			//	Index of the last executed event (-1 means none yet)
-GLOBAL commsEventFlag IS FALSE.
 GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
 GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see throttleControl() for details.
 GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR).
@@ -60,7 +59,6 @@ IF controls:HASKEY("initialRoll") {
 }
 //	Set up the system for flight
 setVehicle().			//	Complete vehicle definition (as given by user)
-setComms(). 			//	Setting up communications
 callHooks("init").		//	System initialized, run hooks
 
 
@@ -74,9 +72,10 @@ SET ascentFlag TO 0.	//	0 = vertical, 1 = pitching over, 2 = notify about holdin
 UNTIL ABORT {
 	//	User hooks
 	callHooks("passivePre").
-	//	Sequence handling
+	//	Event handling
 	eventHandler().
-	IF  commsEventFlag = TRUE {  commsEventHandler(). }
+	//	Communication system handling
+	commsHandler().
 	//	Control handling
 	IF ascentFlag = 0 {
 		//	The vehicle is going straight up for given amount of time
@@ -143,7 +142,8 @@ UNTIL ABORT {
 	callHooks("activePre").
 	//	Event handling
 	eventHandler().
-	IF  commsEventFlag = TRUE {  commsEventHandler(). }
+	//	Communication system handling
+	commsHandler().
 	//	Update UPFG target and vehicle state
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
 	SET upfgState TO acquireState().
