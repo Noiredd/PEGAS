@@ -157,17 +157,24 @@ FUNCTION refreshUI {
 		SET stageType TO "passively guided".
 		SET upfgStatus TO "inactive".
 		// Time until activation of UPFG
-		SET stageTgo TO liftoffTime:SECONDS + controls["upfgActivation"] - upfgConvergenceDelay - currentTime:SECONDS.
+		SET stageTgo TO liftoffTime:SECONDS + controls["upfgActivation"] - currentTime:SECONDS.
 		SET currentVelocity TO SHIP:VELOCITY:SURFACE:MAG.
 	} ELSE {
 		SET isActive TO TRUE.
 		SET stageName TO vehicle[upfgStage]["name"].
 		SET stageType TO vehicle[upfgStage]["virtualStageType"].
 		SET currentVelocity TO SHIP:VELOCITY:ORBIT:MAG.
-		//	Time until the stage burns out (accurate)
-		LOCAL massFlow IS getThrust(vehicle[upfgStage]["engines"])[1].
-		LOCAL fuelMass IS SHIP:MASS*1000 - vehicle[upfgStage]["massDry"].
-		SET stageTgo TO fuelMass / massFlow. // this is wrong for some reason
+		//	Time until the stage burns out (basing on ignition time and cumulative burn time - can be off by 1-2s)
+		IF stageEndTime > currentTime {
+			//	No matter what state we're in, stagingInProgress or not (as long as it's active guidance),
+			//	stageEndTime is greater or equal to currentTime in all but one cases: when staging is indeed
+			//	in progress and the previous stage has already burnt out but the next one has not ignited yet.
+			//	In this situation stageEndTime has not been updated to the proper value yet, so the difference
+			//	does not make any sense.
+			SET stageTgo TO (stageEndTime - currentTime):SECONDS.
+		} ELSE {
+			SET stageTgo TO 0.
+		}
 		//	Print convergence flag
 		IF stagingInProgress {
 			SET stageName TO "".

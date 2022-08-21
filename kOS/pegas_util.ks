@@ -354,7 +354,7 @@ FUNCTION setupUPFG {
 
 //	Acquire vehicle position data
 FUNCTION acquireState {
-	//	Expects a global variable "liftoffTime" as scalar
+	//	Expects a global variable "liftoffTime" as timespan
 
 	RETURN LEXICON(
 		"time", TIME:SECONDS - liftoffTime:SECONDS,
@@ -668,7 +668,7 @@ FUNCTION userEventHandler {
 	//	Expects global variables:
 	//	"sequence" as list
 	//	"vehicle" as list
-	//	"liftoffTime" as scalar
+	//	"liftoffTime" as timespan
 	//	"steeringRoll" as scalar
 	//	"userEventPointer" as scalar
 	//	"upfgStage" as scalar
@@ -787,6 +787,7 @@ FUNCTION internalEvent_staging {
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
 				STAGE.
+				updateStageEndTime().
 				SET stagingInProgress TO FALSE.
 				pushUIMessage(stageName + " - ignition").
 			}
@@ -807,6 +808,7 @@ FUNCTION internalEvent_staging {
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
 				STAGE.
+				updateStageEndTime().
 				SET stagingInProgress TO FALSE.
 				pushUIMessage(stageName + " - ignition").
 			}
@@ -815,6 +817,7 @@ FUNCTION internalEvent_staging {
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
 				STAGE.
+				updateStageEndTime().
 				SET stagingInProgress TO FALSE.
 				pushUIMessage(stageName + " - ignition").
 			}
@@ -825,6 +828,8 @@ FUNCTION internalEvent_staging {
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
 		SET stagingInProgress TO FALSE.
+		//	If this was the sustainer stage activation event, we also have to:
+		updateStageEndTime().
 	}
 
 	//	Print messages for regular stages and constant-acceleration mode activation.
@@ -833,6 +838,24 @@ FUNCTION internalEvent_staging {
 	} ELSE IF vehicle[upfgStage]["mode"] = 2 {
 		pushUIMessage("Constant acceleration mode activated.").
 	}
+}
+
+FUNCTION updateStageEndTime {
+	LOCAL stageBurnTime IS 0.
+	//	Calculate the complete burn time of the entire physical stage, including the subsequent virtuals
+	LOCAL i IS 0.
+	FOR stg in vehicle {
+		//	Forward to the current stage
+		IF i < upfgStage {} ELSE {
+			SET stageBurnTime TO stageBurnTime + stg["maxT"].
+			IF NOT stg["followedByVirtual"] {
+				BREAK.
+			}
+		}
+		SET i TO i + 1.
+	}
+	//	Since this stage has been activated just now, this is when it will burn out:
+	SET stageEndTime TO TIME:SECONDS + stageBurnTime.
 }
 
 //	THROTTLE AND STEERING CONTROLS
