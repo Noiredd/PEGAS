@@ -438,6 +438,7 @@ FUNCTION setVehicle {
 		v:ADD("followedByVirtual", FALSE).
 		v:ADD("isVirtualStage", FALSE).
 		v:ADD("virtualStageType", "regular").
+		v:ADD("isSustainer", FALSE).	//	Only for display purposes: see refreshUI, initializeVehicleForUPFG
 		//	Increment loop counter
 		SET i TO i+1.
 	}
@@ -527,6 +528,7 @@ FUNCTION initializeVehicleForUPFG {
 		SET vehicle[0]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*upfgConvergenceDelay.
 		SET vehicle[0]["massFuel"]  TO vehicle[0]["massTotal"] - vehicle[0]["massDry"].
 		SET vehicle[0]["maxT"] TO vehicle[0]["massFuel"] / combinedEngines[1].
+		SET vehicle[0]["isSustainer"] TO TRUE.
 	}
 
 	//	Detect vehicle-modifying events and create virtual stages for them.
@@ -569,6 +571,7 @@ FUNCTION initializeVehicleForUPFG {
 			//	Mark the new stage as a virtual one and label it
 			SET afterStage["isVirtualStage"] TO TRUE.
 			SET afterStage["virtualStageType"] TO "virtual (post-jettison)".
+			SET afterStage["isSustainer"] TO FALSE.
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Finally, update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
@@ -610,6 +613,7 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["engines"] TO remainingEngines.
 			SET afterStage["isVirtualStage"] TO TRUE.
 			SET afterStage["virtualStageType"] TO "virtual (engine-off)".
+			SET afterStage["isSustainer"] TO FALSE.
 			vehicle:INSERT(eventStage + 1, afterStage).
 			//	Update the original stage
 			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
@@ -644,6 +648,7 @@ FUNCTION initializeVehicleForUPFG {
 				//	Insert it into the list
 				SET gLimStage["isVirtualStage"] TO TRUE.
 				SET gLimStage["virtualStageType"] TO "virtual (const-acc)".
+				SET gLimStage["isSustainer"] TO FALSE.
 				vehicle:INSERT(i + 1, gLimStage).
 				//	Adjust the current stage's burn time
 				SET vehicle[i]["maxT"] TO accLimTime.
@@ -657,7 +662,10 @@ FUNCTION initializeVehicleForUPFG {
 	}
 
 	spawnStagingEvents().
-	SET upfgStage TO 0.	//	The vehicle is ready so we can start the actual preconvergence for the first active stage
+	//	The vehicle is ready so we can start the actual preconvergence for the first active stage
+	SET upfgStage TO 0.
+	SET stagingInProgress TO TRUE.
+	SET prestageHold TO TRUE.
 }
 
 //	Utility to keep track of actively guided stage burnouts
@@ -698,11 +706,37 @@ FUNCTION minAoASteering {
 	RETURN aimAndRoll(HEADING(mission["launchAzimuth"], surfVelAngle):VECTOR, desiredRoll).
 }
 
-//	Intelligent wrapper around UPFG that controls steering vector.
+//	Intelligent wrapper around UPFG that controls the steering vector.
 FUNCTION upfgSteeringControl {
-	//	TODO: update docs
-	//	However, it pays attention to UPFG convergence and proceeding staging, ensuring that the vehicle will not
-	//	rotate during separation nor will it rotate to an oscillating, unconverged solution.
+	//	This function controls the entire process of active guidance by handling three tasks:
+	//	* calling UPFG,
+	//	* checking whether guidance has converged,
+	//	* checking vehicle status to engage or disengage steering.
+	//	Convergence check is necessary to ensure the vehicle does not rotate towards an incomplete, possibly
+	//	oscillating solution. Details as described below, but the status handling part needs some explanation.
+	//	This function can be called in three different situations: primarily of course in the nominal part of
+	//	the flight, where an actively guided stage is being actively guided. But two edge cases need to be
+	//	considered: during the final portion of the passive guidance mode, and between two actively guided
+	//	stages. In those cases UPFG is being pre-converged, that is: guidance is being calculated for the stage
+	//	that is *about to* be activated. The easiest way to understand the logic is by understanding the flags:
+	//	- activeGuidanceMode: set by a dedicated event upon activation of the first actively guided stage
+	//	- stagingInProgress: set by internalEvent_preStage, means that the current *physical* stage is about to
+	//	  be spent OR that the staging procedure for the subsequent stage is in progress; in either case
+	//	  upfgState has already been incremented and we're preconverging guidance for the next one;
+	//	  this flag is cleared when the proper stage ignites
+	//	- prestageHold: set by internalEvent_preStage and cleared by internalEvent_staging, means that the
+	//	  current physical stage is about to be spent but the staging procedure has not yet started; this flag
+	//	  is mostly used for status display
+	//	- upfgConverged: UPFG has achieved a stable guidance
+	//	- upfgEngaged: UPFG has converged and all vehicle status flags permit engaging the guidance; this flag
+	//	  can be understood as "nominal active flight mode" and is only set or cleared in this function
+	//	Final words regarding the upfgStage variable: this is the index of the "currently guided stage", i.e.
+	//	the one for which UPFG is calculating the solution currently. This can mean the "currently flying
+	//	stage" if the vehicle is in the nominal flight, but it can also mean the "soon-to-be activated stage"
+	//	if the vehicle is about to transition between stages and guidance has to be preconverged for the
+	//	subsequent stage. Consult events module for details, particularly spawnStagingEvents and the internal
+	//	event handlers.
+
 	FUNCTION resetUPFG {
 		//	Reset internal state of the guidance algorithm. Put here as a precaution from early debugging days,
 		//	should not be ever called in normal operation (but if it gets called, it's likely to fix UPFG going
@@ -720,7 +754,9 @@ FUNCTION upfgSteeringControl {
 	}
 
 	//	Expects global variables:
+	//	"activeGuidanceMode" as bool
 	//	"upfgConverged" as bool
+	//	"upfgEngaged" as bool
 	//	"stagingInProgress" as bool
 	//	"steeringVector" as vector
 	//	"upfgConvergenceCriterion" as scalar
@@ -787,14 +823,21 @@ FUNCTION upfgSteeringControl {
 		usc_convergeFlags:CLEAR().	//	No need to gather any more flags and make the list grow indefinitely
 	}
 	//	Check if we can steer
-	LOCAL isItUpfgActivationTime IS TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"].
-	IF upfgConverged AND NOT stagingInProgress AND isItUpfgActivationTime {
-		SET steeringVector TO aimAndRoll(vecYZ(upfgOutput[1]["vector"]), steeringRoll).
-		SET usc_lastGoodVector TO upfgOutput[1]["vector"].
-	} ELSE IF NOT isItUpfgActivationTime {
-		//	Remain in the min-AoA mode if this is the first run of UPFG
+	SET upfgEngaged TO FALSE.	//	If everything is good, it will be overridden right away
+	IF activeGuidanceMode {
+		IF stagingInProgress {
+			//	Do nothing, maintain constant attidude (the last good steering vector)
+		}
+		ELSE IF upfgConverged {
+			//	Only now we're good to go
+			SET steeringVector TO aimAndRoll(vecYZ(upfgOutput[1]["vector"]), steeringRoll).
+			SET usc_lastGoodVector TO upfgOutput[1]["vector"].
+			SET upfgEngaged TO TRUE.
+		}
+	} ELSE {
+		//	Remain in the min-AoA mode if we're in the first stage preconvergence mode
 		SET steeringVector TO minAoASteering(steeringRoll).
-	}	//	Otherwise we leave the steering vector untouched to maintain constant attitude
+	}
 	RETURN upfgOutput[0].
 }
 
@@ -803,11 +846,20 @@ FUNCTION throttleControl {
 	//	Expects global variables "vehicle" as list, "upfgStage", "throttleSetting" and "throttleDisplay" as scalars and "stagingInProgress" as bool.
 
 	//	If we're guiding a stage nominally, it's simple. But if the stage is about to change into the next one,
-	//	value of "upfgStage" is already incremented. In this case we shouldn't use the next stage values (this
-	//	would ruin constant-acceleration stages).
+	//	value of "upfgStage" is already incremented. This is not a problem in itself, as long as we're not flying
+	//	a constant acceleration phase - in this case the throttle setting needs to be calculated not for the
+	//	current stage (as in: upfgStage), which is in preconvergence mode, but for the previous one.
 	LOCAL whichStage IS upfgStage.
 	IF stagingInProgress {
 		SET whichStage TO upfgStage - 1.
+		IF whichStage < 0 {
+			//	If this is the first actively guided stage, none of the below is of any relevance.
+			//	We don't have anything to shutdown, we can't possibly be in a constant acceleration mode.
+			RETURN.
+			//	The only problem is we might want to set the throttle to the stage's default setting. For this
+			//	however there's a TODO to refactor this function to only handle mode 2 stages, and ALL throttle
+			//	settings be handled AT IGNITION.
+		}
 		IF vehicle[whichStage]["shutdownRequired"] { RETURN. }
 	}
 
