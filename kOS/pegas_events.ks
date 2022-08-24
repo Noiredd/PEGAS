@@ -83,8 +83,7 @@ FUNCTION spawnStagingEvents {
 	LOCAL stagingEvent IS LEXICON(
 		"time", stageActivationTime,
 		"type", "_activeon",
-		"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
-		"message", "active guidance on" // todo: clarify all messages related to staging and virtual stages
+		"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
 	).
 	insertEvent(stagingEvent).
 	//	Compute burnout time for this stage and add to sAT (this involves activation time and burn time)
@@ -190,6 +189,7 @@ FUNCTION eventHandler {
 //	Handle transition to active guidance mode
 FUNCTION internalEvent_activeModeOn {
 	SET activeGuidanceMode TO TRUE.
+	pushUIMessage("UPFG activated!").
 }
 
 //	Handle the pre-staging event
