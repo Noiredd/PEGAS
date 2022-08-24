@@ -132,7 +132,7 @@ FUNCTION missionSetup {
 		LOCAL currentNode IS nodeVector(mission["inclination"], mission["direction"]).
 		LOCAL currentLan IS VANG(currentNode, SOLARPRIMEVECTOR).
 		IF VDOT(V(0,1,0), VCRS(currentNode, SOLARPRIMEVECTOR)) < 0 { SET currentLan TO 360 - currentLan. }
-		SET mission["LAN"] TO currentLan + (controls["launchTimeAdvance"] + 30)/SHIP:ORBIT:BODY:ROTATIONPERIOD*360.
+		SET mission["LAN"] TO currentLan + (controls["launchTimeAdvance"] + 32)/SHIP:ORBIT:BODY:ROTATIONPERIOD*360.
 	}
 }
 
