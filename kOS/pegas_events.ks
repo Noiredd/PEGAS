@@ -19,6 +19,45 @@ FUNCTION insertEvent {
 	sequence:INSERT(index, event).
 }
 
+//	Create countdown print events
+FUNCTION spawnCountdownEvents {
+	//	Generates print events for a standard countdown sequence.
+	//	Expects global variables:
+	//	"liftoffTime" as scalar
+	//	"sequence" as list
+
+	FUNCTION makeEvent {
+		DECLARE PARAMETER timeAfterLiftoff.	//	Expects a scalar
+		DECLARE PARAMETER message.			//	Expects a string
+
+		RETURN LEXICON(
+			"time", timeAfterLiftoff,
+			"type", "print",
+			"message", message,
+			"isVirtual", TRUE
+		).
+	}
+
+	LOCAL timeToLaunch IS liftoffTime:SECONDS - TIME:SECONDS.
+	IF timeToLaunch > 18000 {insertEvent(makeEvent(-18000, "5 hours to launch")).}
+	IF timeToLaunch > 3600  {insertEvent(makeEvent(-3600, "1 hour to launch")).}
+	IF timeToLaunch > 1800  {insertEvent(makeEvent(-1800, "30 minutes to launch")).}
+	IF timeToLaunch > 600   {insertEvent(makeEvent(-600, "10 minutes to launch")).}
+	IF timeToLaunch > 300   {insertEvent(makeEvent(-300, "5 minutes to launch")).}
+	IF timeToLaunch > 60    {insertEvent(makeEvent(-60, "1 minute to launch")).}
+	IF timeToLaunch > 30	{insertEvent(makeEvent(-30, "30 seconds to launch")).}
+	insertEvent(makeEvent(-10, "10 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-9, "9 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-8, "8 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-7, "7 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-6, "6 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-5, "5 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-4, "4 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-3, "3 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-2, "2 SECONDS TO LAUNCH")).
+	insertEvent(makeEvent(-1, "1 SECONDS TO LAUNCH")).
+}
+
 //	Create sequence entries for staging events
 FUNCTION spawnStagingEvents {
 	//	For each active stage we have to schedule the preStage event and the staging event - except the FIRST ONE which is already

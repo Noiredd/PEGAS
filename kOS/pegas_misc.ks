@@ -110,7 +110,7 @@ FUNCTION timePrint {
 		SET deltaT TO currentTime - liftoffTime.
 	} ELSE {
 		SET sign TO "-".
-		SET deltaT TO liftoffTime - currentTime.
+		SET deltaT TO liftoffTime - currentTime + 1.
 	}
 
 	textPrint(sign, 6, 3, 4, "L").

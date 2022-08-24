@@ -62,6 +62,7 @@ IF controls:HASKEY("initialRoll") {
 }
 //	Set up the system for flight
 setVehicle().			//	Complete vehicle definition (as given by user)
+spawnCountdownEvents().
 callHooks("init").		//	System initialized, run hooks
 
 
