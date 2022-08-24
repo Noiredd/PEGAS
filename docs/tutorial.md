@@ -57,7 +57,7 @@ When UPFG kicks in, it tries to correct for that drift by aiming more towards we
 Sometimes it can recover from that, other times not - but the more *late* the launch was, the more performance degradation this causes; eventually, vehicle might not have enough fuel to make it to orbit.
 Similar situation occurs if the launch was timed too early - UPFG points the vehicle more to the east, to make it *catch up* with the target plane, wasting fuel in the same manner.  
 This is a difficult parameter to get right, but fortunately as long as you're in a reasonable range, it only hinders performance (instead of causing critical failures).
-Experimentally, I found times of 120-150 seconds to work good.
+Experimentally, I found that times on the order of 120-150 seconds work well.
 Vehicles that reach orbit faster will need less advance time, while those long burning upper stages might use more.
 
 ##### verticalAscentTime and pitchOverAngle
@@ -93,7 +93,7 @@ Unpredictable separation that disrupts your vehicle from flying straight can eve
 This is when the atmospheric ascent ends, and active guidance begins.
 You want to be outside the atmosphere when that happens, 40-50 km is good.
 From this moment the UPFG is in control over your vehicle, and if you're too low and it decides to pitch up too much, you might experience your vehicle tumbling out of control for a moment, or even rapidly disassembling.
-It's not possible to provide example numbers, as this variable strongly depends on your vehicle - see the [boot files](kOS/boot).
+It's difficult to provide example numbers, as this variable strongly depends on your vehicle - see the [boot files](kOS/boot).
 
 ##### Rolling
 Roll control in PEGAS is achieved using two mechanisms.
@@ -173,11 +173,12 @@ This is how you control timed events, like:
 * separation of the strap-on boosters,
 * jettisoning the payload fairing,
 * rolling to given attitude,
-* throttle (only in the atmospheric ascent phase)\*,
-* shutdown of a specific engine,
+* throttle (only in the atmospheric ascent phase),
+* shutdown of a specific engine (by tag),
 * execution of custom functions (kOS [delegates](http://ksp-kos.github.io/KOS_DOC/language/delegates.html)).
 
-See the reference to all possible events and how to use them.  
+See the [reference](reference.md#sequence) for a list all possible events and how to use them.
+
 As you see, both `sequence` and `vehicle` can cause a staging (equivalent to hitting spacebar).
 The main difference between `vehicle` staging and `sequence`, is that vehicle staging events are bound to the *physical parameters of the vehicle* (how much fuel does a stage have, how fast does it consume it => when does the next stage activate), while `sequence` events are bound directly to time (counted from lift-off).
 For this reason, you must pay attention that your timed events be properly aligned in the in-game staging sequence, with respect to the staging events.
@@ -187,10 +188,8 @@ Recommended approach is to avoid scheduling other staging events near the main v
 One unique thing about sequence is that it controls the lift-off too.
 You **need to** have an entry at time zero that releases the launch clamps.
 
-\* - this hasn't yet been tested.
-
 ##### Note about delegate events
-If like to organize your code into boot files with vehicle configs and mission scripts with target parameters, you will run into a problem that's well explained in [this section](https://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#attribute:KOSDELEGATE:ISDEAD) of kOS documentation.
+If you like to organize your code into boot files with vehicle configs and mission scripts with target parameters, you will run into a problem that's well explained in [this section](https://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#attribute:KOSDELEGATE:ISDEAD) of kOS documentation.
 In short, a delegate only lives as long as the script that it comes from.
 After you've dropped out of that script, the delegate is "dead" (`KOSDelegate:ISDEAD`) and any attempt to call it will **error out** the kOS interpreter.
 This means you should define all delegates you want to execute via `sequence` in the same script that starts PEGAS (`RUN pegas.`).

@@ -37,18 +37,28 @@ Key              | Type/units | Opt/req   | Meaning
 name             | `string`   | required  | Name of the stage that will be printed in the terminal
 massTotal        | kg         | optional\* | Total mass of the **entire vehicle** at the moment of ignition of this stage
 massFuel         | kg         | optional\* | Mass of the fuel in this stage at the moment of ignition
-massDry          | kg         | optional\* | `massTotal` - `massDry`
+massDry          | kg         | optional\* | `massTotal` - `massFuel`
 gLim             | G          | optional  | Acceleration limit to be imposed on this stage (requires throttling engines)
 minThrottle      | (0.0-1.0)  | optional\*\*| Minimum possible throttle of this stage's engines (for Realism Overhaul)
 throttle         | (0.0-1.0)  | optional  | Nominal throttle for this stage's engines (default = 1.0)
 shutdownRequired | `boolean`  | optional  | Do this stage's engines need explicit shutdown upon activation of the next stage?\*\*\*
 engines          | `list`     | required  | Parameters of each engine in the stage (details further)
 staging          | `lexicon`  | required  | Description of method of activation of this stage (details further)
+mode             | `int`      | reserved  | (Reserved for internal usage)
+maxT             | s          | reserved  | (Reserved for internal usage)
+isSustainer      | `boolean`  | reserved  | (Reserved for internal usage)
+followedByVirtual| `boolean`  | reserved  | (Reserved for internal usage)
+isVirtualStage   | `boolean`  | reserved  | (Reserved for internal usage)
+virtualStageType | `string`   | reserved  | (Reserved for internal usage)
+
+As you can see, certain keys are reserved and you should in no circumstances define them.
+PEGAS creates those keys for its own purposes - read `initializeVehicleForUPFG` ([`pegas_util.ks`](../kOS/pegas_util.ks)) for details.
 
 \* - of the three fields, `massTotal`, `massFuel` and `massDry`, one can be skipped, but **two** have to be given.  
 \*\* - required if `gLim` is given.  
 \*\*\* - in normal usage this has no effect, since PEGAS schedules staging exactly in the moment the stage runs out of fuel.
-The purpose of this option was to enable controlling vehicles with reusable booster, which can be configured to not burn all of its fuel (e.g. by having some of the fuel counted as its dry mass).
+The purpose of this option was to enable controlling vehicles with areusable booster,
+which can be configured to not burn all of its fuel (e.g. by having some of the fuel counted as its dry mass).
 PEGAS by default would not shut its engines, potentially causing a collision during separation.
 Setting this flag to `TRUE` overrides this behavior, causing PEGAS to shutdown the booster's engines before staging.
 
@@ -109,6 +119,9 @@ massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the
 angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
 engineTag| `string`   | **Used only if** `type` **is** `"shutdown"`. Engines with this tag will be shut down. **DO NOT** assign this tag to any non-engine part!
 function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#structure:KOSDELEGATE) | **Used only if** `type` **is** `"delegate"`. Function to be called. Shall expect no arguments.
+isVirtual| `boolean`  | (Reserved for internal usage)
+
+Unless you're sure you know what you're doing, do not define the `isVirtual` key for your events.
 
 \* - for events of type `throttle`, `shutdown` and `roll`, the message will be automatically generated if you don't include any.
 
@@ -123,12 +136,42 @@ throttle | t       | Sets the throttle to given value (`throttle` key) - only wo
 shutdown | u       | Shuts down all engines with a specific name tag. This requires not only tagging a part in the editor, but also the engine in `vehicle` config (see above)!
 roll     | r       | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
 delegate | d       | Calls a function passed as a [kOS delegate](http://ksp-kos.github.io/KOS_DOC/language/delegates.html).
+_upfgstage| N/A    | (Reserved for internal usage)
+_prestage| N/A     | (Reserved for internal usage)
+_activeon| N/A     | (Reserved for internal usage)
+
+Never create events of a reserved type!
 
 \* - can be used instead of the full event type name.
 
-Some of the events listed here have the power to modify the `vehicle` definition, examples include jettison and shutdown.
-For a basic explanation how that works and why it's relevant, [read this](magic.md).
+##### Note on vehicle-altering events
+Events of type `jettison` and `shutdown` have the power to **modify** the `vehicle` definition.
+This can be very important in the guided portion of the flight -
+suppose you drop a 2-ton payload fairing when flying a 50-ton second stage,
+or shutdown one of three booster engines near the end of its burn.
+UPFG needs to know the accurate state of the vehicle's performance and mass,
+so when either of those two events are encountered, PEGAS will create so-called "virtual stages" to account for the state change.
+For a basic explanation how that mechanism works, [read this](magic.md).
 For an in-depth look, analyze the function `initializeVehicleForUPFG` in [`pegas_util.ks`](../kOS/pegas_util.ks).
+(Additionally, constant-acceleration stages, i.e. ones with `gLim` key defined, will also be handled by insertion a virtual stage.)
+
+In any case, be aware of one fact: every time you use `gLim` or `jettison` or `shutdown`,
+you add 1 virtual stage to your vehicle and further complicate the event sequence.
+Using too many virtual stages might possibly result in issues - especially when they end up occurring too close together\*.
+It is recommended to limit vehicle acceleration via either `shutdown` or `gLim`, but not both;
+similarly, it is recommended to put jettison events happening in rapid succession in a single one wherever possible,
+or changing them into a `jettison`-`stage` combo (with all mass lost put into the jettison, to create only a single virtual stage).
+For example, when flying an Atlas V, you want to first drop the payload fairing, and a few seconds later the forward load reactor.
+Instead of two `jettison` events with individual component masses in each separate event,
+you could simplify by putting one `jettison` to drop the fairing _but already subtract the load reactor's mass too_,
+and then a `stage` to only drop the load reactor, its mass already being accounted for.
+This results in a single additional virtual stage instead of two.
+
+\* - I've personally tested (with some extra debugging and trial-and-error)
+vehicles with 2 stages that expanded into 6 due to insertion of 4 virtual stages.
+However, I observed that more virtual stages caused the stage burn time calculation to become less precise;
+Sometimes this error can be tolerated, but the larger it is, the larger the risk of encountering problems at staging
+(e.g. erroneously attempting to separate while the previous stage hasn't finished burning).
 
 ### Mission
 `GLOBAL mission IS LEXICON().`
