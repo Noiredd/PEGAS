@@ -238,7 +238,7 @@ FUNCTION internalEvent_staging {
 			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 		} ELSE {
-			pushUIMessage( "Unknown event type (" + event["ullage"] + ")!", 5, PRIORITY_HIGH ).
+			pushUIMessage( "Unknown ullage mode (" + event["ullage"] + ")!", 5, PRIORITY_HIGH ).
 		}
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
@@ -248,7 +248,7 @@ FUNCTION internalEvent_staging {
 
 	//	Print messages for regular stages and constant-acceleration mode activation.
 	IF NOT vehicle[upfgStage]["isVirtualStage"] {
-		pushUIMessage(stageName + " - activation").
+		pushUIMessage("Staging sequence commencing...").
 	} ELSE IF vehicle[upfgStage]["mode"] = 2 {
 		pushUIMessage("Constant acceleration mode activated.").
 	}
@@ -289,7 +289,7 @@ FUNCTION userEvent_shutdown {
 		engine:SHUTDOWN().
 	}
 	IF NOT event:HASKEY("message") {
-		event:ADD("message", "Shutting down engine(s) tagged '" + event["engineTag"] + "'.").
+		event:ADD("message", "Shutting down engine(s): '" + event["engineTag"] + "'.").
 	}
 }
 
@@ -299,7 +299,7 @@ FUNCTION userEvent_roll {
 
 	SET steeringRoll TO event["angle"].
 	IF NOT event:HASKEY("message") {
-		event:ADD("message", "Rolling to " + steeringRoll + " degrees").
+		event:ADD("message", "Rolling to " + steeringRoll + " degrees.").
 	}
 }
 
@@ -309,7 +309,7 @@ FUNCTION userEvent_delegate {
 
 	LOCAL fun IS event["function"].
 	IF fun:ISDEAD() {
-		pushUIMessage("DEAD DELEGATE - UNABLE TO CALL", 10, PRIORITY_CRITICAL).
+		pushUIMessage("DEAD DELEGATE - UNABLE TO CALL!", 10, PRIORITY_CRITICAL).
 	} ELSE {
 		fun:CALL().
 	}
