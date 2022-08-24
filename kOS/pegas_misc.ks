@@ -30,6 +30,7 @@ FUNCTION createUI {
 	PRINT "|-----------------------------------------|".
 	PRINT "| Stage:                                  |".	//	Vehicle info
 	PRINT "| Stage type:                             |".
+	PRINT "| Veh. status:                            |".
 	PRINT "| UPFG status:                            |".
 	PRINT "| Tgo(stage)   =      s    Tgo =      s   |".
 	PRINT "| Throttle     =      %    Vgo =      m/s |".
@@ -124,14 +125,25 @@ FUNCTION timePrint {
 
 //	Just fill in the blanks, do not redraw the whole GUI.
 FUNCTION refreshUI {
-	//	Expects global variables "liftoffTime" as timespan, "throttleDisplay" as scalar, "controls", "mission", "upfgTarget" and "upfgInternal" as lexicon and "upfgConverged" as bool.
+	//	Expects global variables:
+	//	"liftoffTime" as timespan
+	//	"throttleDisplay" as scalar
+	//	"controls" as lexicon
+	//	"mission" as lexicon
+	//	"upfgTarget" as lexicon
+	//	"upfgInternal" as lexicon
+	//	"activeGuidanceMode" as bool
+	//	"upfgConverged" as bool
+	//	"upfgEngaged" as bool
+	//	"stagingInProgress" as bool
+	//	"prestageHold" as bool
 
 	//	Print and acquire current time
 	LOCAL currentTime IS timePrint().
 
 	//	Section offsets, for easier extendability
 	LOCAL vehicleInfoOffset IS 8.	//	Reads: vehicle info section starts at row 8
-	LOCAL orbitalInfoOffset IS vehicleInfoOffset + 8.
+	LOCAL orbitalInfoOffset IS vehicleInfoOffset + 9.
 	LOCAL currentOrbitOffset IS 15.	//	Horizontal offset for the current orbit info
 	LOCAL targetOrbitOffset IS 29.	//	Horizontal offset for the target orbit info
 	LOCAL messageBoxOffset IS orbitalInfoOffset + 9.
@@ -142,6 +154,8 @@ FUNCTION refreshUI {
 	LOCAL isActive IS FALSE.
 	LOCAL stageName IS "".
 	LOCAL stageType IS "".
+	LOCAL stageVirtual IS FALSE.
+	LOCAL vehicleStatus IS "".
 	LOCAL upfgStatus IS "".
 	LOCAL stageTgo IS 0.
 	LOCAL totalTgo IS 0.
@@ -155,6 +169,7 @@ FUNCTION refreshUI {
 		//	Passive guidance phase
 		SET stageName TO "".
 		SET stageType TO "passively guided".
+		SET vehicleStatus TO "nominal".
 		SET upfgStatus TO "inactive".
 		// Time until activation of UPFG
 		SET stageTgo TO liftoffTime:SECONDS + controls["upfgActivation"] - currentTime:SECONDS.
@@ -163,6 +178,8 @@ FUNCTION refreshUI {
 		SET isActive TO TRUE.
 		SET stageName TO vehicle[upfgStage]["name"].
 		SET stageType TO vehicle[upfgStage]["virtualStageType"].
+		SET stageVirtual TO vehicle[upfgStage]["isVirtualStage"].
+		SET stageSustainer TO vehicle[upfgStage]["isSustainer"].
 		SET currentVelocity TO SHIP:VELOCITY:ORBIT:MAG.
 		//	Time until the stage burns out (basing on ignition time and cumulative burn time - can be off by 1-2s)
 		IF stageEndTime > currentTime {
@@ -175,45 +192,53 @@ FUNCTION refreshUI {
 		} ELSE {
 			SET stageTgo TO 0.
 		}
-		//	Print convergence flag
+		//	Print vehicle status flag
 		IF stagingInProgress {
-			SET stageName TO "".
-			IF vehicle[upfgStage]["isVirtualStage"] {
-				SET upfgStatus TO "transition (virtual)".
-			} ELSE {
-				SET upfgStatus TO "STAGING".
+			IF stageVirtual {
+				//                    virtual (post-jettison)xxx
+				SET vehicleStatus TO "virtual stage transition".
 			}
+			ELSE IF stageSustainer {
+				SET vehicleStatus TO "sustainer - preconvergence".
+			}
+			ELSE {
+				SET vehicleStatus TO CHOOSE "preparing to stage" IF prestageHold ELSE "staging".
+			}
+		}
+		ELSE {
+			SET vehicleStatus TO "NOMINAL".
+		}
+		//	Print UPFG convergence flag
+		IF upfgConverged {
+			SET upfgStatus TO CHOOSE "ENGAGED" IF upfgEngaged ELSE "converged & waiting".
+			SET totalTgo TO upfgInternal["tgo"].
+			SET totalVgo TO upfgInternal["vgo"]:MAG.
 		} ELSE {
-			IF upfgConverged {
-				SET upfgStatus TO "CONVERGED".
-				SET totalTgo TO upfgInternal["tgo"].
-				SET totalVgo TO upfgInternal["vgo"]:MAG.
-			} ELSE {
-				SET upfgStatus TO "converging...".
-			}
+			SET upfgStatus TO "converging...".
 		}
 	}
 
 	//	Print physical information
 	textPrint(stageName, vehicleInfoOffset + 0, 9, 41).
-	textPrint(stageType, vehicleInfoOffset + 1, 14, 41).
-	textPrint(upfgStatus, vehicleInfoOffset + 2, 15, 41).
+	textPrint(stageType, vehicleInfoOffset + 1, 15, 41).
+	textPrint(vehicleStatus, vehicleInfoOffset + 2, 15, 41).
+	textPrint(upfgStatus, vehicleInfoOffset + 3, 15, 41).
 	IF isFlying {
 		//	Don't print time until next event while we're still on the ground
-		numberPrint(stageTgo, vehicleInfoOffset + 3, 17, 21, 0).
+		numberPrint(stageTgo, vehicleInfoOffset + 4, 17, 21, 0).
 	}
 	IF NOT isActive {
-		textPrint("N/A", vehicleInfoOffset + 3, 33, 37, "R").
 		textPrint("N/A", vehicleInfoOffset + 4, 33, 37, "R").
+		textPrint("N/A", vehicleInfoOffset + 5, 33, 37, "R").
 	} ELSE IF upfgConverged {
-		numberPrint(totalTgo, vehicleInfoOffset + 3, 33, 37, 0).
-		numberPrint(totalVgo, vehicleInfoOffset + 4, 33, 37, 0).
+		numberPrint(totalTgo, vehicleInfoOffset + 4, 33, 37, 0).
+		numberPrint(totalVgo, vehicleInfoOffset + 5, 33, 37, 0).
 	}
 	LOCAL throttle_ IS throttleDisplay.
 	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
-	numberPrint(100*throttle_, vehicleInfoOffset + 4, 17, 21, 0).
-	numberPrint(currentAcc, vehicleInfoOffset + 5, 17, 21).
-	numberPrint(currentAcc / CONSTANT:g0, vehicleInfoOffset + 5, 28, 32, 1).
+	numberPrint(100*throttle_, vehicleInfoOffset + 5, 17, 21, 0).
+	numberPrint(currentAcc, vehicleInfoOffset + 6, 17, 21).
+	numberPrint(currentAcc / CONSTANT:g0, vehicleInfoOffset + 6, 28, 32, 1).
 
 	//	Print current vehicle orbital info
 	numberPrint(SHIP:ALTITUDE/1000,			orbitalInfoOffset + 0, currentOrbitOffset, currentOrbitOffset + 7).

@@ -28,8 +28,11 @@ GLOBAL throttleSetting IS 1.		//	This is what actually controls the throttle,
 GLOBAL throttleDisplay IS 1.		//	and this is what to display on the GUI - see throttleControl() for details.
 GLOBAL steeringVector IS LOOKDIRUP(SHIP:FACING:FOREVECTOR, SHIP:FACING:TOPVECTOR).
 GLOBAL steeringRoll IS 0.
-GLOBAL upfgConverged IS FALSE.
-GLOBAL stagingInProgress IS FALSE.
+GLOBAL activeGuidanceMode IS FALSE.	//	Set to TRUE at UPFG activation time (as defined in controls)
+GLOBAL upfgConverged IS FALSE.		//	See upfgSteeringControl comments
+GLOBAL upfgEngaged IS FALSE.		//	See upfgSteeringControl comments
+GLOBAL stagingInProgress IS FALSE.	//	See upfgSteeringControl comments
+GLOBAL prestageHold IS FALSE.		//	See upfgSteeringControl comments
 
 //	Load user addons
 scanAddons().
@@ -150,7 +153,7 @@ UNTIL ABORT {
 	//	Iterate UPFG and preserve its state
 	SET upfgInternal TO upfgSteeringControl(vehicle, upfgStage, upfgTarget, upfgState, upfgInternal).
 	//	Manage throttle, with the exception of initial portion of guided flight (where we're technically still flying the first stage).
-	IF upfgStage >= 0 { throttleControl(). }
+	IF activeGuidanceMode { throttleControl(). }
 	//	Transition to the attitude hold mode for the final seconds of the flight
 	IF upfgConverged AND upfgInternal["tgo"] < upfgFinalizationTime { BREAK. }
 	//	UI

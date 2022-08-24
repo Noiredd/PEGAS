@@ -36,10 +36,17 @@ FUNCTION spawnStagingEvents {
 	LOCAL stagingEvent IS LEXICON(
 		"time", stageActivationTime,
 		"type", "_upfgstage",
+		"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
+	).
+	//	Insert it into sequence
+	insertEvent(stagingEvent).
+	//	But we also want to demark this exact moment as transition to active guidance mode
+	LOCAL stagingEvent IS LEXICON(
+		"time", stageActivationTime,
+		"type", "_activeon",
 		"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
 		"message", "active guidance on" // todo: clarify all messages related to staging and virtual stages
 	).
-	//	Insert it into sequence
 	insertEvent(stagingEvent).
 	//	Compute burnout time for this stage and add to sAT (this involves activation time and burn time)
 	SET stageActivationTime TO stageActivationTime + getStageDelays(vehicleIterator:VALUE) + vehicleIterator:VALUE["maxT"].
@@ -51,16 +58,14 @@ FUNCTION spawnStagingEvents {
 		LOCAL stagingEvent IS LEXICON(
 			"time", stageActivationTime - stagingTransitionTime,
 			"type", "_prestage",
-			"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
-			"message", vehicleIterator:VALUE["name"]
+			"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
 		).
 		insertEvent(stagingEvent).
 		//	Construct & insert staging event
 		LOCAL stagingEvent IS LEXICON(
 			"time", stageActivationTime,
 			"type", "_upfgstage",
-			"isVirtual", vehicleIterator:VALUE["isVirtualStage"],
-			"message", vehicleIterator:VALUE["name"]
+			"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
 		).
 		insertEvent(stagingEvent).
 		//	Compute next stage time
@@ -78,6 +83,7 @@ FUNCTION eventHandler {
 	//	"vehicle" as list
 	//	"liftoffTime" as timespan
 	//	"stagingInProgress" as bool
+	//	"prestageHold" as bool
 	//	"steeringRoll" as scalar
 	//	"throttleSetting" as scalar
 	//	"throttleDisplay" as scalar
@@ -114,6 +120,9 @@ FUNCTION eventHandler {
 	ELSE IF eType = "delegate" OR eType = "d" {
 		userEvent_delegate(event).
 	}
+	ELSE IF eType = "_activeon" {
+		internalEvent_activeModeOn().
+	}
 	ELSE IF eType = "_prestage" {
 		internalEvent_preStage().
 	}
@@ -139,12 +148,18 @@ FUNCTION eventHandler {
 
 //	EVENT HANDLING SUBROUTINES
 
+//	Handle transition to active guidance mode
+FUNCTION internalEvent_activeModeOn {
+	SET activeGuidanceMode TO TRUE.
+}
+
 //	Handle the pre-staging event
 FUNCTION internalEvent_preStage {
 	//	Switch to staging mode, increment the stage counter and force UPFG reconvergence.
 	//	Rationale is not changed: we want to maintain constant attitude while the current stage is still burning,
 	//	but at the same time start converging guidance for the subsequent stage.
 	SET stagingInProgress TO TRUE.
+	SET prestageHold TO TRUE.
 	SET upfgStage TO upfgStage + 1.
 	SET upfgConverged TO FALSE.
 	usc_convergeFlags:CLEAR().
@@ -156,6 +171,9 @@ FUNCTION internalEvent_staging {
 	//	Instead of breaking it down into multiple individual events (understood as sequence items), we use the
 	//	trigger mechanism to handle them. When staging occurs, several triggers are scheduled to handle every
 	//	single step of the procedure in a timely manner.
+	//	First, clear the flag informing of the previous stage end-of-burn attitude hold
+	SET prestageHold TO FALSE.
+	//	Now we can get to work
 	LOCAL currentTime IS TIME:SECONDS.
 	LOCAL event IS vehicle[upfgStage]["staging"].
 	LOCAL stageName IS vehicle[upfgStage]["name"].
@@ -225,7 +243,6 @@ FUNCTION internalEvent_staging {
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
 		SET stagingInProgress TO FALSE.
-		//	If this was the sustainer stage activation event, we also have to:
 		updateStageEndTime().
 	}
 
