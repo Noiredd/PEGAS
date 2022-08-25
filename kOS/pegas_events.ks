@@ -240,10 +240,7 @@ FUNCTION internalEvent_staging {
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
-				STAGE.
-				updateStageEndTime().
-				SET stagingInProgress TO FALSE.
-				pushUIMessage(stageName + " - ignition").
+				internalEvent_staging_activation().
 			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
 			GLOBAL ullageShutdownTime IS currentTime + eventDelay + event["postUllageBurn"].
@@ -261,19 +258,13 @@ FUNCTION internalEvent_staging {
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
-				STAGE.
-				updateStageEndTime().
-				SET stagingInProgress TO FALSE.
-				pushUIMessage(stageName + " - ignition").
+				internalEvent_staging_activation().
 			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
 		} ELSE IF event["ullage"] = "none" {
 			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
-				STAGE.
-				updateStageEndTime().
-				SET stagingInProgress TO FALSE.
-				pushUIMessage(stageName + " - ignition").
+				internalEvent_staging_activation().
 			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 		} ELSE {
@@ -281,8 +272,7 @@ FUNCTION internalEvent_staging {
 		}
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
-		SET stagingInProgress TO FALSE.
-		updateStageEndTime().
+		internalEvent_staging_activation(FALSE, FALSE).
 	}
 
 	//	Print messages for regular stages and constant-acceleration mode activation.
@@ -290,6 +280,35 @@ FUNCTION internalEvent_staging {
 		pushUIMessage("Staging sequence commencing...").
 	} ELSE IF vehicle[upfgStage]["mode"] = 2 {
 		pushUIMessage("Constant acceleration mode activated.").
+	}
+}
+
+//	Subroutine for the staging handler - logical stage activation
+FUNCTION internalEvent_staging_activation {
+	//	This handles the "start" of a stage - be it an individual physical stage with an engine to be ignited,
+	//	or a sustainer type stage that's already on.
+	//	Expects global variables:
+	//	"vehicle" as list
+	//	"upfgStage" as scalar
+	//	"stagingInProgress" as boolean
+	DECLARE PARAMETER needsIgnite IS TRUE.	//	Expects a boolean
+	DECLARE PARAMETER printMessage IS TRUE.	//	Expects a boolean
+
+	//	Set throttle once for the entire burn
+	LOCAL desiredThrottle IS vehicle[upfgStage]["throttle"].
+	LOCAL throttleLimit IS vehicle[upfgStage]["minThrottle"].
+	SET throttleSetting TO (desiredThrottle - throttleLimit) / (1 - throttleLimit).
+	SET throttleDisplay TO desiredThrottle.
+	//	Ignite if necessary
+	IF needsIgnite {
+		STAGE.
+	}
+	//	Technical stuff
+	updateStageEndTime().
+	SET stagingInProgress TO FALSE.
+	//	Print message if requested
+	IF printMessage {
+		pushUIMessage(vehicle[upfgStage]["name"] + " - ignition").
 	}
 }
 

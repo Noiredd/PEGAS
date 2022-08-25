@@ -843,32 +843,34 @@ FUNCTION upfgSteeringControl {
 
 //	Throttle controller
 FUNCTION throttleControl {
+	//	This handles the constant acceleration throttle control. For constant thrust stages, throttle is set
+	//	at stage activation time (see internalEvent_staging_activation).
 	//	Expects global variables "vehicle" as list, "upfgStage", "throttleSetting" and "throttleDisplay" as scalars and "stagingInProgress" as bool.
 
-	//	If we're guiding a stage nominally, it's simple. But if the stage is about to change into the next one,
-	//	value of "upfgStage" is already incremented. This is not a problem in itself, as long as we're not flying
-	//	a constant acceleration phase - in this case the throttle setting needs to be calculated not for the
-	//	current stage (as in: upfgStage), which is in preconvergence mode, but for the previous one.
+	//	If we're guiding a stage nominally, it's simple. But if we're in between stages, specifically in the
+	//	preconvergence mode, we need to look at the *previous* stage data in order to calculate throttle, not
+	//	the current (in the upfgStage sense) one.
+	//	Extra care must be taken in two situations: if this is the first active stage (avoid a negative index
+	//	access), and if we're past the stage burnout time - it is possible that the staging handler purposely
+	//	shut down its engines by throttling to 0, so we must not reignite them.
 	LOCAL whichStage IS upfgStage.
 	IF stagingInProgress {
-		SET whichStage TO upfgStage - 1.
-		IF whichStage < 0 {
-			//	If this is the first actively guided stage, none of the below is of any relevance.
-			//	We don't have anything to shutdown, we can't possibly be in a constant acceleration mode.
+		IF whichStage = 0 {
+			//	The first actively guided stage cannot possibly be in constant acceleration - exit early
 			RETURN.
-			//	The only problem is we might want to set the throttle to the stage's default setting. For this
-			//	however there's a TODO to refactor this function to only handle mode 2 stages, and ALL throttle
-			//	settings be handled AT IGNITION.
 		}
-		IF vehicle[whichStage]["shutdownRequired"] { RETURN. }
+		IF NOT prestageHold {
+			//	We are no longer at the end of previous stage, so no need to control throttle - exit early
+			RETURN.
+		}
+		//	Otherwise, this might possibly be a constant acceleration stage near engine cut-off,
+		//	but upfgStage has already been incremented:
+		SET whichStage TO upfgStage - 1.
 	}
 
-	IF vehicle[whichStage]["mode"] = 1 {
-		SET throttleSetting TO vehicle[whichStage]["throttle"].
-		SET throttleDisplay TO throttleSetting.
-		// TODO shouldn't we consider minThrottle here as well?
-	}
-	ELSE IF vehicle[whichStage]["mode"] = 2 {
+	//	No matter which way have we arrived at here (stagingInProgress or not), check for a constant
+	//	acceleration stage and handle it accordingly.
+	IF vehicle[whichStage]["mode"] = 2 {
 		LOCAL nominalThrust_ IS getThrust(vehicle[whichStage]["engines"]).
 		LOCAL nominalThrust IS nominalThrust_[0].
 		LOCAL throttleLimit IS vehicle[whichStage]["minThrottle"].
@@ -881,5 +883,4 @@ FUNCTION throttleControl {
 		//	For the GUI printout however, we want to see the final throttle value.
 		SET throttleDisplay TO desiredThrottle.
 	}
-	ELSE { pushUIMessage( "throttleControl stage error (stage=" + upfgStage + "(" + whichStage + "), mode=" + vehicle[whichStage]["mode"] + ")!", 5, PRIORITY_CRITICAL ). }.
 }
