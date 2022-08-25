@@ -119,6 +119,7 @@ massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the
 angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
 engineTag| `string`   | **Used only if** `type` **is** `"shutdown"`. Engines with this tag will be shut down. **DO NOT** assign this tag to any non-engine part!
 function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#structure:KOSDELEGATE) | **Used only if** `type` **is** `"delegate"`. Function to be called. Shall expect no arguments.
+action   | `string`   | **Used only if** `type` **is** `"action"`. Name of the action group to toggle (case insensitive).
 isVirtual| `boolean`  | (Reserved for internal usage)
 
 Unless you're sure you know what you're doing, do not define the `isVirtual` key for your events.
@@ -136,6 +137,7 @@ throttle | t       | Sets the throttle to given value (`throttle` key) - only wo
 shutdown | u       | Shuts down all engines with a specific name tag. This requires not only tagging a part in the editor, but also the engine in `vehicle` config (see above)!
 roll     | r       | Changes the roll component of vehicle attitude (pitch and yaw are dynamically calculated).
 delegate | d       | Calls a function passed as a [kOS delegate](http://ksp-kos.github.io/KOS_DOC/language/delegates.html).
+action   | a       | Toggles an action group. Supported: RCS, LIGHTS, BRAKES, GEAR, AG1...AG10.
 _upfgstage| N/A    | (Reserved for internal usage)
 _prestage| N/A     | (Reserved for internal usage)
 _activeon| N/A     | (Reserved for internal usage)

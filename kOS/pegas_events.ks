@@ -158,6 +158,9 @@ FUNCTION eventHandler {
 	ELSE IF eType = "delegate" OR eType = "d" {
 		userEvent_delegate(event).
 	}
+	ELSE IF eType = "action" OR eType = "a" {
+		userEvent_action(event).
+	}
 	ELSE IF eType = "_activeon" {
 		internalEvent_activeModeOn().
 	}
@@ -370,5 +373,57 @@ FUNCTION userEvent_delegate {
 		pushUIMessage("DEAD DELEGATE - UNABLE TO CALL!", 10, PRIORITY_CRITICAL).
 	} ELSE {
 		fun:CALL().
+	}
+}
+
+//	Handle the action group event
+FUNCTION userEvent_action {
+	DECLARE PARAMETER event.	//	Expects a lexicon
+
+	LOCAL action IS event["action"]:TOUPPER.
+	IF action = "RCS" {
+		TOGGLE RCS.
+	}
+	ELSE IF action = "LIGHTS" {
+		TOGGLE LIGHTS.
+	}
+	ELSE IF action = "BRAKES" {
+		TOGGLE BRAKES.
+	}
+	ELSE IF action = "GEAR" {
+		TOGGLE GEAR.
+	}
+	ELSE IF action = "AG1" {
+		TOGGLE AG1.
+	}
+	ELSE IF action = "AG2" {
+		TOGGLE AG2.
+	}
+	ELSE IF action = "AG3" {
+		TOGGLE AG3.
+	}
+	ELSE IF action = "AG4" {
+		TOGGLE AG4.
+	}
+	ELSE IF action = "AG5" {
+		TOGGLE AG5.
+	}
+	ELSE IF action = "AG6" {
+		TOGGLE AG6.
+	}
+	ELSE IF action = "AG7" {
+		TOGGLE AG7.
+	}
+	ELSE IF action = "AG8" {
+		TOGGLE AG8.
+	}
+	ELSE IF action = "AG9" {
+		TOGGLE AG9.
+	}
+	ELSE IF action = "AG10" {
+		TOGGLE AG10.
+	}
+	ELSE {
+		pushUIMessage("Unsupported action group '" + action + "'!", 10, PRIORITY_HIGH).
 	}
 }
