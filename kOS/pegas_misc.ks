@@ -18,7 +18,9 @@ GLOBAL PRIORITY_CRITICAL IS 3.
 SET TERMINAL:WIDTH TO 43.
 SET TERMINAL:HEIGHT TO 43.	//	Few more lines for debugging
 
+//	Redraw the UI and optionally refresh
 FUNCTION createUI {
+	DECLARE PARAMETER refresh IS TRUE.	//	Expects a boolean
 	CLEARSCREEN.
 	PRINT ".-----------------------------------------.".
 	PRINT "| PEGAS                                   |".
@@ -26,7 +28,7 @@ FUNCTION createUI {
 	PRINT "|-----------------------------------------|".
 	PRINT "|                                         |".	//	Vehicle name
 	PRINT "|-----------------------------------------|".
-	PRINT "| T   h  m  s |                           |".	//	Current time
+	PRINT "| T   h  m  s                  |          |".	//	Current time
 	PRINT "|-----------------------------------------|".
 	PRINT "| Stage:                                  |".	//	Vehicle info
 	PRINT "| Stage type:                             |".
@@ -51,7 +53,9 @@ FUNCTION createUI {
 
 	textPrint(SHIP:NAME, 4, 2, 41, "L").
 	textPrint(_PEGAS_VERSION_, 1, 20, 41, "R").
-	refreshUI().
+	IF refresh {
+		refreshUI().
+	}
 }
 
 //	Print text at the given place on the screen. Pad and trim when needed.
@@ -60,18 +64,18 @@ FUNCTION textPrint {
 	DECLARE PARAMETER line.			//	Line to write to (scalar).
 	DECLARE PARAMETER start.		//	First column to write to, inclusive (scalar).
 	DECLARE PARAMETER end.			//	Last column to write to, exclusive (scalar).
-	DECLARE PARAMETER align IS "l".	//	Align: "l"eft or "r"ight.
+	DECLARE PARAMETER align IS "L".	//	Align: "L"eft or "R"ight.
 
-	SET align TO align:TOLOWER().
+	SET align TO align:TOUPPER.
 	LOCAL flen IS end - start.
 	//	If message is too long to fit in the field - trim, depending on type.
 	IF str:LENGTH>flen {
-		IF align="r" { SET str TO str:SUBSTRING(str:LENGTH-flen, flen). }
-		ELSE IF align="l" { SET str TO str:SUBSTRING(0, flen). }
+		IF align="R" { SET str TO str:SUBSTRING(str:LENGTH-flen, flen). }
+		ELSE IF align="L" { SET str TO str:SUBSTRING(0, flen). }
 	}
 	ELSE {
-		IF align="r" { SET str TO str:PADLEFT(flen). }
-		ELSE IF align="l" { SET str TO str:PADRIGHT(flen). }
+		IF align="R" { SET str TO str:PADLEFT(flen). }
+		ELSE IF align="L" { SET str TO str:PADRIGHT(flen). }
 	}
 	PRINT str AT(start, line).
 }
@@ -117,7 +121,7 @@ FUNCTION timePrint {
 	numberPrint(deltaT:HOUR, 6, 4, 6, 0).
 	numberPrint(deltaT:MINUTE, 6, 7, 9, 0).
 	numberPrint(deltaT:SECOND, 6, 10, 12, 0).
-	textPrint(currentTime:CALENDAR+",", 6, 15, 32, "R").
+	textPrint("(T" + sign + ROUND(deltaT:SECONDS, 1) + ")", 6, 14, 30).
 	textPrint(currentTime:CLOCK, 6, 33, 41, "R").
 
 	RETURN currentTime.
