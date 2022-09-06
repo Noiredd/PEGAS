@@ -34,7 +34,7 @@ FUNCTION spawnCountdownEvents {
 			"time", timeAfterLiftoff,
 			"type", "print",
 			"message", message,
-			"isVirtual", TRUE
+			"isHidden", TRUE
 		).
 	}
 
@@ -75,7 +75,8 @@ FUNCTION spawnStagingEvents {
 	LOCAL stagingEvent IS LEXICON(
 		"time", stageActivationTime,
 		"type", "_upfgstage",
-		"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
+		"isHidden", vehicleIterator:VALUE["isVirtualStage"] OR vehicleIterator:VALUE["isSustainer"],
+		"fpMessage", "STAGE: " + vehicleIterator:VALUE["name"]
 	).
 	//	Insert it into sequence
 	insertEvent(stagingEvent).
@@ -83,7 +84,7 @@ FUNCTION spawnStagingEvents {
 	LOCAL stagingEvent IS LEXICON(
 		"time", stageActivationTime,
 		"type", "_activeon",
-		"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
+		"isHidden", FALSE
 	).
 	insertEvent(stagingEvent).
 	//	Compute burnout time for this stage and add to sAT (this involves activation time and burn time)
@@ -96,15 +97,21 @@ FUNCTION spawnStagingEvents {
 		LOCAL stagingEvent IS LEXICON(
 			"time", stageActivationTime - stagingTransitionTime,
 			"type", "_prestage",
-			"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
+			"isHidden", TRUE
 		).
 		insertEvent(stagingEvent).
 		//	Construct & insert staging event
 		LOCAL stagingEvent IS LEXICON(
 			"time", stageActivationTime,
 			"type", "_upfgstage",
-			"isVirtual", vehicleIterator:VALUE["isVirtualStage"]
+			"isHidden", vehicleIterator:VALUE["isVirtualStage"],
+			"fpMessage", "STAGE: " + vehicleIterator:VALUE["name"]
 		).
+		//	Toggle display and add info to the constant-acceleration stages (they don't have a corresponding event to show instead)
+		IF vehicleIterator:VALUE["virtualStageType"] = "virtual (const-acc)" {
+			SET stagingEvent["isHidden"] TO FALSE.
+			SET stagingEvent["fpMessage"] TO "Constant acceleration mode".
+		}
 		insertEvent(stagingEvent).
 		//	Compute next stage time
 		SET stageActivationTime TO stageActivationTime + getStageDelays(vehicleIterator:VALUE) + vehicleIterator:VALUE["maxT"].

@@ -120,7 +120,8 @@ angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
 engineTag| `string`   | **Used only if** `type` **is** `"shutdown"`. Engines with this tag will be shut down. **DO NOT** assign this tag to any non-engine part!
 function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#structure:KOSDELEGATE) | **Used only if** `type` **is** `"delegate"`. Function to be called. Shall expect no arguments.
 action   | `string`   | **Used only if** `type` **is** `"action"`. Name of the action group to toggle (case insensitive).
-isVirtual| `boolean`  | (Reserved for internal usage)
+isHidden | `boolean`  | (Reserved for internal usage: whether the event is to be displayed in the flight plan.)
+fpMessage| `string`   | (Reserved for internal usage: message to be displayed in the flight plan.)
 
 Unless you're sure you know what you're doing, do not define the `isVirtual` key for your events.
 
