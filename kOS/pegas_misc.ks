@@ -19,6 +19,7 @@ SET TERMINAL:WIDTH TO 43.
 SET TERMINAL:HEIGHT TO 45.		//	Few more lines for debugging
 //	Flight plan display
 GLOBAL lastEventHandled IS -2.	//	Flight plan is redrawn whenever a change in eventPointer is observed
+GLOBAL printMecoEvent IS FALSE.	//	In active guidance phase, this is how we'll know to update time on the MECO event placeholder
 GLOBAL printableEvents IS LIST().
 
 //	Redraw the UI and optionally refresh
@@ -295,11 +296,8 @@ FUNCTION refreshUI {
 		}
 	}
 
-	//	Update the flight plan if something changed
-	IF lastEventHandled <> eventPointer {
-		flightPlanPrint(flightPlanOffset).
-		SET lastEventHandled TO eventPointer.
-	}
+	//	Update the flight plan (this function can return early if there were no significant changes)
+	flightPlanPrint(flightPlanOffset, currentTime).
 }
 
 //	Message printing interface
@@ -368,15 +366,16 @@ FUNCTION buildFlightPlan {
 	//	Extracts printable events from the sequence and converts them into event-like structures more suitable
 	//	for display in the UI. The resulting lexicons contain a pre-constructed message string and an integer
 	//	index to link back to the source position within the sequence.
-	//	Optionally allows creating a placeholder entry for UPFG activation time (for passive guidance phase,
-	//	when the actual event has not yet been spawned).
+	//	Depending on the boolean switch, it either creates a placeholder entry for UPFG activation time
+	//	(for passive guidance phase, when the actual event has not yet been spawned), or a placeholder entry
+	//	for the final MECO (which is later updated as UPFG converges).
 	//	Expects global variables:
 	//	"controls" as lexicon
 	//	"sequence" as list
 	//	"printableEvents" as list
 	//	"lastEventHandled" as integer
 
-	DECLARE PARAMETER insertUpfgOnPlaceholder IS FALSE.	//	Expects a boolean
+	DECLARE PARAMETER isPassiveGuidance IS FALSE.	//	Expects a boolean
 	//	Reset the list and last handled pointer (this forces a redraw)
 	printableEvents:CLEAR().
 	SET lastEventHandled TO -2.
@@ -393,8 +392,9 @@ FUNCTION buildFlightPlan {
 		}
 		SET i TO i + 1.
 	}
-	//	Optionally, insert the UPFG activation placeholder
-	IF insertUpfgOnPlaceholder {
+
+	//	Depending on guidance mode, insert a placeholder either for UPFG activation, or for final MECO.
+	IF isPassiveGuidance {
 		SET i TO 0.
 		FOR this IN printableEvents {
 			IF controls["upfgActivation"] < this["time"] {
@@ -408,13 +408,27 @@ FUNCTION buildFlightPlan {
 			"tstr", "" + ROUND(ABS(controls["upfgActivation"]), 1),
 			"type", "_activeon"	//	Instead of message directly, so we always get the same string from makeMessage
 		)).
+	} ELSE {
+		printableEvents:ADD(LEXICON(
+			"id", 1000,		//	Irrelevant, it just needs to be impossibly high
+			"type", "_meco",
+			"time", 0,		//	Irrelevant at this moment too, will be recalculated and updated when UPFG converges
+			"tstr", "N/A",
+			"message", "FINAL ENGINE CUTOFF"
+		)).
 	}
+
 	//	Find the longest time string to calculate padding
 	LOCAL longest IS 0.
 	FOR event IN printableEvents {
 		LOCAL len IS event["tstr"]:LENGTH.
 		IF len > longest { SET longest TO len. }
 	}
+	//	If we have the MECO event, it will be useful to store the padding value within it (for recalculation later)
+	IF NOT isPassiveGuidance {
+		printableEvents[printableEvents:LENGTH - 1]:ADD("padding", longest).
+	}
+
 	//	Assemble the printable line for each event
 	FOR event IN printableEvents {
 		LOCAL isneg IS event["time"] < 0.
@@ -427,10 +441,21 @@ FUNCTION buildFlightPlan {
 //	Flight plan display
 FUNCTION flightPlanPrint {
 	//	Refresh the flight plan box and the "upcoming event" tick mark.
+	//	Recalculate time on placeholder MECO event.
+	//	Exit without printing if there were no changes: either to the last handled event, or the (visible!) Tgo estimation.
 	//	Expects global variables:
-	//	"printableEvents" as list
 	//	"eventPointer" as integer
-	DECLARE PARAMETER offset.	//	Expects an integer
+	//	"liftoffTime" as timespan
+	//	"printableEvents" as list
+	//	"printMecoEvent" as bool
+	//	"upfgConverged" as bool
+	//	"upfgInternal" as lexicon
+	DECLARE PARAMETER offset.		//	Expects an integer
+	DECLARE PARAMETER currentTime.	//	Expects a timespan
+
+	//	All the checks whether we should exit without printing will modify this flag
+	//	(it's initialized such that if there was an event change, we'll have TRUE here)
+	LOCAL needToRefresh IS lastEventHandled <> eventPointer.
 
 	//	Figure out where on the printableEvents list we are, given the eventPointer value
 	LOCAL printableEventPointer IS -1.
@@ -440,6 +465,7 @@ FUNCTION flightPlanPrint {
 		}
 		SET printableEventPointer TO printableEventPointer + 1.
 	}
+
 	//	Select a subrange of events to print. We want:
 	//	* 1 past event and 4 future events normally (case 3),
 	//	* 5 future events if there are no past events (case 1),
@@ -458,12 +484,43 @@ FUNCTION flightPlanPrint {
 		SET showEvents TO printableEvents:SUBLIST(printableEventPointer, 5).
 		SET upcomingPointer TO 1.
 	}
-	//	Print the event list
+
+	//	If MECO event isn't visible yet, check if it should be (conveniently, it has to be the last event)
+	IF NOT printMecoEvent {
+		IF showEvents[showEvents:LENGTH - 1]["type"] = "_meco" { SET printMecoEvent TO TRUE. }
+	}
+
+	//	Update the MECO estimation if we have one, even behind the scenes (useful for then this placeholder
+	//	event becomes visible for the first time - we'll have the last good estimate already here).
+	IF upfgConverged {
+		//	This cannot possibly happen before we transitioned into active guidance, and hence got the sequence
+		//	and thus printableEvents updated to contain the MECO placeholder -> so no worries about indexing.
+		LOCAL newMeco IS ROUND((currentTime - liftoffTime):SECONDS + upfgInternal["tgo"], 1).
+		LOCAL oldMeco IS printableEvents[printableEvents:LENGTH - 1]["time"].
+		IF ABS(newMeco - oldMeco) > 0.3 {
+			LOCAL mecoEvent IS printableEvents[printableEvents:LENGTH - 1].
+			SET mecoEvent["time"] TO newMeco.
+			SET mecoEvent["tstr"] TO "" + newMeco.
+			LOCAL padding IS MAX(mecoEvent["tstr"]:LENGTH, mecoEvent["padding"]).
+			SET mecoEvent["line"] TO " T+" + mecoEvent["tstr"]:PADRIGHT(padding) + " " + mecoEvent["message"].
+			//	In case the event is already visible on screen - force refresh
+			IF printMecoEvent {
+				SET needToRefresh TO TRUE.
+			}
+		}
+	}
+
+	//	In case we found no reasons to print anything - exit early
+	IF NOT needToRefresh { RETURN. }
+
+	//	Print the event list and add the upcoming event pointer
 	LOCAL i IS 0.
 	FOR event IN showEvents {
 		textPrint(event["line"], offset + i, 1, 41).	//	Start printing on margin (1) to erase the old tick mark
 		SET i TO i + 1.
 	}
-	//	Finally, add the upcoming event pointer
 	textPrint(">", offset + upcomingPointer, 1, 2).
+
+	//	Finally, mark that we refreshed after this event (cannot happen earlier because of the possible recursion)
+	SET lastEventHandled TO eventPointer.
 }

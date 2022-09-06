@@ -140,7 +140,7 @@ initializeVehicleForUPFG().
 SET upfgState TO acquireState().
 SET upfgInternal TO setupUPFG().
 //	Reassemble the flight plan after vehicle initialization
-buildFlightPlan().
+buildFlightPlan(FALSE).
 //	Call user hooks
 callHooks("activeInit").
 //	Main loop - iterate UPFG (respective function controls attitude directly)
