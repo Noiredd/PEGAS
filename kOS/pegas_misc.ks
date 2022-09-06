@@ -16,7 +16,10 @@ GLOBAL PRIORITY_HIGH IS 2.
 GLOBAL PRIORITY_CRITICAL IS 3.
 //	Set screen dimensions
 SET TERMINAL:WIDTH TO 43.
-SET TERMINAL:HEIGHT TO 43.	//	Few more lines for debugging
+SET TERMINAL:HEIGHT TO 45.		//	Few more lines for debugging
+//	Flight plan display
+GLOBAL lastEventHandled IS -2.	//	Flight plan is redrawn whenever a change in eventPointer is observed
+GLOBAL printableEvents IS LIST().
 
 //	Redraw the UI and optionally refresh
 FUNCTION createUI {
@@ -49,6 +52,12 @@ FUNCTION createUI {
 	PRINT "| Angle between orbits:       deg         |".
 	PRINT "|-----------------------------------------|".
 	PRINT "|                                         |".	//	Message box
+	PRINT "|-----------------------------------------|".
+	PRINT "|                                         |".	//	Flight schedule box
+	PRINT "|                                         |".
+	PRINT "|                                         |".
+	PRINT "|                                         |".
+	PRINT "|                                         |".
 	PRINT "*-----------------------------------------*".
 
 	textPrint(SHIP:NAME, 4, 2, 41, "L").
@@ -151,6 +160,7 @@ FUNCTION refreshUI {
 	LOCAL currentOrbitOffset IS 15.	//	Horizontal offset for the current orbit info
 	LOCAL targetOrbitOffset IS 29.	//	Horizontal offset for the target orbit info
 	LOCAL messageBoxOffset IS orbitalInfoOffset + 9.
+	LOCAL flightPlanOffset IS messageBoxOffset + 2.
 
 	//	Vehicle info fields depend on the current flight phase (passive/active guidance).
 	//	For clarity, first acquire all the necessary information.
@@ -284,6 +294,12 @@ FUNCTION refreshUI {
 			}
 		}
 	}
+
+	//	Update the flight plan if something changed
+	IF lastEventHandled <> eventPointer {
+		flightPlanPrint(flightPlanOffset).
+		SET lastEventHandled TO eventPointer.
+	}
 }
 
 //	Message printing interface
@@ -310,4 +326,144 @@ FUNCTION pushUIMessage {
 		SET uiMessage["priority"] TO priority.
 		SET uiMessage["received"] TO TRUE.
 	}
+}
+
+//	Building messages for flight plan printing
+FUNCTION makeMessage {
+	DECLARE PARAMETER event.
+
+	LOCAL eType IS event["type"].
+	IF      eType = "print" OR eType = "p" { }
+	ELSE IF eType = "stage" OR eType = "s" {
+		RETURN "Staging event".
+	}
+	ELSE IF eType = "jettison" OR eType = "j" {
+		RETURN "Jettison (" + event["massLost"] + "kg)".
+	}
+	ELSE IF eType = "throttle" OR eType = "t" {
+		RETURN "Set throttle to " + event["throttle"].
+	}
+	ELSE IF eType = "shutdown" OR eType = "u" {
+		RETURN "Engine shutdown: " + event["engineTag"].
+	}
+	ELSE IF eType = "roll" OR eType = "r" {
+		RETURN "Roll to " + event["angle"] + " degrees".
+	}
+	ELSE IF eType = "delegate" OR eType = "d" {
+		RETURN "Delegate call".
+	}
+	ELSE IF eType = "action" OR eType = "a" {
+		RETURN "Action group " + event["action"].
+	}
+	ELSE IF eType = "_upfgstage" {
+		RETURN event["fpMessage"].
+	}
+	ELSE IF eType = "_activeon" {
+		RETURN "UPFG activation".
+	}
+}
+
+//	Flight plan construction
+FUNCTION buildFlightPlan {
+	//	Extracts printable events from the sequence and converts them into event-like structures more suitable
+	//	for display in the UI. The resulting lexicons contain a pre-constructed message string and an integer
+	//	index to link back to the source position within the sequence.
+	//	Optionally allows creating a placeholder entry for UPFG activation time (for passive guidance phase,
+	//	when the actual event has not yet been spawned).
+	//	Expects global variables:
+	//	"controls" as lexicon
+	//	"sequence" as list
+	//	"printableEvents" as list
+	//	"lastEventHandled" as integer
+
+	DECLARE PARAMETER insertUpfgOnPlaceholder IS FALSE.	//	Expects a boolean
+	//	Reset the list and last handled pointer (this forces a redraw)
+	printableEvents:CLEAR().
+	SET lastEventHandled TO -2.
+	//	First, extract the printable events
+	LOCAL i IS 0.
+	FOR event IN sequence {
+		IF event:HASKEY("isHidden") AND event["isHidden"] {} ELSE {
+			LOCAL pEvent IS event:COPY().
+			//	Add the source index
+			pEvent:ADD("id", i).
+			//	Add a pre-constructed time string
+			pEvent:ADD("tstr", "" + ROUND(ABS(event["time"]), 1)).
+			printableEvents:ADD(pEvent).
+		}
+		SET i TO i + 1.
+	}
+	//	Optionally, insert the UPFG activation placeholder
+	IF insertUpfgOnPlaceholder {
+		SET i TO 0.
+		FOR this IN printableEvents {
+			IF controls["upfgActivation"] < this["time"] {
+				BREAK.
+			}
+			SET i TO i + 1.
+		}
+		printableEvents:INSERT(i, LEXICON(
+			"id", printableEvents[i]["id"] + 1,	//	This is really irrelevant as we cannot possibly iterate past this
+			"time", controls["upfgActivation"],
+			"tstr", "" + ROUND(ABS(controls["upfgActivation"]), 1),
+			"type", "_activeon"	//	Instead of message directly, so we always get the same string from makeMessage
+		)).
+	}
+	//	Find the longest time string to calculate padding
+	LOCAL longest IS 0.
+	FOR event IN printableEvents {
+		LOCAL len IS event["tstr"]:LENGTH.
+		IF len > longest { SET longest TO len. }
+	}
+	//	Assemble the printable line for each event
+	FOR event IN printableEvents {
+		LOCAL isneg IS event["time"] < 0.
+		LOCAL timestr IS (CHOOSE "T-" IF isneg ELSE "T+") + event["tstr"]:PADRIGHT(longest).
+		LOCAL message IS CHOOSE event["message"] IF event:HASKEY("message") ELSE makeMessage(event).
+		event:ADD("line", " " + timestr + " " + message).
+	}
+}
+
+//	Flight plan display
+FUNCTION flightPlanPrint {
+	//	Refresh the flight plan box and the "upcoming event" tick mark.
+	//	Expects global variables:
+	//	"printableEvents" as list
+	//	"eventPointer" as integer
+	DECLARE PARAMETER offset.	//	Expects an integer
+
+	//	Figure out where on the printableEvents list we are, given the eventPointer value
+	LOCAL printableEventPointer IS -1.
+	FOR event in printableEvents {
+		IF event["id"] > eventPointer {
+			BREAK.
+		}
+		SET printableEventPointer TO printableEventPointer + 1.
+	}
+	//	Select a subrange of events to print. We want:
+	//	* 1 past event and 4 future events normally (case 3),
+	//	* 5 future events if there are no past events (case 1),
+	//	* 5 final events if there are less than 5 future events (case 2).
+	//	We also need to have a sublist pointer to the upcoming event.
+	LOCAL showEvents IS LIST().
+	LOCAL upcomingPointer IS 0.
+	IF printableEventPointer = -1 {
+		SET showEvents TO printableEvents:SUBLIST(0, 5).
+	}
+	ELSE IF printableEventPointer > printableEvents:LENGTH - 5 {
+		SET showEvents TO printableEvents:SUBLIST(printableEvents:LENGTH - 5, 5).
+		SET upcomingPointer TO printableEventPointer - printableEvents:LENGTH + 6.
+	}
+	ELSE {
+		SET showEvents TO printableEvents:SUBLIST(printableEventPointer, 5).
+		SET upcomingPointer TO 1.
+	}
+	//	Print the event list
+	LOCAL i IS 0.
+	FOR event IN showEvents {
+		textPrint(event["line"], offset + i, 1, 41).	//	Start printing on margin (1) to erase the old tick mark
+		SET i TO i + 1.
+	}
+	//	Finally, add the upcoming event pointer
+	textPrint(">", offset + upcomingPointer, 1, 2).
 }

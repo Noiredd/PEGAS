@@ -63,6 +63,7 @@ IF controls:HASKEY("initialRoll") {
 //	Set up the system for flight
 setVehicle().			//	Complete vehicle definition (as given by user)
 spawnCountdownEvents().
+buildFlightPlan(TRUE).	//	Generate the printable events before drawing the UI
 callHooks("init").		//	System initialized, run hooks
 
 
@@ -138,6 +139,8 @@ createUI().
 initializeVehicleForUPFG().
 SET upfgState TO acquireState().
 SET upfgInternal TO setupUPFG().
+//	Reassemble the flight plan after vehicle initialization
+buildFlightPlan().
 //	Call user hooks
 callHooks("activeInit").
 //	Main loop - iterate UPFG (respective function controls attitude directly)
