@@ -903,11 +903,16 @@ FUNCTION thrustWatchdog {
 	//	spooling up to full thrust). In case of loss of thrust, mission abort is triggered.
 	//	To reduce call overhead, list of active engines is prepared and cached whenever a staging event occurs.
 	//	Note: do NOT call this in terminal phase of the flight (i.e. during attitude hold and countdown to Tgo).
+	//	Watchdog can be disabled by having "disableThrustWatchdog" set to TRUE in "controls".
 	//	Expects global variables:
+	//	"controls" as lexicon
 	//	"liftOffTime" as timespan
 	//	"upfgStage" as integer
 	//	"vehicle" as list
 	//	Owns global variables: "twb_activeEngines", "twb_waitAfterStaging", "twb_timeOfStaging".
+
+	//	Exit if the watchdog is disabled by the user
+	IF controls:HASKEY("disableThrustWatchdog") AND controls["disableThrustWatchdog"] { RETURN. }
 
 	//	Disabled when we're waiting on the launchpad
 	IF TIME:SECONDS < liftoffTime:SECONDS { RETURN. }

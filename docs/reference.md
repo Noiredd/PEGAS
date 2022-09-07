@@ -22,6 +22,7 @@ pitchOverAngle     | deg   | required | Vehicle will pitch over by that many deg
 upfgActivation     | s     | required | The active guidance phase will be activated that many seconds after liftoff
 launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability\*
 initialRoll        | deg   | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
+disableThrustWatchdog | `boolean` | optional | Set to `TRUE` in order to disable loss-of-thrust checking on this vehicle, ignore this key otherwise.
 
 \* - see notes to [`mission`](#mission) struct.
 
