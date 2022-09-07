@@ -5,7 +5,7 @@ RUN pegas_precheck.
 
 //	Load settings and libraries.
 RUN pegas_settings.
-IF cserVersion = "new" {
+IF SETTINGS["cserVersion"] = "new" {
 	RUN pegas_cser_new.
 } ELSE {
 	RUN pegas_cser.
@@ -18,7 +18,7 @@ RUN pegas_comm.
 RUN pegas_addons.
 
 //	The following is absolutely necessary to run UPFG fast enough.
-SET CONFIG:IPU TO kOS_IPU.
+SET CONFIG:IPU TO SETTINGS["kOS_IPU"].
 
 //	Initialize global flags and constants
 GLOBAL upfgStage IS -1.				//	System initializes at passive guidance
@@ -103,7 +103,7 @@ UNTIL ABORT {
 			}
 		}
 		//	As a safety check - do not stay deadlocked in this state for too long (might be unnecessary).
-		IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] + pitchOverTimeLimit {
+		IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] + SETTINGS["pitchOverTimeLimit"] {
 			SET ascentFlag TO 2.
 			pushUIMessage( "Pitchover time limit exceeded!", 5, PRIORITY_HIGH ).
 		}
@@ -120,7 +120,7 @@ UNTIL ABORT {
 	}
 	//	The passive guidance loop ends a few seconds before actual ignition of the first UPFG-controlled stage.
 	//	This is to give UPFG time to converge. Actual ignition occurs via stagingEvents.
-	IF TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"] - upfgConvergenceDelay {
+	IF TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"] - SETTINGS["upfgConvergenceDelay"] {
 		pushUIMessage( "Initiating UPFG!" ).
 		BREAK.
 	}
@@ -161,7 +161,7 @@ UNTIL ABORT {
 	//	Manage throttle, with the exception of initial portion of guided flight (where we're technically still flying the first stage).
 	IF activeGuidanceMode { throttleControl(). }
 	//	Transition to the attitude hold mode for the final seconds of the flight
-	IF upfgConverged AND upfgInternal["tgo"] < upfgFinalizationTime { BREAK. }
+	IF upfgConverged AND upfgInternal["tgo"] < SETTINGS["upfgFinalizationTime"] { BREAK. }
 	//	Thrust loss detection
 	thrustWatchdog().
 	//	UI

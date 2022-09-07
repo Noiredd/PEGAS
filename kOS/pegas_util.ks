@@ -516,16 +516,17 @@ FUNCTION initializeVehicleForUPFG {
 	//	With all this done, the final task can be completed: handling of the acceleration-limited stages.
 
 	//	Expects global variables "vehicle" and "sequence" as list of lexicons, "controls" as lexicon,
-	//	and "upfgConvergenceDelay" as scalar.
+	//	and "SETTINGS" as lexicon.
 
 	//	If a stage has an ignition command in its staging sequence, this means it is a Saturn-like stage (i.e. a spent stage
 	//	for atmospheric flight is jettisoned, and the active guidance is engaged for a new stage) and it needs no update.
 	//	Otherwise it is a sustainer stage (Shuttle-like) and only its initial (and, hence, dry) mass is known. Actual mass
 	//	needs to be measured and burn time calculated.
 	IF NOT vehicle[0]["staging"]["ignition"] {
-		//	We need to know what the real mass of the vehicle will be "upfgConvergenceDelay" seconds after this moment.
+		//	We need to know what the real mass of the vehicle will be when UPFG is activated. Since this function is called
+		//	a known amount of time prior to that (defined in SETTINGS["upfgConvergenceDelay"]), we can calculate that.
 		LOCAL combinedEngines IS getThrust(vehicle[0]["engines"]).
-		SET vehicle[0]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*upfgConvergenceDelay.
+		SET vehicle[0]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*SETTINGS["upfgConvergenceDelay"].
 		SET vehicle[0]["massFuel"]  TO vehicle[0]["massTotal"] - vehicle[0]["massDry"].
 		SET vehicle[0]["maxT"] TO vehicle[0]["massFuel"] / combinedEngines[1].
 		SET vehicle[0]["isSustainer"] TO TRUE.
@@ -759,12 +760,11 @@ FUNCTION upfgSteeringControl {
 	//	"upfgEngaged" as bool
 	//	"stagingInProgress" as bool
 	//	"steeringVector" as vector
-	//	"upfgConvergenceCriterion" as scalar
-	//	"upfgGoodSolutionCriterion" as scalar
 	//	"steeringRoll" as scalar
 	//	"liftoffTime" as timespan
 	//	"vehicle" as list
 	//	"controls" as lexicon
+	//	"SETTINGS" as lexicon
 	//	Owns global variables:
 	//	"usc_lastGoodVector" as vector
 	//	"usc_convergeFlags" as list
@@ -804,9 +804,9 @@ FUNCTION upfgSteeringControl {
 	SET usc_lastIterationTime TO currentIterationTime.
 	LOCAL expectedTgo IS lastTgo - iterationDeltaTime.
 	SET lastTgo TO upfgOutput[1]["tgo"].
-	IF ABS(expectedTgo-upfgOutput[1]["tgo"]) < upfgConvergenceCriterion {
+	IF ABS(expectedTgo-upfgOutput[1]["tgo"]) < SETTINGS["upfgConvergenceCriterion"] {
 		IF usc_lastGoodVector <> V(1,0,0) {
-			IF VANG(upfgOutput[1]["vector"], usc_lastGoodVector) < upfgGoodSolutionCriterion {
+			IF VANG(upfgOutput[1]["vector"], usc_lastGoodVector) < SETTINGS["upfgGoodSolutionCriterion"] {
 				usc_convergeFlags:ADD(TRUE).
 			} ELSE {
 				IF NOT stagingInProgress {

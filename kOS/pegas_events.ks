@@ -67,7 +67,7 @@ FUNCTION spawnStagingEvents {
 	//	Expects global variables:
 	//	"controls" as lexicon
 	//	"vehicle" as list
-	//	"stagingKillRotTime" as scalar
+	//	"SETTINGS" as lexicon
 	LOCAL stageActivationTime IS controls["upfgActivation"].
 	LOCAL vehicleIterator IS vehicle:ITERATOR.
 	//	The first active stage is already pre-staged so we only need to create the staging event
@@ -92,7 +92,7 @@ FUNCTION spawnStagingEvents {
 	//	Loop over remaining stages
 	UNTIL NOT vehicleIterator:NEXT {
 		//	Construct & insert pre-stage event
-		LOCAL stagingTransitionTime IS stagingKillRotTime.
+		LOCAL stagingTransitionTime IS SETTINGS["stagingKillRotTime"].
 		IF vehicleIterator:VALUE["isVirtualStage"] { SET stagingTransitionTime TO 2. }
 		LOCAL stagingEvent IS LEXICON(
 			"time", stageActivationTime - stagingTransitionTime,
