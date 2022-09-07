@@ -884,3 +884,64 @@ FUNCTION throttleControl {
 		SET throttleDisplay TO desiredThrottle.
 	}
 }
+
+//	Return all currently activated engines as a list.
+FUNCTION getActiveEngines {
+	LOCAL activeEngines IS LIST().
+	LIST ENGINES IN allEngines.
+	FOR engine IN allEngines {
+		IF engine:AVAILABLETHRUST > 0 { activeEngines:ADD(engine). }
+	}
+	RETURN activeEngines.
+}
+
+//	Loss of thrust detection system
+FUNCTION thrustWatchdog {
+	//	Called regularly, will perform a check whether the engines that are supposed to be burning, are in fact
+	//	burning. "Supposed to" means that the check will not be performed prior to liftoff nor during staging
+	//	(and shortly after staging, to avoid false loss-of-thrust detection when the engines are merely just
+	//	spooling up to full thrust). In case of loss of thrust, mission abort is triggered.
+	//	To reduce call overhead, list of active engines is prepared and cached whenever a staging event occurs.
+	//	Note: do NOT call this in terminal phase of the flight (i.e. during attitude hold and countdown to Tgo).
+	//	Expects global variables:
+	//	"liftOffTime" as timespan
+	//	"upfgStage" as integer
+	//	"vehicle" as list
+	//	Owns global variables: "twb_activeEngines", "twb_waitAfterStaging", "twb_timeOfStaging".
+
+	//	Disabled when we're waiting on the launchpad
+	IF TIME:SECONDS < liftoffTime:SECONDS { RETURN. }
+
+	//	First real run (cannot happen any earlier because we need to catch the active engines)
+	IF NOT (DEFINED twb_activeEngines) {
+		GLOBAL twb_activeEngines IS getActiveEngines().
+		GLOBAL twb_waitAfterStaging IS FALSE.
+		GLOBAL twb_timeOfStaging IS 0.
+	}
+
+	//	Don't check if we're between stages and it's okay to not have thrust
+	IF stagingInProgress AND (NOT vehicle[upfgStage]["isVirtualStage"]) AND (NOT vehicle[upfgStage]["isSustainer"]) {
+		SET twb_waitAfterStaging TO TRUE.
+		SET twb_timeOfStaging TO TIME:SECONDS.
+		RETURN.
+	}
+
+	//	If we just exited from staging, wait a second or two to let the engines spool up *and then* cache them
+	IF twb_waitAfterStaging {
+		IF TIME:SECONDS < twb_timeOfStaging + 2 { RETURN. }
+		SET twb_waitAfterStaging TO FALSE.
+		SET twb_activeEngines TO getActiveEngines().
+	}
+
+	//	Check if we've got thrust
+	LOCAL sumThrust IS 0.
+	FOR engine IN twb_activeEngines {
+		SET sumThrust TO sumThrust + engine:THRUST.
+	}
+
+	//	We're comparing floats so better to use an epsilon... nobody will be flying an ion engine, right?
+	IF sumThrust < 0.001 {
+		pushUIMessage("LOSS OF THRUST DETECTED. ABORTING!", 10, PRIORITY_CRITICAL).
+		TOGGLE ABORT.
+	}
+}

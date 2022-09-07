@@ -124,6 +124,8 @@ UNTIL ABORT {
 		pushUIMessage( "Initiating UPFG!" ).
 		BREAK.
 	}
+	//	Thrust loss detection
+	thrustWatchdog().
 	//	UI - recalculate UPFG target solely for printing relative angle
 	SET upfgTarget["normal"] TO targetNormal(mission["inclination"], mission["LAN"]).
 	refreshUI().
@@ -160,6 +162,8 @@ UNTIL ABORT {
 	IF activeGuidanceMode { throttleControl(). }
 	//	Transition to the attitude hold mode for the final seconds of the flight
 	IF upfgConverged AND upfgInternal["tgo"] < upfgFinalizationTime { BREAK. }
+	//	Thrust loss detection
+	thrustWatchdog().
 	//	UI
 	refreshUI().
 	//	User hooks
