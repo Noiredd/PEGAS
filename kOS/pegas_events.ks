@@ -238,7 +238,7 @@ FUNCTION internalEvent_staging {
 		SET throttleDisplay TO 0.
 	}
 	IF event["jettison"] {
-		GLOBAL stageJettisonTime IS currentTime + event["waitBeforeJettison"].
+		LOCAL stageJettisonTime IS currentTime + event["waitBeforeJettison"].
 		WHEN TIME:SECONDS >= stageJettisonTime THEN {
 			STAGE.
 			pushUIMessage(stageName + " - separation").
@@ -247,38 +247,38 @@ FUNCTION internalEvent_staging {
 	}
 	IF event["ignition"] {
 		IF event["ullage"] = "rcs" {
-			GLOBAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
+			LOCAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {
 				RCS ON.
 				SET SHIP:CONTROL:FORE TO 1.0.
 				pushUIMessage(stageName + " - RCS ullage on").
 			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
-			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
+			LOCAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
 				internalEvent_staging_activation().
 			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
-			GLOBAL ullageShutdownTime IS currentTime + eventDelay + event["postUllageBurn"].
+			LOCAL ullageShutdownTime IS currentTime + eventDelay + event["postUllageBurn"].
 			WHEN TIME:SECONDS >= ullageShutdownTime THEN {
 				SET SHIP:CONTROL:FORE TO 0.0.
 				RCS OFF.
 				pushUIMessage(stageName + " - RCS ullage off").
 			}
 		} ELSE IF event["ullage"] = "srb" {
-			GLOBAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
+			LOCAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= ullageIgnitionTime THEN {
 				STAGE.
 				pushUIMessage(stageName + " - SRB ullage ignited").
 			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
-			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
+			LOCAL engineIgnitionTime IS currentTime + eventDelay + event["ullageBurnDuration"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
 				internalEvent_staging_activation().
 			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
 		} ELSE IF event["ullage"] = "none" {
-			GLOBAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
+			LOCAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
 				internalEvent_staging_activation().
 			}
@@ -293,7 +293,7 @@ FUNCTION internalEvent_staging {
 	//	However, we might still need to execute the post-staging event
 	IF event["postStageEvent"] {
 		LOCAL hasExtraHold IS event:HASKEY("waitAfterPostStage").
-		GLOBAL postStagingEventTime IS currentTime + eventDelay + event["waitBeforePostStage"].
+		LOCAL postStagingEventTime IS currentTime + eventDelay + event["waitBeforePostStage"].
 		WHEN TIME:SECONDS >= postStagingEventTime THEN {
 			STAGE.
 			IF NOT hasExtraHold {
@@ -304,7 +304,7 @@ FUNCTION internalEvent_staging {
 		SET eventDelay TO eventDelay + event["waitBeforePostStage"].
 		//	If after the separation we need to wait some extra time before releasing the attitude hold
 		IF hasExtraHold {
-			GLOBAL postStagingEventTime IS currentTime + eventDelay + event["waitAfterPostStage"].
+			LOCAL postStagingEventTime IS currentTime + eventDelay + event["waitAfterPostStage"].
 			WHEN TIME:SECONDS >= postStagingEventTime THEN {
 				SET poststageHold TO FALSE.
 			}
