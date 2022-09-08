@@ -284,6 +284,7 @@ FUNCTION internalEvent_staging {
 			}
 			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 		} ELSE {
+			//	This should no longer be possible as we check it prior to liftoff (setVehicle)
 			pushUIMessage( "Unknown ullage mode (" + event["ullage"] + ")!", 5, PRIORITY_HIGH ).
 		}
 	} ELSE {

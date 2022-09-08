@@ -427,9 +427,38 @@ FUNCTION setVehicle {
 			IF NOT v["staging"]:HASKEY("jettison") OR NOT v["staging"]:HASKEY("ignition") {
 				PRINT "Vehicle error: misconfigured staging for stage " + i.
 				SET errorsFound TO TRUE.
+			} ELSE {
+				IF v["staging"]["jettison"] AND (NOT v["staging"]:HASKEY("waitBeforeJettison")) {
+					PRINT "Vehicle error: 'waitBeforeJettison' missing".
+					SET errorsFound TO TRUE.
+				}
+				IF v["staging"]["ignition"] AND (NOT v["staging"]:HASKEY("waitBeforeIgnition")) {
+					PRINT "Vehicle error: 'waitBeforeIgnition' missing".
+					SET errorsFound TO TRUE.
+				}
+				IF v["staging"]["ignition"] AND (NOT v["staging"]:HASKEY("ullage")) {
+					PRINT "Vehicle error: 'ullage' missing".
+					SET errorsFound TO TRUE.
+				} ELSE IF v["staging"]:HASKEY("ullage") {
+					IF LIST("none", "srb", "rcs"):FIND(v["staging"]["ullage"]) < 0 {
+						PRINT "Vehicle error: unknown ullage mode".
+						SET errorsFound TO TRUE.
+					} ELSE IF v["staging"]["ullage"] <> "none" AND NOT v["staging"]:HASKEY("ullageBurnDuration") {
+						PRINT "Vehicle error: 'ullageBurnDuration' missing".
+						SET errorsFound TO TRUE.
+					} ELSE IF v["staging"]["ullage"] = "rcs" AND NOT v["staging"]:HASKEY("postUllageBurn") {
+						PRINT "Vehicle error: 'postUllageBurn' missing".
+						SET errorsFound TO TRUE.
+					}
+				}
 			}
 			IF NOT v["staging"]:HASKEY("postStageEvent") {
 				v["staging"]:ADD("postStageEvent", FALSE).
+			} ELSE {
+				IF v["staging"]["postStageEvent"] AND (NOT v["staging"]:HASKEY("waitBeforePostStage")) {
+					PRINT "Vehicle error: 'waitBeforePostStage' missing".
+					SET errorsFound TO TRUE.
+				}
 			}
 		}
 		//	Add the shutdown flag - it is optional, but functions rely on its presence
