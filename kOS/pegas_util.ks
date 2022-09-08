@@ -428,6 +428,9 @@ FUNCTION setVehicle {
 				PRINT "Vehicle error: misconfigured staging for stage " + i.
 				SET errorsFound TO TRUE.
 			}
+			IF NOT v["staging"]:HASKEY("postStageEvent") {
+				v["staging"]:ADD("postStageEvent", FALSE).
+			}
 		}
 		//	Add the shutdown flag - it is optional, but functions rely on its presence
 		IF NOT v:HASKEY("shutdownRequired") { v:ADD("shutdownRequired", FALSE). }
@@ -568,7 +571,7 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
 			SET afterStage["maxT"] TO afterStage["maxT"] - startToJettison.
 			//	CRUCIAL: this new stage is already ignited, so we MUST NOT try to start it again!
-			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
+			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
 			//	Mark the new stage as a virtual one and label it
 			SET afterStage["isVirtualStage"] TO TRUE.
 			SET afterStage["virtualStageType"] TO "virtual (post-jettison)".
@@ -610,7 +613,7 @@ FUNCTION initializeVehicleForUPFG {
 			SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
 			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
 			SET afterStage["maxT"] TO afterStage["massFuel"] / remainingFlow.
-			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
+			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
 			SET afterStage["engines"] TO remainingEngines.
 			SET afterStage["isVirtualStage"] TO TRUE.
 			SET afterStage["virtualStageType"] TO "virtual (engine-off)".
@@ -640,7 +643,7 @@ FUNCTION initializeVehicleForUPFG {
 				LOCAL gLimStage IS vehicle[i]:COPY().
 				//	Set the constant-acceleration mode and disable staging
 				SET gLimStage["mode"] TO 2.
-				SET gLimStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE).
+				SET gLimStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
 				//	Calculate its initial mass and burn time
 				LOCAL burnedFuelMass IS thrustFlowIsp[1] * accLimTime.
 				SET gLimStage["massTotal"] TO gLimStage["massTotal"] - burnedFuelMass.
@@ -728,6 +731,9 @@ FUNCTION upfgSteeringControl {
 	//	- prestageHold: set by internalEvent_preStage and cleared by internalEvent_staging, means that the
 	//	  current physical stage is about to be spent but the staging procedure has not yet started; this flag
 	//	  is mostly used for status display
+	//	- poststageHold: conditionally set&cleared by internalEvent_staging (only in case the stage has a
+	//	  "postStageEvent" configured), enforces attitude hold until after the post-stage event has been
+	//	  executed (e.g. Saturn-like interstage jettison)
 	//	- upfgConverged: UPFG has achieved a stable guidance
 	//	- upfgEngaged: UPFG has converged and all vehicle status flags permit engaging the guidance; this flag
 	//	  can be understood as "nominal active flight mode" and is only set or cleared in this function
@@ -833,7 +839,7 @@ FUNCTION upfgSteeringControl {
 	//	Check if we can steer
 	SET upfgEngaged TO FALSE.	//	If everything is good, it will be overridden right away
 	IF activeGuidanceMode {
-		IF stagingInProgress {
+		IF stagingInProgress OR poststageHold {
 			//	Do nothing, maintain constant attidude (the last good steering vector)
 		}
 		ELSE IF upfgConverged {

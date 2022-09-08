@@ -96,6 +96,11 @@ waitBeforeIgnition | s          | if `ignition` is `TRUE`         | Wait between
 ullage             | `string`   | if `ignition` is `TRUE`         | Does the current stage need an ullage burn? Allowed values: `"none"`, `"srb"`, `"rcs"`.
 ullageBurnDuration | s          | if `ullage` is **not** `"none"` | Wait between ullage sequence start and engine ignition.
 postUllageBurn     | s          | if `ullage` is `"rcs"`          | Wait between engine ignition and RCS ullage push disengagement.
+postStageEvent     | `boolean`  | no                              | Does the current stage require an additional jettison _after_ ignition (e.g. for Saturn V S-II interstage\*)?
+waitBeforePostStage| s          | if `postStageEvent` is `TRUE`   | Wait after all staging activities before performing post stage jettison.
+waitAfterPostStage | s          | no                              | Extra attitude hold period after post stage jettison.
+
+\* - Note regarding postStageEvent: PEGAS will hold attitude throughout the entire staging procedure. The real Saturn V waited about 30 seconds before jettisoning the S-II interstage, which makes this example not particularly good in this case: if you set `waitBeforePostStage` to 30, you will be flying at constant attitude all this time, which is unacceptable. If you need to wait that long, you're better off using `sequence` events (either `stage` or `jettison`). But if you're okay with dropping an interstage 2 seconds after ignition, this option is perfect.
 
 Example use-cases:
 * For a launch vehicle with a booster-sustainer first stage (eg. Atlas V, Space Shuttle), the active guidance phase activates in the middle of an engine burn; in this case the staging sequence on the first guided stage needs `jettison = FALSE` and `ignition = FALSE`.

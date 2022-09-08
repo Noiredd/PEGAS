@@ -151,6 +151,7 @@ FUNCTION refreshUI {
 	//	"upfgEngaged" as bool
 	//	"stagingInProgress" as bool
 	//	"prestageHold" as bool
+	//	"poststageHold" as bool
 
 	//	Print and acquire current time
 	LOCAL currentTime IS timePrint().
@@ -210,7 +211,6 @@ FUNCTION refreshUI {
 		//	Print vehicle status flag
 		IF stagingInProgress {
 			IF stageVirtual {
-				//                    virtual (post-jettison)xxx
 				SET vehicleStatus TO "virtual stage transition".
 			}
 			ELSE IF stageSustainer {
@@ -221,7 +221,7 @@ FUNCTION refreshUI {
 			}
 		}
 		ELSE {
-			SET vehicleStatus TO "NOMINAL".
+			SET vehicleStatus TO CHOOSE "post-stage hold" IF poststageHold ELSE "NOMINAL".
 		}
 		//	Print UPFG convergence flag
 		IF upfgConverged {

@@ -129,6 +129,7 @@ FUNCTION eventHandler {
 	//	"liftoffTime" as timespan
 	//	"stagingInProgress" as bool
 	//	"prestageHold" as bool
+	//	"poststageHold" as bool
 	//	"steeringRoll" as scalar
 	//	"throttleSetting" as scalar
 	//	"throttleDisplay" as scalar
@@ -222,11 +223,16 @@ FUNCTION internalEvent_staging {
 	//	single step of the procedure in a timely manner.
 	//	First, clear the flag informing of the previous stage end-of-burn attitude hold
 	SET prestageHold TO FALSE.
-	//	Now we can get to work
+	//	Gather all necessary information
 	LOCAL currentTime IS TIME:SECONDS.
 	LOCAL event IS vehicle[upfgStage]["staging"].
 	LOCAL stageName IS vehicle[upfgStage]["name"].
 	LOCAL eventDelay IS 0.	//	Keep track of time between subsequent events.
+	//	If this stage needs a postStageEvent, set the hold flag immediately
+	IF event["postStageEvent"] {
+		SET poststageHold TO TRUE.
+	}
+	//	Now we can get to work
 	IF upfgStage > 0 AND vehicle[upfgStage-1]["shutdownRequired"] {
 		SET throttleSetting TO 0.
 		SET throttleDisplay TO 0.
@@ -283,6 +289,27 @@ FUNCTION internalEvent_staging {
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
 		internalEvent_staging_activation(FALSE, FALSE).
+	}
+	//	However, we might still need to execute the post-staging event
+	IF event["postStageEvent"] {
+		LOCAL hasExtraHold IS event:HASKEY("waitAfterPostStage").
+		GLOBAL postStagingEventTime IS currentTime + eventDelay + event["waitBeforePostStage"].
+		WHEN TIME:SECONDS >= postStagingEventTime THEN {
+			STAGE.
+			IF NOT hasExtraHold {
+				SET poststageHold TO FALSE.
+			}
+			pushUIMessage(stageName + " - post-jettison").
+		}
+		SET eventDelay TO eventDelay + event["waitBeforePostStage"].
+		//	If after the separation we need to wait some extra time before releasing the attitude hold
+		IF hasExtraHold {
+			GLOBAL postStagingEventTime IS currentTime + eventDelay + event["waitAfterPostStage"].
+			WHEN TIME:SECONDS >= postStagingEventTime THEN {
+				SET poststageHold TO FALSE.
+			}
+			SET eventDelay TO eventDelay + event["waitAfterPostStage"].
+		}
 	}
 
 	//	Print messages for regular stages and constant-acceleration mode activation.

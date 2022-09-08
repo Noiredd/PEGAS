@@ -33,6 +33,7 @@ GLOBAL upfgConverged IS FALSE.		//	See upfgSteeringControl comments
 GLOBAL upfgEngaged IS FALSE.		//	See upfgSteeringControl comments
 GLOBAL stagingInProgress IS FALSE.	//	See upfgSteeringControl comments
 GLOBAL prestageHold IS FALSE.		//	See upfgSteeringControl comments
+GLOBAL poststageHold IS FALSE.		//	See upfgSteeringControl comments
 
 //	Load user addons
 scanAddons().
