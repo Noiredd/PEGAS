@@ -769,6 +769,8 @@ FUNCTION upfgSteeringControl {
 	//	"usc_lastGoodVector" as vector
 	//	"usc_convergeFlags" as list
 	//	"usc_lastIterationTime" as scalar
+	//	"usc_lastSeenStage" as integer
+	//	"usc_currentVehicle" as list
 	DECLARE PARAMETER vehicle.		//	Expects a list of lexicon
 	DECLARE PARAMETER upfgStage.	//	Expects a scalar
 	DECLARE PARAMETER upfgTarget.	//	Expects a lexicon
@@ -780,13 +782,19 @@ FUNCTION upfgSteeringControl {
 		GLOBAL usc_lastGoodVector IS V(1,0,0).
 		GLOBAL usc_convergeFlags IS LIST().
 		GLOBAL usc_lastIterationTime IS upfgState["time"].
+		GLOBAL usc_lastSeenStage IS upfgStage.
+		GLOBAL usc_currentVehicle IS vehicle:COPY().
 	}
 
 	//	Run UPFG
 	LOCAL currentIterationTime IS upfgState["time"].
 	LOCAL lastTgo IS upfgInternal["tgo"].
-	LOCAL currentVehicle IS vehicle:SUBLIST(upfgStage, vehicle:LENGTH-upfgStage).
-	LOCAL upfgOutput IS upfg(currentVehicle, upfgTarget, upfgState, upfgInternal).
+	IF usc_lastSeenStage <> upfgStage {
+		//	Only copy the vehicle info when the stage changed
+		SET usc_currentVehicle TO vehicle:SUBLIST(upfgStage, vehicle:LENGTH).
+		SET usc_lastSeenStage TO upfgStage.
+	}
+	LOCAL upfgOutput IS upfg(usc_currentVehicle, upfgTarget, upfgState, upfgInternal).
 
 	//	Convergence check. The rule is that time-to-go as calculated between iterations
 	//	should not change significantly more than the time difference between those iterations.
