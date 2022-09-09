@@ -102,6 +102,32 @@ waitAfterPostStage | s          | no                              | Extra attitu
 
 \* - Note regarding postStageEvent: PEGAS will hold attitude throughout the entire staging procedure. The real Saturn V waited about 30 seconds before jettisoning the S-II interstage, which makes this example not particularly good in this case: if you set `waitBeforePostStage` to 30, you will be flying at constant attitude all this time, which is unacceptable. If you need to wait that long, you're better off using `sequence` events (either `stage` or `jettison`). But if you're okay with dropping an interstage 2 seconds after ignition, this option is perfect.
 
+Basic staging procedure is simple, and begins when the previous stage has burned out
+(or, if this is the first stage, when UPFG is activated).
+If `jettison` is `TRUE` then some time is waited (`waitBeforeJettison` ) and `STAGE` occurs.
+Then, if `ignition` is `TRUE`, some time is waited again (`waitBeforeIgnition`) and the ignition occurs;
+details of the ignition process depend on the ullage mode selected - read below.
+Finally if `postStageEvent` is `TRUE`, some more time is waited (`waitBeforePostStage`),
+`STAGE` occurs, and optionally some time is waited once more (`waitAfterPostStage`).
+After the last event is done, UPFG is allowed to take control.
+
+Ullage modes:
+* `"none"`: nothing but a `STAGE` to ignite the engines directly;
+* `"srb"`: two `STAGE` events, one immediately to ignite the solid rocket ullage motors, and another one after `ullageBurnDuration` to ignite the engines;
+* `"rcs"`: activate RCS and immediately fire full forward, wait `ullageBurnDuration` before hitting `STAGE` to ignite the engines, and wait `postUllageBurn` before shutting down RCS (to maintain ullage push while the engines spool up);
+* `"hot"` - special mode in which jettison and ignition are **inverted**: the whole staging process starts with `waitBeforeIgnition` and igniting the engines, then `waitBeforeJettison` and jettisoning the previous stage, the rest continues normally;
+of course you need the decouple/ignition events swapped in the VAB as well.
+
+One could think that `"hot"` doesn't really do anything,
+since it's the same two staging operations and all the difference is in the VAB stage order -
+things are a bit more complicated than that.
+PEGAS needs to keep track of when exactly has a stage ignited.
+This is for two reasons:
+first, to keep track of burn time and fuel consumption for UPFG purposes,
+and second, to keep track of burn time in order to schedule the subsequent stage ignition accurately.
+For this reason you should generally avoid "hacking" around the timings
+(unless, of course, you know what you're doing).
+
 Example use-cases:
 * For a launch vehicle with a booster-sustainer first stage (eg. Atlas V, Space Shuttle), the active guidance phase activates in the middle of an engine burn; in this case the staging sequence on the first guided stage needs `jettison = FALSE` and `ignition = FALSE`.
 * If the vehicle staging list (as in game, in VAB) treats separation and engine ignition as a single event (spacebar hit), `jettison = FALSE` and `ignition = TRUE`.
