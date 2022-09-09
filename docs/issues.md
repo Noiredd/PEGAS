@@ -12,19 +12,31 @@ Private messages on [forum.kerbalspaceprogram.com](https://forum.kerbalspaceprog
 If you get an error message - what does it say?
 If PEGAS crashes - when and how?
 If PEGAS fails to get to orbit - provide as much info as you can: `vehicle`, `controls`, `sequence` and `mission` contents, `.craft` file - anything that would allow me to reproduce your issue.
-4. If the problem requires attaching a `.craft` file, please try to strip it of as many mods as possible. I developed and tested PEGAS on a Realism Overhaul install with all of the necessary and many of the suggested mods, including: 
+4. If the problem requires attaching a `.craft` file, please try to strip it of as many mods as possible. I developed and tested PEGAS on a Realism Overhaul install with all of the necessary and many of the suggested mods, including:  
 ASET Avionics  
+Cryo Tanks  
 Cryogenic Engines  
-Cryogenic Tanks  
 DMagic Orbital Science  
+FASA  
 Kerbal Attachment System  
+KW Rocketry Rebalanced  
+Near Future (most plugins)  
 Procedural Fairings  
 Procedural Parts  
 Real Scale Boosters  
+RemoteTech  
+Salyut Stations  
 SCANsat  
-Soviet Engine Pack  
+Soviet Probes  
+Soviet Rockets  
+Soviet Spacecraft  
 TAC Life Support  
+Taerobee  
+Tantares  
+Universal Storage II  
 US Probes Pack  
+US Rockets  
+Ven's New Parts & Stock Part Revamp  
 I *could* install some other thing, but the easier you make it for me to help you, the faster and more reliably I can do that.
 
 I welcome all usage questions and improvement suggestions, especially to the documentation.

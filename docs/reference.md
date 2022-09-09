@@ -5,6 +5,7 @@ Jump to:
 * [`engines`](#engines)
 * [`staging`](#staging)
 * [`sequence`](#sequence)
+* [`mission`](#mission)
 * [communications](#communication-module)
 
 ### Controls
@@ -147,8 +148,8 @@ time     | s          | Time after liftoff, when this event is to be executed.
 type     | `string`   | Type of the event. See below for the complete list.
 message  | `string`   | Optional\*. Message that will be printed in the terminal when the event is executed.
 throttle | `scalar`   | **Used only if** `type` **is** `"throttle"`. Desired throttle setting, value in range \[0-1\].
-massLost | `scalar`   | **Used only if** `type` **is** `"jettison"`. Informs the system of mass amount lost in the process.
-angle    | `scalar`   | **Used only if** `type` **is** `"roll"`. New roll angle.
+massLost | kg   | **Used only if** `type` **is** `"jettison"`. Informs the system of mass amount lost in the process.
+angle    | degrees    | **Used only if** `type` **is** `"roll"`. New roll angle.
 engineTag| `string`   | **Used only if** `type` **is** `"shutdown"`. Engines with this tag will be shut down. **DO NOT** assign this tag to any non-engine part!
 function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosdelegate.html#structure:KOSDELEGATE) | **Used only if** `type` **is** `"delegate"`. Function to be called. Shall expect no arguments.
 action   | `string`   | **Used only if** `type` **is** `"action"`. Name of the action group to toggle (case insensitive).

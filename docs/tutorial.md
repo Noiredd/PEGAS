@@ -1,4 +1,16 @@
 ## PEGAS tutorial
+Jump to:
+* [Introduction](#introduction)
+* [Basics](#basics)
+* [Controls](#controls)
+* [Vehicle](#vehicle)
+* [Sequence](#sequence)
+* [Mission](#mission)
+* [Summary](#summary)
+* [Example](#example)
+* [Note for kOS beginners](#note-for-kos-beginners)
+
+---
 
 ### Introduction
 PEGAS is an ascent autopilot which aims to support a wide variety of vehicles in a wide variety of missions.
@@ -116,8 +128,12 @@ You **do not** have to include mass of the payload in it - PEGAS automatically d
 
 "Staging" is to be understood as hitting spacebar in a timed order.
 It happens when a currently flying stage burns out - but **beware**!
-PEGAS does not dynamically check *anything* - the only way it knows that the stage has burned out, is because it divided the mass of the fuel it had by the total flow of its engines.  
-The staging logic is as follows: when a stage is activated, its staging sequence is run, and the following things happen:
+PEGAS does not dynamically check *anything* - the only way it knows that the stage has burned out, is because it divided the mass of the fuel it had by the total flow of its engines.
+If you input wrong numbers, e.g. your vehicle has more fuel than the system thinks it has,
+PEGAS will gladly attempt to execute a staging procedure with the previous stage's engines still burning
+(if you're bold, you can use this to your advantage).
+
+The staging logic is as follows: when a stage is activated, its staging sequence is executed, and the following things happen:
 * if the previous stage has to be jettisoned as a separate event, some time is waited and spacebar is hit,
 * if the current stage needs engines to be explicitly ignited, some time is waited and ullage sequence starts:
   * if no ullage burn is needed, hit spacebar directly (to ignite the engines),
@@ -126,7 +142,8 @@ The staging logic is as follows: when a stage is activated, its staging sequence
     * if ullage uses RCS, engage it and push forward;
   * wait some time while the ullage push is in progress,
   * hit spacebar (to ignite the engines),
-  * if the ullage is done with RCS thrusters, keep pushing for some time, then disengage them.
+  * if the ullage is done with RCS thrusters, keep pushing for some time, then disengage them,
+* if some extra action was requested, more time is waited and spacebar is hit again.
 
 This provides a way to give your stage some "buffer time" before separation - eg. if you're not sure if you got the masses right, you can add some more time before ignition of the next stage.
 
@@ -152,6 +169,8 @@ Therefore, PEGAS will assume the SRB mass is *fuel* and erroneously calculate th
 
 You should AVOID stages with `"jettison", TRUE, "ignition", FALSE` in general.
 If you only need to jettison something, use the `sequence` (see below).
+Similarly, you should AVOID making any changes to your vehicle (e.g. staging something away)
+shortly before engaging UPFG - especially if your vehicle is based on an Atlas V-like sustainer.
 
 ##### Note about constant-acceleration phases
 PEGAS has the capability to run vehicles with acceleration-limited stages (eg. Space Shuttle, Atlas V).
@@ -175,6 +194,7 @@ This is how you control timed events, like:
 * rolling to given attitude,
 * throttle (only in the atmospheric ascent phase),
 * shutdown of a specific engine (by tag),
+* toggling action groups,
 * execution of custom functions (kOS [delegates](http://ksp-kos.github.io/KOS_DOC/language/delegates.html)).
 
 See the [reference](reference.md#sequence) for a list all possible events and how to use them.
