@@ -5,6 +5,7 @@ RUN pegas_precheck.
 
 //	Load settings and libraries.
 RUN pegas_settings.
+RUN pegas_atmo.
 IF SETTINGS["cserVersion"] = "new" {
 	RUN pegas_cser_new.
 } ELSE {
@@ -73,7 +74,6 @@ createUI().
 //	Prepare control for vertical ascent
 LOCK THROTTLE TO throttleSetting.
 LOCK STEERING TO steeringVector.
-SET ascentFlag TO 0.	//	0 = vertical, 1 = pitching over, 2 = notify about holding prograde, 3 = just hold prograde
 //	Main loop - wait on launch pad, lift-off and passive guidance
 UNTIL ABORT {
 	//	User hooks
@@ -82,43 +82,8 @@ UNTIL ABORT {
 	eventHandler().
 	//	Communication system handling
 	commsHandler().
-	//	Control handling
-	IF ascentFlag = 0 {
-		//	The vehicle is going straight up for given amount of time
-		IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] {
-			//	Then it changes attitude for an initial pitchover "kick"
-			SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"],90-controls["pitchOverAngle"]):VECTOR, steeringRoll).
-			SET ascentFlag TO 1.
-			pushUIMessage( "Pitching over by " + ROUND(controls["pitchOverAngle"],1) + " degrees." ).
-		}
-	}
-	ELSE IF ascentFlag = 1 {
-		//	It keeps this attitude until velocity vector matches it closely
-		IF TIME:SECONDS < liftoffTime:SECONDS + controls["verticalAscentTime"] + 3 {
-			//	Delay this check for the first few seconds to allow the vehicle to pitch away from current prograde
-		} ELSE {
-			//	Attitude must be recalculated at every iteration though
-			SET velocityAngle TO VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-			IF controls["pitchOverAngle"] - velocityAngle < 0.1 {
-				SET ascentFlag TO 2.
-			}
-		}
-		//	As a safety check - do not stay deadlocked in this state for too long (might be unnecessary).
-		IF TIME:SECONDS >= liftoffTime:SECONDS + controls["verticalAscentTime"] + SETTINGS["pitchOverTimeLimit"] {
-			SET ascentFlag TO 2.
-			pushUIMessage( "Pitchover time limit exceeded!", 5, PRIORITY_HIGH ).
-		}
-	}
-	ELSE IF ascentFlag = 2 {
-		//	Enter the minimal angle of attack phase. This case is different only in that we push a transition message.
-		SET steeringVector TO minAoASteering(steeringRoll).
-		pushUIMessage( "Holding prograde at " + ROUND(mission["launchAzimuth"],1) + " deg azimuth." ).
-		SET ascentFlag TO 3.
-	}
-	ELSE {
-		//	Maintain minimal AoA trajectory
-		SET steeringVector TO minAoASteering(steeringRoll).
-	}
+	//	Passive guidance
+	atmosphericSteeringControl(steeringRoll).
 	//	The passive guidance loop ends a few seconds before actual ignition of the first UPFG-controlled stage.
 	//	This is to give UPFG time to converge. Actual ignition occurs via stagingEvents.
 	IF TIME:SECONDS >= liftoffTime:SECONDS + controls["upfgActivation"] - SETTINGS["upfgConvergenceDelay"] {
