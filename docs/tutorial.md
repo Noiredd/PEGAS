@@ -224,6 +224,123 @@ Note that if you revert flight while controls are locked by kOS, the attempt to 
 When that happens you will have to leave and reenter the vehicle view.
 For experiments involving PEGAS, it's best to `ABORT` flight using the standard action group (hit backspace) before you revert.
 
+---
+
+### Example
+#### Simple sustainer rocket
+Suppose we're building a medium launch vehicle, with a kerosene-oxygen first stage powered by 3 NK-33's and a hydrolox upper stage with 3 RD-0146's.
+Furthermore, the second stage has a few small SRM's for ullage attached to it.
+The rocket stands 343 800 kg heavy in total, which breaks into:
+* first stage: 290 773 kg (198 163 kg liquid oxygen, 75 921 kg kerosene, 16 689 kg dry mass)
+* second stage: 36 833 kg (27 440 kg liquid oxygen, 4 651 kg liquid hydrogen, 100 kg HTPB, 4 642 kg dry mass)
+* payload fairing: 2 694 kg
+* payload for testing: 13 500 kg
+
+Our staging sequence in the VAB looks roughly like this:
+* ignition of the NK-33's
+* launch clamps release
+* booster decoupler
+* ignition of the ullage SRMs
+* ignition of the RD-0146's
+* payload fairing jettison
+* payload detachment
+
+Kerbal Engineer Redux tells us that those NK-33's will burn through the kerolox in 190 seconds, and the stage has approximately 4.4 km/s $\Delta v$.
+This means that it will burn out high above the atmosphere, so we'll probably want to transition into active guidance earlier than that -
+halfway through the first stage burn is a good guess.
+
+Let's start by defining the `vehicle` -
+remember, here we're thinking about what the UPFG sees, not necessarily what the vehicle looks like in the VAB.
+Since we want UPFG to activate *during* the first stage burn, we need to define two stages.
+First will be this heavy kerolox booster, *and everything on top of it*.
+So the `lexicon` describing this stage should have the following keys:
+* `massTotal` = 290773 + 36833 + 2694 (note how we don't add payload mass here)
+* `massFuel` = 198163 + 75921
+* `engines` = `LIST(LEXICON("isp", 331.0, "thrust", 3*1766000))` (vacuum Isp and thrust of an NK-33 multiplied by 3)
+* `staging` = `LEXICON("jettison", FALSE, "ignition", FALSE)` (UPFG will be activated while this stage is already burning, so no need to do anything)
+
+Now, for the second stage:
+* `massTotal` = 4642 + 2694 (assuming we're still carrying the fairings)
+* `massFuel` = 27440 + 4651
+* `engines` = `LIST(LEXICON("isp", 463.0, "thrust", 3*98100))` (vacuum performance of 3x RD-0146)
+* `staging` is a lexicon again, but this time it's going to be a little more complicated, as we need to do a few things here; let's list the keys one by one:
+  * `jettison` = `TRUE` (because we do have to start with dropping the first stage)
+  * `waitBeforeJettison` = 3 (just a little pause for safety, making sure the stage really burns out before we start)
+  * `ignition` = `TRUE` (because we do have some engines that need to be ignited as a separate staging action)
+  * `waitBeforeIgnition` = 2 (a slight delay to let the booster separate neatly - matter of taste)
+  * `ullage` = `"srb"` (because we have solid rockets for ullage)
+  * `ullageBurnDuration` = 2 (let's say this time will suffice to settle the fuel so we can ignite the main engines safely)
+
+Pack those two lexicons into a list named `vehicle` and this part is done. Phew!
+
+That's not everything though.
+We still haven't accounted for things like ignition of the NK-33's on the pad,
+releasing the launch clamps or jettisoning the payload.
+For those we'll need `sequence`.
+Sequence is a list containing "events" - lexicons describing what, when and how.
+Remember, we **always** have to have an event at T=0 to execute the liftoff.
+But in RO we want to ignite our engines before that.
+So our sequence might look like this:
+* `LEXICON("time", -4, "type", "stage", "message", "NK-33 ignition")` (ignition *before* liftoff)
+* `LEXICON("time", 0, "type", "stage", "message", "LIFTOFF!")` (mandatory entry)
+* `LEXICON("time", 200, "type", "jettison", "massLost", 2694, "message", "Payload fairing jettison")`  
+(finally we drop the fairings; note how we're using type `jettison` and not just `stage`, even though they do the same thing in-game (i.e. hit spacebar to stage) - this `massLost` key will update the second stage definition by subtracting the jettisoned mass)
+
+We're almost done, the only thing missing is the `controls`.
+This is the most arbitrary input however as you'll need to tune it for each vehicle,
+so we'll go through it only briefly.
+* `upfgActivation` = 100 (as mentioned above, we'll want to activate roughly halfway through the burn -
+too late is bad, too early is even worse)
+* `launchTimeAdvance` = 120 (experiment with that if you need to)
+* `verticalAscentTime` = 11
+* `pitchOverAngle` = 2.5 (those two values you need to find for each vehicle yourself)
+* `initialRoll` = 90 (matter of taste, e.g. sometimes you need to correct for misaligned control part)
+
+And that's it for the vehicle part.
+In order to fly it, all we need to do is set the `mission` structure,
+load everything into terminal and hit `RUN pegas.`.
+Among the things we could put into that structure would be `"payload", 13500`
+to account for the last bit of mass that we haven't yet put anywhere.
+
+#### Solid rocket boosters
+Suppose we want to improve the above vehicle by adding some SRBs to it.
+We pick the GEM-40, which weighs 12 962 kg fully loaded and 1 196 kg burnt out,
+and attach two of them to the booster, increasing the total mass of the vehicle to 369 724 kg.
+Now where do the staging actions go?
+Obviously, we'll want to ignite at the same time we lift off,
+so the ignition event will go to the same action as the launch clamps release.
+We also need to jettison them at some point, which is going to be a separate event.
+
+How does our vehicle definition change due to that?  
+Of course, we need to schedule the jettison, so we need an extra entry in the `sequence`:
+* `LEXICON("time", 67, "type", "stage", "message", "Dropping the SRBs")`
+
+What about the `vehicle`?
+Since the change happens *before* activation of the active phase, **we don't need to do anything**!
+At T+100, when the UPFG kicks in, the booster looks exactly like it did in the previous version.
+For the same reason it doesn't matter if we use `stage` or `jettison` type event for this job.
+
+#### 3-stage vehicle
+Let's look at a different situation, in which we have a three-stage vehicle, maybe something like Saturn V.
+We'll skip the technical details here, let's just assume that the first stage burns out after 120 seconds,
+second stage burns for the next 400 seconds and gets the vehicle almost into orbit,
+and the final stage performs the insertion.
+
+In this case defining the first stage could feel like an unnecessary chore,
+since if we chose to activate it at T+100 like in the previous example,
+it would only be actively guided for about 20 seconds.
+Therefore it might be simpler to align activation of the UPFG with the second stage.
+The `vehicle` would then only contain entries for the second and third stages.
+However, you need to remember about `staging` on the second stage!
+`jettison = FALSE` and `ignition = FALSE` only worked in the previous example because the stage was already lit when UPFG kicked in,
+which will not be the case here.
+
+Rest of the `vehicle` and `sequence` will be built like before.
+The only extra thing that needs to be remembered is to set the `upfgActivationTime` at the correct value
+(just after the booster burns out).
+
+---
+
 ### Note for kOS beginners
 First, let's assume your KSP install folder is `KSP\` (this is where `GameData`, `Resources` and other folders reside).
 kOS folder is in `KSP\Ships\Script\` - that is where you should put all PEGAS files.
