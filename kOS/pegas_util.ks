@@ -440,10 +440,10 @@ FUNCTION setVehicle {
 					PRINT "Vehicle error: 'ullage' missing".
 					SET errorsFound TO TRUE.
 				} ELSE IF v["staging"]:HASKEY("ullage") {
-					IF LIST("none", "srb", "rcs"):FIND(v["staging"]["ullage"]) < 0 {
+					IF LIST("none", "srb", "rcs", "hot"):FIND(v["staging"]["ullage"]) < 0 {
 						PRINT "Vehicle error: unknown ullage mode".
 						SET errorsFound TO TRUE.
-					} ELSE IF v["staging"]["ullage"] <> "none" AND NOT v["staging"]:HASKEY("ullageBurnDuration") {
+					} ELSE IF LIST("none", "hot"):FIND(v["staging"]["ullage"]) < 0 AND NOT v["staging"]:HASKEY("ullageBurnDuration") {
 						PRINT "Vehicle error: 'ullageBurnDuration' missing".
 						SET errorsFound TO TRUE.
 					} ELSE IF v["staging"]["ullage"] = "rcs" AND NOT v["staging"]:HASKEY("postUllageBurn") {

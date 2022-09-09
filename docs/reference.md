@@ -93,7 +93,7 @@ jettison           | `boolean`  | always                          | Does the pre
 waitBeforeJettison | s          | if `jettison` is `TRUE`         | Wait between the staging sequence start and separation.
 ignition           | `boolean`  | always                          | Does the current stage need to be explicitly ignited?
 waitBeforeIgnition | s          | if `ignition` is `TRUE`         | Wait between jettison and ignition sequence start.
-ullage             | `string`   | if `ignition` is `TRUE`         | Does the current stage need an ullage burn? Allowed values: `"none"`, `"srb"`, `"rcs"`.
+ullage             | `string`   | if `ignition` is `TRUE`         | Does the current stage need an ullage burn? Allowed values: `"none"`, `"srb"`, `"rcs"`, `"hot"`.
 ullageBurnDuration | s          | if `ullage` is **not** `"none"` | Wait between ullage sequence start and engine ignition.
 postUllageBurn     | s          | if `ullage` is `"rcs"`          | Wait between engine ignition and RCS ullage push disengagement.
 postStageEvent     | `boolean`  | no                              | Does the current stage require an additional jettison _after_ ignition (e.g. for Saturn V S-II interstage\*)?

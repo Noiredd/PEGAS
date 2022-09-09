@@ -232,12 +232,18 @@ FUNCTION internalEvent_staging {
 	IF event["postStageEvent"] {
 		SET poststageHold TO TRUE.
 	}
+	//	Check whether this is a hot-ignited stage
+	LOCAL isHotStage IS FALSE.
+	IF event:HASKEY("ullage") AND event["ullage"] = "hot" {
+		SET isHotStage TO TRUE.
+	}
 	//	Now we can get to work
 	IF upfgStage > 0 AND vehicle[upfgStage-1]["shutdownRequired"] {
 		SET throttleSetting TO 0.
 		SET throttleDisplay TO 0.
 	}
-	IF event["jettison"] {
+	//	For ordinary stages we want to jettison first...
+	IF event["jettison"] AND NOT isHotStage {
 		LOCAL stageJettisonTime IS currentTime + event["waitBeforeJettison"].
 		WHEN TIME:SECONDS >= stageJettisonTime THEN {
 			STAGE.
@@ -245,6 +251,7 @@ FUNCTION internalEvent_staging {
 		}
 		SET eventDelay TO eventDelay + event["waitBeforeJettison"].
 	}
+	//	...and ignite later
 	IF event["ignition"] {
 		IF event["ullage"] = "rcs" {
 			LOCAL ullageIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
@@ -277,6 +284,15 @@ FUNCTION internalEvent_staging {
 				internalEvent_staging_activation().
 			}
 			SET eventDelay TO eventDelay + event["ullageBurnDuration"].
+		} ELSE IF event["ullage"] = "hot" {
+			//	Hot-staging looks almost the same as no-ullage staging except we set poststageHold
+			//	to maintain attitude until the delayed jettison.
+			LOCAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
+			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
+				SET poststageHold TO TRUE.
+				internalEvent_staging_activation().
+			}
+			SET eventDelay TO eventDelay + event["waitBeforeIgnition"].
 		} ELSE IF event["ullage"] = "none" {
 			LOCAL engineIgnitionTime IS currentTime + eventDelay + event["waitBeforeIgnition"].
 			WHEN TIME:SECONDS >= engineIgnitionTime THEN {
@@ -290,6 +306,16 @@ FUNCTION internalEvent_staging {
 	} ELSE {
 		//	If this event does not need ignition, staging is over at this moment
 		internalEvent_staging_activation(FALSE, FALSE).
+	}
+	//	But for hot-stages we do those steps in reverse order:
+	IF event["jettison"] AND isHotStage {
+		LOCAL stageJettisonTime IS currentTime + eventDelay + event["waitBeforeJettison"].
+		WHEN TIME:SECONDS >= stageJettisonTime THEN {
+			STAGE.
+			SET poststageHold TO FALSE.
+			pushUIMessage(stageName + " - separation").
+		}
+		SET eventDelay TO eventDelay + event["waitBeforeJettison"].
 	}
 	//	However, we might still need to execute the post-staging event
 	IF event["postStageEvent"] {
