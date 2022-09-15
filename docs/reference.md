@@ -20,37 +20,40 @@ Key                | Units | Opt/req  | Meaning
 launchTimeAdvance  | s     | required | Launch time will be scheduled that many seconds before the launch site rotates directly under the target orbit
 verticalAscentTime | s     | optional\* | After liftoff, vehicle will fly straight up for that many seconds before pitching over
 pitchOverAngle     | deg   | optional\* | Vehicle will pitch over by that many degrees away from vertical
-pitchStartAlt      | m     | optional\* | After liftoff, vehicle will fly straight up until this altitude
-pitchControl       | `list` | optional\* | A list of pitch angle & altitude pairs
+pitchProgram       | `lexicon` | optional\* | Vehicle will follow a pitch program given by pitch angle & altitude pairs
 upfgActivation     | s     | required | The active guidance phase will be activated that many seconds after liftoff
 launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability\*\*
 initialRoll        | deg   | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
 disableThrustWatchdog | `boolean` | optional | Set to `TRUE` in order to disable loss-of-thrust checking on this vehicle, ignore this key otherwise.
 
-\* - of the four fields, only **two** have to be provided:
-first solution is to provide `verticalAscentTime` and `pitchOverAngle`;
-the vehicle will fly straight up until `verticalAscentTime` seconds, then pitch `pitchOverAngle` degrees,
+\* - of those three fields, you have to provide **EITHER** `verticalAscentTime` and `pitchOverAngle`
+**OR** `pitchProgram`.
+In the first case, vehicle will fly straight up until `verticalAscentTime` seconds,
+then pitch `pitchOverAngle` degrees,
 following that angle until the vehicle starts tracking the prograde vector.
-The second solution is to use `pitchStartAlt` with `pitchControl`
+The alternative is to specify `pitchProgram`
 in order to precisely control your initial ascent phase,
-as described in the [`pitchControl`](#pitchcontrol) section below.
+as described in the [`pitchProgram`](#pitchprogram) section below.
 
 \*\* - see notes to [`mission`](#mission) struct.
 
-#### pitchControl
+#### pitchProgram
 
-`pitchControl` allows you to completely control your atmospheric ascent phase
+`pitchProgram` allows you to completely control your atmospheric ascent phase
 by setting the pitch angle as a linear function of the ASL altitude.
-Linear regression is made from 90 degrees (which corresponds to straight up) to a specified final angle,
-starting at altitude given in `pitchStartAlt`.
-PEGAS calculates the linear regression for you and locks pitch to (a * altitude + b).
+Define your trajectory by declaring a list of keypoint altitudes and a corresponding list of desired pitch angles,
+and PEGAS will calculate a piecewise-linear function between each pair,
+locking pitch to (a * altitude + b).  
+**Note**: for technical reasons, the first entry in the `pitch` list must be 90 (straight up),
+and the first entry in the `altitude` list must be the altitude at which you want to start turning.
+In other words, your vehicle will fly vertically until it reaches altitude given in this first entry.
 
-`pitchControl` 's `LEXICON` follow these rules:
+Exact specification of the `pitchProgram` lexicon:
 
 Key         | Units | Opt/req   | Meaning
 ---         | ---   | ---       | ---
-`endAlt`    | m     | required  | The altitude in which the `endPitch` angle will be reached
-`endPitch`  | deg   | required  | The desired pitch angle to reach at altitude `endAlt`
+`altitude`  | m     | required  | Keypoint altitudes
+`pitch`     | deg   | required  | Desired pitch angle to reach at the corresponding altitude
 
 ### Vehicle
 `GLOBAL vehicle IS LIST().`

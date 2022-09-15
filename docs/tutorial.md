@@ -101,22 +101,34 @@ Delta-v losses from sub-optimal steering are not something you need to worry abo
 Tuning might prove particularly difficult if you're getting low ingame FPS during liftoff, or your launch clamps misbehave.
 Unpredictable separation that disrupts your vehicle from flying straight can even make good settings randomly fail - beware.
 
-##### `pitchStartAlt` and `pitchControl`
+##### pitchProgram
 For some vessels the above solution (with `verticalAscentTime` and `pitchOverAngle`) does not give enough controllability.
-PEGAS provides another approach to guide your vehicles through the atmospheric climb with more accuracy.
-You simply give an altitude from which the rocket will start the pitch maneuver (from 90 deg, since your rocket always lifts off from vertical position).
-Then you pass several altitude/pitchAngle pairs as `pitchControl` so that PEGAS
-makes a linear regression, calculating pitch as a function of altitude.
+PEGAS provides another approach to guide your vehicles through the atmospheric climb with more accuracy: `pitchProgram`
+It allows you to define a precise pitch-vs-altitude program by specifying two lists (as keys of the `pitchProgram` lexicon):
+* `altitude` is a list of "keypoint altitudes",
+* `pitch` is a list of desired pitch angles,
+i.e. at any altitude from the `altitude` list,
+pitch angle will be selected from the corresponding element of this list.
+
+PEGAS will perform linear interpolation between the given pairs of values,
+calculating pitch as a function of altitude.
 Each altitude/pitchAngle pair will result in one linear segment of the ascent trajectory.
 
+**Note**: the first `altitude` entry is of special importance.
+Prior to reaching this altitude, the vehicle will fly at 90 degrees pitch (perfectly vertically) -
+_no matter what the corresponding pitch is_ (although it is recommended to set it to 90).
+Only after this altitude has been reached,
+the linear interpolation kicks in and the vehicle starts following your pitch program.
+
 Both solutions require that you know your rocket to define at least one set of values.
-For more information see the [pitchControl](reference.md#pitchcontrol) section of the reference.
+For more information see the [pitchProgram](reference.md#pitchprogram) section of the reference.
+For an example usage see [SoyuzTMA.ks](../kOS/boot/SoyuzTMA.ks) sample.
 
 ##### upfgActivation
 This is when the atmospheric ascent ends, and active guidance begins.
 You want to be outside the atmosphere when that happens, 40-50 km is good.
 From this moment the UPFG is in control over your vehicle, and if you're too low and it decides to pitch up too much, you might experience your vehicle tumbling out of control for a moment, or even rapidly disassembling.
-It's difficult to provide example numbers, as this variable strongly depends on your vehicle - see the [boot files](kOS/boot).
+It's difficult to provide example numbers, as this variable strongly depends on your vehicle - see the [boot files](../kOS/boot).
 
 ##### Rolling
 Roll control in PEGAS is achieved using two mechanisms.
