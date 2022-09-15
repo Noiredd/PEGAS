@@ -41,6 +41,7 @@ scanAddons().
 
 
 //	PREFLIGHT ACTIVITIES
+checkControls().		//	Check the controls configuration
 //	Click "control from here" on a part that runs the system.
 //	Helpful when your payload is not perfectly rigidly attached, and you're not sure whether it controls the vessel or not.
 CORE:PART:CONTROLFROM().

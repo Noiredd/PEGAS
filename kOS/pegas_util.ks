@@ -381,6 +381,59 @@ FUNCTION targetNormal {
 
 //	VEHICLE DATA PREPARATION FOR UPFG
 
+//	Check whether all required control keys are present
+FUNCTION checkControls {
+	//	Check configuration and crash if there are errors
+	LOCAL errorsFound IS FALSE.
+
+	//	Check if the mandatory keys are present
+	IF NOT (controls:HASKEY("launchTimeAdvance") AND controls:HASKEY("upfgActivation")) {
+		SET errorsFound TO TRUE.
+		PRINT "Mandatory control keys missing!".
+	}
+
+	//	Check if passive guidance is configured correctly
+	LOCAL hasPOA IS controls:HASKEY("pitchOverAngle").
+	LOCAL hasVAT IS controls:HASKEY("verticalAscentTime").
+	IF controls:HASKEY("pitchProgram") {
+		IF hasPOA OR hasVAT {
+			SET errorsFound TO TRUE.
+			PRINT "Passive guidance misconfigured: multiple keys defined!".
+		}
+		//	Check if the pitch program has the correct structure
+		IF NOT (controls["pitchProgram"]:HASKEY("pitch") AND controls["pitchProgram"]:HASKEY("altitude")) {
+			SET errorsFound TO TRUE.
+			PRINT "Passive guidance misconfigured: bad program definition!".
+		} ELSE {
+			IF controls["pitchProgram"]["pitch"]:LENGTH < 2 {
+				SET errorsFound TO TRUE.
+				PRINT "Passive guidance misconfigured: not enough control points!".
+			}
+			IF controls["pitchProgram"]["pitch"]:LENGTH <> controls["pitchProgram"]["altitude"]:LENGTH {
+				SET errorsFound TO TRUE.
+				PRINT "Passive guidance misconfigured: pitch-altitude mismatch!".
+			}
+		}
+	} ELSE {
+		IF NOT (hasPOA AND hasVAT) {
+			SET errorsFound TO TRUE.
+			PRINT "Passive guidance misconfigured: missing keys!".
+		}
+	}
+
+	//	Crash the system if known errors were found
+	IF errorsFound {
+		PRINT "ERRORS IN CONTROL CONFIGURATION FOUND".
+		PRINT "For your convenience, PEGAS will now crash.".
+		PRINT " ".
+		PRINT " ".
+		PRINT " ".
+		PRINT " ".
+		PRINT " ".
+		SET _ TO __DELIBERATE_CRASH__.
+	}
+}
+
 //	Setup vehicle: transform user input to UPFG-compatible struct
 FUNCTION setVehicle {
 	//	Calculates missing mass inputs (user gives any 2 of 3: total, dry, fuel mass)
