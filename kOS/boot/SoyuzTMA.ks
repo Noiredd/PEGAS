@@ -15,8 +15,12 @@ GLOBAL vehicle IS LIST(
 GLOBAL controls IS LEXICON(
 	"launchTimeAdvance", 140,
 	"upfgActivation", 156,
-	"pitchStartAlt", 200,
-	"pitchControl", LIST(LEXICON("endAlt", 20000, "endPitch", 45), LEXICON("endAlt", 65000, "endPitch", 0))
+	"pitchProgram", LEXICON(
+		"altitude", LIST(200, 20000, 65000),
+		"pitch", LIST(90, 45, 0)
+	)
+	//	Read: until altitude 200m fly at 90 degrees, then turn so that at 20km pitch is 45 degrees,
+	//	then continue turning so that at 65km pitch is 0 degrees.
 ).
 
 //Set time (in s) between ignition and liftoff here

@@ -58,9 +58,17 @@ FUNCTION atmosphericSteeringControl {
 	}
 }
 
+//	Passive pitch control by following a pitch-altitude program
 FUNCTION pitchProgramControl {
+	//	In this mode, user provides a pitch program as a function of altitude by specifying two lists.
+	//	Linear interpolation is used to compute pitch at any altitude.
+	//	Expects global variables:
+	//	"controls" as lexicon
+	//	"steeringVector" as vector
+
 	DECLARE PARAMETER steeringRoll.	//	Expects a scalar
 
+	//	For pretty-printing the linear coefficients
 	FUNCTION toSCI {
 		DECLARE PARAMETER number.
 		DECLARE PARAMETER precision IS 3.
@@ -71,39 +79,33 @@ FUNCTION pitchProgramControl {
 		RETURN ROUND(number*10^(-exponent), precision-1) + "E" + exponent.
 	}
 
-	IF NOT (DEFINED pitchCtrlIterator) {
-		GLOBAL pitchCtrlTrigger IS controls["pitchStartAlt"].
-		GLOBAL pitchCtrlIterator IS controls["pitchControl"]:ITERATOR.
+	//	Define globals and the first trigger point at first run
+	IF NOT (DEFINED pitchProgramIndex) {
+		GLOBAL pitchProgramIndex IS -1.	//	Points at the last altitude point
+		GLOBAL pitchProgramTrigger IS controls["pitchProgram"]["altitude"][0].
+		GLOBAL pitchProgramLength IS controls["pitchProgram"]["altitude"]:LENGTH - 1.
 		GLOBAL pitchFactorA IS 0.
 		GLOBAL pitchFactorB IS 0.
-		GLOBAL pitchProgramEngaged IS FALSE.
 	}
 
-	//	Recalculate the a and b values of the linear regression on each alitude trigger
-	IF SHIP:ALTITUDE > pitchCtrlTrigger {
-		pitchCtrlIterator:NEXT.
+	//	Recalculate the a and b values of the linear function on each alitude trigger,
+	//	but only if we're still within the program (maintain the last coefficients after the final trigger)
+	IF SHIP:ALTITUDE > pitchProgramTrigger AND pitchProgramIndex < pitchProgramLength {
+		SET pitchProgramIndex TO pitchProgramIndex + 1.
 
-		//	Specific to the first time
-		IF pitchCtrlIterator:INDEX = 0 {
-			SET beginPitch TO 90.
-			SET beginAlt TO controls["pitchStartAlt"].
-		} ELSE {
-			SET beginPitch TO controls["pitchControl"][pitchCtrlIterator:INDEX-1]["endPitch"].
-			SET beginAlt TO controls["pitchControl"][pitchCtrlIterator:INDEX-1]["endAlt"].
-		}
-
-		SET endPitch TO pitchCtrlIterator:VALUE["endPitch"].
-		SET endAlt TO pitchCtrlIterator:VALUE["endAlt"].
+		SET beginPitch TO controls["pitchProgram"]["pitch"][pitchProgramIndex].
+		SET beginAlt TO controls["pitchProgram"]["altitude"][pitchProgramIndex].
+		SET endPitch TO controls["pitchProgram"]["pitch"][pitchProgramIndex + 1].
+		SET endAlt TO controls["pitchProgram"]["altitude"][pitchProgramIndex + 1].
 
 		SET pitchFactorA TO (endPitch - beginPitch) / (endAlt - beginAlt).
 		SET pitchFactorB TO endPitch - (pitchFactorA*endAlt).
 
-		SET pitchCtrlTrigger TO endAlt.
-		SET pitchProgramEngaged TO TRUE.
+		SET pitchProgramTrigger TO endAlt.
 		pushUIMessage("Pitch following " + toSCI(pitchFactorA) + " * ALT + " + toSCI(pitchFactorB)).
 	}
 
-	IF pitchProgramEngaged {
+	IF pitchProgramIndex >= 0 {
 		SET steeringVector TO aimAndRoll(HEADING(mission["launchAzimuth"], pitchFactorA*SHIP:ALTITUDE+pitchFactorB):VECTOR, steeringRoll).
 	}
 }
