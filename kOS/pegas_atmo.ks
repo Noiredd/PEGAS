@@ -1,14 +1,21 @@
 //	Atmospheric ascent library
 
-//	Basic pitch&hold ascent consists of 4 phases, ascentFlag stores the phase index:
-//	0: vertical ascent
-//	1: pitch over by a given angle
-//	2: hold prograde with a given launch azimuth, emit a UI message
-//	3: hold prograde with a given azimuth
-GLOBAL ascentFlag IS 0.
-
 //	Passive guidance within the atmosphere
 FUNCTION atmosphericSteeringControl {
+	//	Call the appropriate steering controller, depending on vehicle control settings.
+	//	Expects a global variable "controls" as lexicon.
+
+	DECLARE PARAMETER steeringRoll.	//	Expects a scalar
+
+	IF controls:HASKEY("pitchProgram") {
+		pitchProgramControl(steeringRoll).
+	} ELSE {
+		zeroAoAPitchControl(steeringRoll).
+	}
+}
+
+//	Simple pitch over and hold zero angle-of-attack trajectory
+FUNCTION zeroAoAPitchControl {
 	//	Handle the entire atmospheric ascent phase, from vertical ascent, through pitching over,
 	//	to holding prograde at a given azimuth. Called regularly by the main loop, updates the
 	//	steeringVector directly, without returning anything.
@@ -21,6 +28,16 @@ FUNCTION atmosphericSteeringControl {
 	//	"steeringVector" as vector
 
 	DECLARE PARAMETER steeringRoll.	//	Expects a scalar
+
+	//	Define the global at first run
+	IF NOT (DEFINED ascentFlag) {
+		//	Basic pitch&hold ascent consists of 4 phases, ascentFlag stores the phase index:
+		//	0: vertical ascent
+		//	1: pitch over by a given angle
+		//	2: hold prograde with a given launch azimuth, emit a UI message
+		//	3: hold prograde with a given azimuth
+		GLOBAL ascentFlag IS 0.
+	}
 
 	IF ascentFlag = 0 {
 		//	The vehicle is going straight up for given amount of time
