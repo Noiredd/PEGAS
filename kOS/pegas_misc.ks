@@ -396,14 +396,16 @@ FUNCTION buildFlightPlan {
 	//	Depending on guidance mode, insert a placeholder either for UPFG activation, or for final MECO.
 	IF isPassiveGuidance {
 		SET i TO 0.
+		LOCAL offset TO -1.
 		FOR this IN printableEvents {
 			IF controls["upfgActivation"] < this["time"] {
+				SET offset TO 0.
 				BREAK.
 			}
 			SET i TO i + 1.
 		}
 		printableEvents:INSERT(i, LEXICON(
-			"id", printableEvents[i]["id"] + 1,	//	This is really irrelevant as we cannot possibly iterate past this
+			"id", printableEvents[i + offset]["id"] + 1,
 			"time", controls["upfgActivation"],
 			"tstr", "" + ROUND(ABS(controls["upfgActivation"]), 1),
 			"type", "_activeon"	//	Instead of message directly, so we always get the same string from makeMessage
@@ -467,9 +469,9 @@ FUNCTION flightPlanPrint {
 	}
 
 	//	Select a subrange of events to print. We want:
-	//	* 1 past event and 4 future events normally (case 3),
-	//	* 5 future events if there are no past events (case 1),
-	//	* 5 final events if there are less than 5 future events (case 2).
+	//	* up to 5 future events if there are no past events (case 1),
+	//	* up to 5 final events if there are less than 5 future events (case 2),
+	//	* 1 past event and up to 4 future events normally (case 3).
 	//	We also need to have a sublist pointer to the upcoming event.
 	LOCAL showEvents IS LIST().
 	LOCAL upcomingPointer IS 0.
@@ -477,8 +479,9 @@ FUNCTION flightPlanPrint {
 		SET showEvents TO printableEvents:SUBLIST(0, 5).
 	}
 	ELSE IF printableEventPointer > printableEvents:LENGTH - 5 {
-		SET showEvents TO printableEvents:SUBLIST(printableEvents:LENGTH - 5, 5).
-		SET upcomingPointer TO printableEventPointer - printableEvents:LENGTH + 6.
+		LOCAL startIdx IS MAX(0, printableEvents:LENGTH - 5).
+		SET showEvents TO printableEvents:SUBLIST(startIdx, 5).
+		SET upcomingPointer TO printableEventPointer - startIdx + 1.
 	}
 	ELSE {
 		SET showEvents TO printableEvents:SUBLIST(printableEventPointer, 5).
