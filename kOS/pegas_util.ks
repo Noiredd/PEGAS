@@ -931,8 +931,8 @@ FUNCTION upfgSteeringControl {
 			SET upfgEngaged TO TRUE.
 		}
 	} ELSE {
-		//	Remain in the min-AoA mode if we're in the first stage preconvergence mode
-		SET steeringVector TO minAoASteering(steeringRoll).
+		// This case triggers when we're in the initial pre-convergence mode.
+		atmosphericSteeringControl(steeringRoll).	// Defer to atmospheric mode
 	}
 	RETURN upfgOutput[0].
 }
