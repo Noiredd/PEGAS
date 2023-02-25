@@ -43,10 +43,21 @@ as described in the [`pitchProgram`](#pitchprogram) section below.
 by setting the pitch angle as a linear function of the ASL altitude.
 Define your trajectory by declaring a list of keypoint altitudes and a corresponding list of desired pitch angles,
 and PEGAS will calculate a piecewise-linear function between each pair,
-locking pitch to (a * altitude + b).  
+locking pitch to (a * altitude + b).
+
 **Note**: for technical reasons, the first entry in the `pitch` list must be 90 (straight up),
 and the first entry in the `altitude` list must be the altitude at which you want to start turning.
 In other words, your vehicle will fly vertically until it reaches altitude given in this first entry.
+
+**Warning**: keep in mind that PEGAS is only capable of interpolating the pitch angle _between_ keypoints.
+In order to define the final conditions (angle at the end of passive guidance),
+you are expected to provide one more keypoint than your vehicle will ever encounter.
+For example, a pitch program with 3 keypoints: at 500m (90 deg), 10km (70 deg), and 45km (30 deg),
+would result in an error should the vehicle be still under passive guidance at altitude above 45km.
+To remedy the situation,
+provide an additional key for some altitude that will certainly not be achieved prior to UPFG activation (e.g. at 120km).  
+Note that PEGAS will attempt to obey your pitch program no matter what it is;
+it will however emit a critical error message if it ever exceeds the pitch program bounds.
 
 Exact specification of the `pitchProgram` lexicon:
 

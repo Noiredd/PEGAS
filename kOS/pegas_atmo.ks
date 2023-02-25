@@ -105,9 +105,8 @@ FUNCTION pitchProgramControl {
 		GLOBAL pitchFactorB IS 0.
 	}
 
-	//	Recalculate the a and b values of the linear function on each alitude trigger,
-	//	but only if we're still within the program (maintain the last coefficients after the final trigger)
-	IF SHIP:ALTITUDE > pitchProgramTrigger AND pitchProgramIndex < pitchProgramLength {
+	//	Recalculate the a and b values of the linear function on each alitude trigger.
+	IF SHIP:ALTITUDE > pitchProgramTrigger AND pitchProgramIndex < pitchProgramLength - 1 {
 		SET pitchProgramIndex TO pitchProgramIndex + 1.
 
 		SET beginPitch TO controls["pitchProgram"]["pitch"][pitchProgramIndex].
@@ -120,6 +119,12 @@ FUNCTION pitchProgramControl {
 
 		SET pitchProgramTrigger TO endAlt.
 		pushUIMessage("Pitch following " + toSCI(pitchFactorA) + " * ALT + " + toSCI(pitchFactorB)).
+	}
+
+	//	Exceeding the pitch program bounds is a serious fault and should not be allowed; emit an error message.
+	IF SHIP:ALTITUDE > pitchProgramTrigger AND pitchProgramIndex = pitchProgramLength - 1 {
+		SET pitchProgramIndex TO pitchProgramIndex + 1.	// This is only to avoid re-emitting the message
+		pushUIMessage("ERROR: PITCH PROGRAM EXCEEDED!", 10, PRIORITY_CRITICAL).
 	}
 
 	IF pitchProgramIndex >= 0 {
