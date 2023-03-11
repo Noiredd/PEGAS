@@ -98,7 +98,7 @@ PEGAS creates those keys for its own purposes - read `initializeVehicleForUPFG` 
 \* - of the three fields, `massTotal`, `massFuel` and `massDry`, one can be skipped, but **two** have to be given.  
 \*\* - required if `gLim` is given.  
 \*\*\* - in normal usage this has no effect, since PEGAS schedules staging exactly in the moment the stage runs out of fuel.
-The purpose of this option was to enable controlling vehicles with areusable booster,
+The purpose of this option was to enable controlling vehicles with a reusable booster,
 which can be configured to not burn all of its fuel (e.g. by having some of the fuel counted as its dry mass).
 PEGAS by default would not shut its engines, potentially causing a collision during separation.
 Setting this flag to `TRUE` overrides this behavior, causing PEGAS to shutdown the booster's engines before staging.
@@ -194,8 +194,9 @@ function | [`KOSDelegate`](http://ksp-kos.github.io/KOS_DOC/structures/misc/kosd
 action   | `string`   | **Used only if** `type` **is** `"action"`. Name of the action group to toggle (case insensitive).
 isHidden | `boolean`  | (Reserved for internal usage: whether the event is to be displayed in the flight plan.)
 fpMessage| `string`   | (Reserved for internal usage: message to be displayed in the flight plan.)
+_processed| `boolean` | (Reserved for internal usage: detection of sequence analysis errors in `initializeVehicleForUPFG`.)
 
-Unless you're sure you know what you're doing, do not define the `isVirtual` key for your events.
+Unless you're sure you know what you're doing, do not define the `isHidden` key for your events.
 
 \* - for events of type `throttle`, `shutdown` and `roll`, the message will be automatically generated if you don't include any.
 
@@ -228,18 +229,19 @@ UPFG needs to know the accurate state of the vehicle's performance and mass,
 so when either of those two events are encountered, PEGAS will create so-called "virtual stages" to account for the state change.
 For a basic explanation how that mechanism works, [read this](magic.md).
 For an in-depth look, analyze the function `initializeVehicleForUPFG` in [`pegas_util.ks`](../kOS/pegas_util.ks).
-(Additionally, constant-acceleration stages, i.e. ones with `gLim` key defined, will also be handled by insertion a virtual stage.)
+(Additionally, constant-acceleration stages, i.e. ones with `gLim` key defined, will also be handled by insertion of a virtual stage.)
 
 In any case, be aware of one fact: every time you use `gLim` or `jettison` or `shutdown`,
-you add 1 virtual stage to your vehicle and further complicate the event sequence.
+you add (at least) 1 virtual stage to your vehicle and further complicate the event sequence.
 Using too many virtual stages might possibly result in issues - especially when they end up occurring too close together\*.
-It is recommended to limit vehicle acceleration via either `shutdown` or `gLim`, but not both;
+It is recommended to limit vehicle acceleration via either `shutdown` or `gLim`, but not both
+(although technically this configuration is legal and PEGAS should handle it correctly);
 similarly, it is recommended to put jettison events happening in rapid succession in a single one wherever possible,
 or changing them into a `jettison`-`stage` combo (with all mass lost put into the jettison, to create only a single virtual stage).
 For example, when flying an Atlas V, you want to first drop the payload fairing, and a few seconds later the forward load reactor.
 Instead of two `jettison` events with individual component masses in each separate event,
-you could simplify by putting one `jettison` to drop the fairing _but already subtract the load reactor's mass too_,
-and then a `stage` to only drop the load reactor, its mass already being accounted for.
+you could simplify by putting one `jettison` to drop the fairing _and also account for the load reactor's mass at this point_,
+and then a `stage` to only drop the load reactor.
 This results in a single additional virtual stage instead of two.
 
 \* - I've personally tested (with some extra debugging and trial-and-error)
