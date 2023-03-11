@@ -541,7 +541,7 @@ FUNCTION setVehicle {
 	}
 }
 
-//	Calculate the sum of all delays before the actual ignition of a given stage.
+//	Calculate the sum of all delays before the actual ignition of a given stage
 FUNCTION getStageDelays {
 	DECLARE PARAMETER thisStage.    //	Expects a lexicon.
 
@@ -560,48 +560,178 @@ FUNCTION getStageDelays {
 	RETURN totalDelays.
 }
 
-//	Find the index of a vehicle stage that will be active at a given time.
-FUNCTION stageActiveAtTime {
-	//	Iterates through stages until it finds one whose (cumulative) start time occurs before the given timestamp, and
-	//	whose end time occurs after the timestamp.
-	//	Returns the list containing: [0] the index of found stage, [1] its start time.
-	//	If no such stage can be found, an empty list is returned.
+//	Find the first event of (one of) a given type occurring after a given time
+FUNCTION firstEventSince {
+	//	By default returns only "jettison" and "shutdown" events. Pass empty list to return all events.
+	//	Returns an event of a dummy type "none" with very large time in case no proper events were found.
+	DECLARE PARAMETER startTime.
+	DECLARE PARAMETER filterOnly IS LIST("jettison", "j", "shutdown", "u").
 
-	//	Expects global variable "vehicle" as list of lexicons, and "controls" as a lexicon.
-
-	DECLARE PARAMETER gTime.	//	Expects a scalar.
-
-	LOCAL stageStartTime IS controls["upfgActivation"].
-	LOCAL stageIndex IS 0.
-	FOR stage_ in vehicle {
-		SET stageStartTime TO stageStartTime + getStageDelays(stage_).
-		LOCAL stageEnds IS stageStartTime + stage_["maxT"].
-		IF gTime > stageStartTime and gTime < stageEnds {
-			RETURN LIST(stageIndex, stageStartTime).
+	IF filterOnly:LENGTH > 0 {
+		//	Filtered search
+		FOR event IN sequence {
+			IF filterOnly:FIND(event["type"]) >= 0 AND event["time"] > startTime {
+				RETURN event.
+			}
 		}
-		SET stageStartTime TO stageStartTime + stage_["maxT"].
-		SET stageIndex TO stageIndex + 1.
+	} ELSE {
+		//	Unfiltered search
+		FOR event IN sequence {
+			IF event["time"] > startTime {
+				RETURN event.
+			}
+		}
 	}
-
-	RETURN LIST().	//	In case of failure
+	RETURN LEXICON("type", "none", "time", 1e9). // no more events
 }
 
-//	Handles definition of the physical vehicle (initial mass of the first actively guided stage, acceleration limits) and
-//	initializes the automatic staging sequence. Accounts for jettison events defined in vehicle sequence by adding virtual
-//	stages to the vehicle description.
-FUNCTION initializeVehicleForUPFG {
-	//	The first actively guided stage can be a whole new stage (think: Saturn V, S-II), or a sustainer stage that continues
-	//	a burn started at liftoff (Atlas V, STS). In the former case, all information is known at liftoff and no updates are
-	//	necessary. For the latter, the amount of fuel remaining in the tank is only known at the moment of ignition of the
-	//	stage (due to uncertainty in engine spool-up at ignition, and potentially changing time of activation of UPFG). Thus,
-	//	the stage - and potentially also its derived const-acc stage - can only be initialized in flight. And this is what the
-	//	following function is supposed to do.
-	//	The second task is to handle the jettison events by creating virtual stages for each of them, allowing UPFG to take
-	//	them into account.
-	//	With all this done, the final task can be completed: handling of the acceleration-limited stages.
+//	Handler for the constant acceleration mode switch
+FUNCTION init4upfg_constantAcceleration {
+	//	Expects and modifies a global variable "vehicle" of type list.
+	DECLARE PARAMETER stageID.			//	Index of a stage to split (integer)
+	DECLARE PARAMETER accLimTime.		//	Time at which to perform the split, relative to stageStartTime (scalar)
 
-	//	Expects global variables "vehicle" and "sequence" as list of lexicons, "controls" as lexicon,
-	//	and "SETTINGS" as lexicon.
+	LOCAL thrustFlowIsp IS getThrust(vehicle[stageID]["engines"]).
+	//	Start with the original stage to inherit all of the basic parameters
+	LOCAL gLimStage IS vehicle[stageID]:COPY().
+	//	Set the constant-acceleration mode and disable staging
+	SET gLimStage["mode"] TO 2.
+	SET gLimStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
+	//	Calculate its initial mass and burn time
+	LOCAL burnedFuelMass IS thrustFlowIsp[1] * accLimTime.
+	SET gLimStage["massTotal"] TO gLimStage["massTotal"] - burnedFuelMass.
+	SET gLimStage["massFuel"] TO gLimStage["massFuel"] - burnedFuelMass.
+	SET gLimStage["maxT"] TO constAccBurnTime(gLimStage).
+	//	Insert it into the list
+	SET gLimStage["isSustainer"] TO FALSE.
+	SET gLimStage["isVirtualStage"] TO TRUE.
+	SET gLimStage["virtualStageType"] TO "virtual (const-acc)".
+	vehicle:INSERT(stageID + 1, gLimStage).
+	//	Adjust the burn time of the current stage
+	SET vehicle[stageID]["maxT"] TO accLimTime.
+	//	And remember that it cannot shutdown before the virtual staging
+	SET vehicle[stageID]["shutdownRequired"] TO FALSE.
+	SET vehicle[stageID]["followedByVirtual"] TO TRUE.
+}
+
+//	Handler for jettison virtual stage switch
+FUNCTION init4upfg_jettison {
+	//	Expects and modifies a global variable "vehicle" of type list.
+	DECLARE PARAMETER stageID.			//	Index of a stage to split (integer)
+	DECLARE PARAMETER stageStartTime.	//	Activation time of that stage (scalar)
+	DECLARE PARAMETER event.			//	The exact event that causes the virtual stage (lexicon)
+
+	LOCAL thrustFlowIsp IS getThrust(vehicle[stageID]["engines"]).
+	//	First, calculate when does the event happen relative to the stage
+	LOCAL startToJettison IS event["time"] - stageStartTime.
+	//	Then, how much fuel is consumed prior to the event (beware: this might happen during a const-acc stage too)
+	LOCAL fuelBurnedUntil IS CHOOSE
+		thrustFlowIsp[1] * startToJettison IF vehicle[stageID]["mode"] = 1
+		ELSE vehicle[stageID]["massTotal"]*(1 - CONSTANT:E^(-vehicle[stageID]["gLim"]/thrustFlowIsp[2] * startToJettison)).
+	//	Now, create the "after" stage and insert it into the vehicle description
+	SET afterStage TO vehicle[stageID]:COPY().
+	SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
+	SET afterStage["massDry"] TO afterStage["massDry"] - event["massLost"].
+	SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
+	//	Burn time of this new stage is also dependent on the mode:
+	SET afterStage["maxT"] TO CHOOSE
+		afterStage["maxT"] - startToJettison IF afterStage["mode"] = 1
+		ELSE constAccBurnTime(afterStage).
+	//	CRUCIAL: this new stage is already ignited, so we must not try to start it again
+	SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
+	//	Mark the new stage as virtual and label it
+	SET afterStage["isSustainer"] TO FALSE.
+	SET afterStage["isVirtualStage"] TO TRUE.
+	SET afterStage["virtualStageType"] TO CHOOSE
+		"virtual (post-jettison)" IF afterStage["mode"] = 1
+		ELSE "virtual (post-jet. const)".
+	vehicle:INSERT(stageID + 1, afterStage).
+	//	Finally, update the original stage
+	SET vehicle[stageID]["massFuel"] TO fuelBurnedUntil.
+	SET vehicle[stageID]["massDry"] TO vehicle[stageID]["massTotal"] - vehicle[stageID]["massFuel"].
+	SET vehicle[stageID]["maxT"] TO startToJettison.
+	SET vehicle[stageID]["shutdownRequired"] TO FALSE.	//	If this is needed, it's on the new stage
+	SET vehicle[stageID]["followedByVirtual"] TO TRUE.
+	//	As a safety precaution, label the event as processed
+	SET event["_processed"] TO TRUE.
+}
+
+//	Handler for engine shutdown virtual stage switch
+FUNCTION init4upfg_shutdown {
+	//	Expects and modifies a global variable "vehicle" of type list.
+	DECLARE PARAMETER stageID.			//	Index of a stage to split (integer)
+	DECLARE PARAMETER stageStartTime.	//	Activation time of that stage (scalar)
+	DECLARE PARAMETER event.			//	The exact event that causes the virtual stage (lexicon)
+
+	LOCAL thrustFlowIsp IS getThrust(vehicle[stageID]["engines"]).
+	//	First, calculate when does the event happen relative to the stage
+	LOCAL startToJettison IS event["time"] - stageStartTime.
+	//	Then, how much fuel is consumed prior to the event (beware: this might happen during a const-acc stage too)
+	LOCAL fuelBurnedUntil IS CHOOSE
+		thrustFlowIsp[1] * startToJettison IF vehicle[stageID]["mode"] = 1
+		ELSE vehicle[stageID]["massTotal"]*(1 - CONSTANT:E^(-vehicle[stageID]["gLim"]/thrustFlowIsp[2] * startToJettison)).
+	//	Create the "after" stage. Note that this might have been a const-acc stage and a shutdown might have brought
+	//	it back below the gLimit, in which case we should return to mode 1 (max thrust).
+	SET afterStage TO vehicle[stageID]:COPY().
+	//	Start with the basic information
+	SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
+	SET afterStage["massTotal"] TO afterStage["massTotal"] - fuelBurnedUntil.
+	//	Go through the engines and separate these that aren't being shut down
+	SET remainingEngines TO LIST().
+	FOR engine IN vehicle[stageID]["engines"] {
+		IF engine["tag"] <> event["engineTag"] {
+			remainingEngines:ADD(engine).
+		}
+	}
+	SET afterStage["engines"] TO remainingEngines.
+	LOCAL newThrustFlowIsp IS getThrust(afterStage["engines"]).
+	//	Handle the potential gLim situation
+	IF afterStage["mode"] = 2 {
+		LOCAL initialG IS newThrustFlowIsp[0] / (afterStage["massTotal"] * CONSTANT:g0).
+		IF initialG < afterStage["gLim"] {
+			SET afterStage["mode"] TO 1.
+			//	Switching back to mode 2 at the right time will be handled by the main function
+		}
+	}
+	//	Calculate the new burn time
+	SET afterStage["maxT"] TO CHOOSE
+		afterStage["massFuel"] / newThrustFlowIsp[1] IF afterStage["mode"] = 1
+		ELSE constAccBurnTime(afterStage).
+	//	CRUCIAL: this new stage is already ignited, so we must not try to start it again
+	SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
+	//	Mark the new stage as a virtual one and label it
+	SET afterStage["isSustainer"] TO FALSE.
+	SET afterStage["isVirtualStage"] TO TRUE.
+	SET afterStage["virtualStageType"] TO CHOOSE
+		"virtual (post-shutdown)" IF afterStage["mode"] = 1
+		ELSE "virtual (post-shut const)".
+	vehicle:INSERT(stageID + 1, afterStage).
+	//	Finally, update the original stage
+	SET vehicle[stageID]["massFuel"] TO fuelBurnedUntil.
+	SET vehicle[stageID]["massDry"] TO vehicle[stageID]["massTotal"] - vehicle[stageID]["massFuel"].
+	SET vehicle[stageID]["maxT"] TO startToJettison.
+	SET vehicle[stageID]["shutdownRequired"] TO FALSE.	//	If this is needed, it's on the new stage
+	SET vehicle[stageID]["followedByVirtual"] TO TRUE.
+	//	As a safety precaution, label the event as processed
+	SET event["_processed"] TO TRUE.
+}
+
+//	Update the vehicle definition to account for sequence events and acceleration limits
+FUNCTION initializeVehicleForUPFG {
+	//	This function transforms the vehicle definition in the following way:
+	//	* sustainer-type first stage is updated basing on measured vehicle data (since the exact amount of fuel in this
+	//	  type of stage is not known until after the launch),
+	//	* shutdown and jettison events are handled by inserting virtual stages into the vehicle,
+	//	* constant acceleration stages are handled by inserting virtual stages into the vehicle.
+
+	//	Expects global variables:
+	//	"vehicle" as list of lexicons
+	//	"sequence" as list of lexicons
+	//	"controls" as lexicon
+	//	"SETTINGS" as lexicon
+	//	"upfgStage" as scalar
+	//	"stagingInProgress" as bool
+	//	"prestageHold" as bool
 
 	//	If a stage has an ignition command in its staging sequence, this means it is a Saturn-like stage (i.e. a spent stage
 	//	for atmospheric flight is jettisoned, and the active guidance is engaged for a new stage) and it needs no update.
@@ -612,143 +742,79 @@ FUNCTION initializeVehicleForUPFG {
 		//	a known amount of time prior to that (defined in SETTINGS["upfgConvergenceDelay"]), we can calculate that.
 		LOCAL combinedEngines IS getThrust(vehicle[0]["engines"]).
 		SET vehicle[0]["massTotal"] TO SHIP:MASS*1000 - combinedEngines[1]*SETTINGS["upfgConvergenceDelay"].
-		SET vehicle[0]["massFuel"]  TO vehicle[0]["massTotal"] - vehicle[0]["massDry"].
+		SET vehicle[0]["massFuel"] TO vehicle[0]["massTotal"] - vehicle[0]["massDry"].
 		SET vehicle[0]["maxT"] TO vehicle[0]["massFuel"] / combinedEngines[1].
 		SET vehicle[0]["isSustainer"] TO TRUE.
 	}
 
-	//	Detect vehicle-modifying events and create virtual stages for them.
-	//	Works by finding the stage during which the event takes place and separating that stage into two stages.
-	//	The first (virtual) stage burns until the event, treating the unburned fuel as dry mass. The next stage
-	//	starts at that point, modified according to the event type.
-	LOCAL eventIndex IS 0.
+	//	The vehicle update algorithm is as follows:
+	//	1. Iterate over the vehicle (initially the list only contains regular stages).
+	//	2. For each stage, check if it's a gLim stage and when would the violation happen.
+	//	3. Check what's the earliest vehicle-changing event (i.e. jettison OR shutdown) for this stage.
+	//	4. Handle whatever comes earlier: event or gLim violation. This means inserting a virtual stage for the given
+	//	situation using one of the dedicated handler functions ("init4upfg_xxx"). Iterate on if nothing needs to be done.
+	LOCAL stageStartTime IS controls["upfgActivation"].
+	FROM { LOCAL i IS 0. } UNTIL i = vehicle:LENGTH STEP { SET i TO i + 1. } DO {
+		LOCAL dontHandleEvents IS FALSE.	//	a CONTINUE keyword would be great
+		//	Get the basic information about the stage
+		SET stageStartTime TO stageStartTime + getStageDelays(vehicle[i]).
+		LOCAL stageEndTime IS stageStartTime + vehicle[i]["maxT"].
+		LOCAL thrustFlowIsp IS getThrust(vehicle[i]["engines"]).
+		//	Fetch the next event that has a chance to modify the vehicle
+		LOCAL nextEvent IS firstEventSince(stageStartTime).
+		IF nextEvent["type"] = "none" {
+			SET dontHandleEvents TO TRUE.	//	There are no more events to handle
+		}
+		//	For acceleration-limited stages, check what happens earlier: limit violation or a sequence event
+		IF vehicle[i]["gLim"] > 0 AND vehicle[i]["mode"] = 1 {
+			LOCAL gLimitExceeded IS (vehicle[i]["massTotal"] - thrustFlowIsp[0]/vehicle[i]["gLim"]/CONSTANT:g0) / thrustFlowIsp[1].
+			IF stageStartTime + gLimitExceeded < stageEndTime AND stageStartTime + gLimitExceeded < nextEvent["time"] {
+				init4upfg_constantAcceleration(i, gLimitExceeded).
+				SET dontHandleEvents TO TRUE.
+			}
+		}
+		//	Now is the time to handle the event, if found any
+		IF NOT dontHandleEvents AND nextEvent["time"] < stageEndTime {
+			IF nextEvent["type"] = "jettison" {
+				init4upfg_jettison(i, stageStartTime, nextEvent).
+			} ELSE IF nextEvent["type"] = "shutdown" {
+				init4upfg_shutdown(i, stageStartTime, nextEvent).
+			}
+		}
+		//	No need to do any special increments or direct handling of a potential subsequent events happening for this stage;
+		//	simply iterating forward to the next stage (=potentially virtual stage produced in this iteration) lets us do that.
+		//	The only thing we have to take care of is incrementing the stageStartTime AFTER everything was handled (after all,
+		//	maxT could have been altered).
+		SET stageStartTime TO stageStartTime + vehicle[i]["maxT"].
+	}
+
+	//	Safety check: if there are any events happening during the active phase but we did not account for them, it's a problem.
+	//	It is possible that, due to user error or a complex vehicle configuration, a sequence event ended up happening DURING
+	//	the staging sequence (i.e. after stageEndTime of every stage, but before stageStartTime of any stage). This is a serious
+	//	issue which cannot be automatically resolved; best we can do is catch it, produce an error log, and emit a message.
+	LOCAL errorsFound IS LIST().
+	LOCAL i IS 0.
 	FOR event IN sequence {
-		IF event["time"] < controls["upfgActivation"] {
-			//	Ignore events that happened before UPFG kicked in. Whatever they did is of no concern anymore.
-		}
-		ELSE IF event["type"] = "jettison" {
-			//	Handle the jettison events, starting by finding the relevant stage
-			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
-			//	In case the correct stage has not been found, we're unable to proceed.
-			IF foundStageData:LENGTH = 0 {
-				LOCAL msgText IS "Jettison [event #" + eventIndex + "] outside the vehicle sequence!".
-				pushUIMessage(msgText, 10, PRIORITY_HIGH).
-				BREAK.	//	All of the other events would also be outside the sequence
-			}
-			LOCAL eventStage IS foundStageData[0].
-			LOCAL stageStartTime IS foundStageData[1].
-			//	Since we've found the stage, we split it into two virtual stages
-			//	First calculate when does the event happen
-			LOCAL startToJettison IS event["time"] - stageStartTime.
-			//	Then the fuel mass burned over that time
-			LOCAL combinedFlow IS 0.
-			FOR engine IN vehicle[eventStage]["engines"] {
-				SET combinedFlow TO combinedFlow + engine["flow"].
-			}
-			LOCAL fuelBurnedUntil IS combinedFlow * startToJettison.
-			//	Now, create the "after" stage and insert it into the vehicle description
-			SET afterStage TO vehicle[eventStage]:COPY().
-			SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
-			SET afterStage["massDry"] TO afterStage["massDry"] - event["massLost"].
-			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
-			SET afterStage["maxT"] TO afterStage["maxT"] - startToJettison.
-			//	CRUCIAL: this new stage is already ignited, so we MUST NOT try to start it again!
-			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
-			//	Mark the new stage as a virtual one and label it
-			SET afterStage["isVirtualStage"] TO TRUE.
-			SET afterStage["virtualStageType"] TO "virtual (post-jettison)".
-			SET afterStage["isSustainer"] TO FALSE.
-			vehicle:INSERT(eventStage + 1, afterStage).
-			//	Finally, update the original stage
-			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
-			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
-			SET vehicle[eventStage]["maxT"] TO startToJettison.
-			SET vehicle[eventStage]["shutdownRequired"] TO FALSE.	//	If this is needed, it's on the subsequent stage
-			SET vehicle[eventStage]["followedByVirtual"] TO TRUE.
-		}
-		ELSE IF event["type"] = "shutdown" {
-			//	Handle the engine shutdown events, basic idea similar to jettisons.
-			LOCAL foundStageData IS stageActiveAtTime(event["time"]).
-			IF foundStageData:LENGTH = 0 {
-				LOCAL msgText IS "Shutdown [event #" + eventIndex + "] outside the vehicle sequence!".
-				pushUIMessage(msgText, 10, PRIORITY_HIGH).
-				BREAK.
-			}
-			LOCAL eventStage IS foundStageData[0].
-			LOCAL stageStartTime IS foundStageData[1].
-			//	Go through the engines and separate these that aren't being shut down
-			LOCAL totalFlow IS 0.
-			LOCAL remainingFlow IS 0.
-			SET remainingEngines TO LIST().
-			FOR engine IN vehicle[eventStage]["engines"] {
-				SET totalFlow TO totalFlow + engine["flow"].
-				IF engine["tag"] <> event["engineTag"] {
-					remainingEngines:ADD(engine).
-					SET remainingFlow TO remainingFlow + engine["flow"].
+		IF event["time"] > controls["upfgActivation"] {
+			IF (event["type"] = "jettison" OR event["type"] = "j" OR event["type"] = "shutdown" OR event["type"] = "u") {
+				IF NOT event:HASKEY("_processed") OR event["_processed"] = FALSE {
+					errorsFound:ADD(i).
 				}
 			}
-			//	Compute the amount of fuel burned until the shutdown
-			LOCAL startToJettison IS event["time"] - stageStartTime.
-			LOCAL fuelBurnedUntil IS totalFlow * startToJettison.
-			//	Create the "after" stage
-			SET afterStage TO vehicle[eventStage]:COPY().
-			SET afterStage["massFuel"] TO afterStage["massFuel"] - fuelBurnedUntil.
-			SET afterStage["massTotal"] TO afterStage["massFuel"] + afterStage["massDry"].
-			SET afterStage["maxT"] TO afterStage["massFuel"] / remainingFlow.
-			SET afterStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
-			SET afterStage["engines"] TO remainingEngines.
-			SET afterStage["isVirtualStage"] TO TRUE.
-			SET afterStage["virtualStageType"] TO "virtual (engine-off)".
-			SET afterStage["isSustainer"] TO FALSE.
-			vehicle:INSERT(eventStage + 1, afterStage).
-			//	Update the original stage
-			SET vehicle[eventStage]["massFuel"] TO fuelBurnedUntil.
-			SET vehicle[eventStage]["massDry"] TO vehicle[eventStage]["massTotal"] - vehicle[eventStage]["massFuel"].
-			SET vehicle[eventStage]["maxT"] TO startToJettison.
-			SET vehicle[eventStage]["shutdownRequired"] TO FALSE.
-			SET vehicle[eventStage]["followedByVirtual"] TO TRUE.
 		}
-		SET eventIndex TO eventIndex + 1.	//	Increment the counter
+		SET i TO i + 1.
 	}
-
-	//	Acceleration limits are handled in the following loop, after everything else has been taken care of
-	FROM { LOCAL i IS 0. } UNTIL i = vehicle:LENGTH STEP { SET i TO i + 1. } DO {
-		IF vehicle[i]["gLim"] > 0 {
-			//	Calculate when will the acceleration limit be exceeded
-			LOCAL thrustFlowIsp IS getThrust(vehicle[i]["engines"]).
-			LOCAL accLimTime IS (vehicle[i]["massTotal"] - thrustFlowIsp[0]/vehicle[i]["gLim"]/CONSTANT:g0) / thrustFlowIsp[1].
-			//	If this time is greater than the stage's max burn time - we're good.
-			//	Otherwise, we create a virtual stage for the acceleration-limited flight and reduce the burn time of
-			//	the violating stage.
-			IF accLimTime > 0 AND accLimTime < vehicle[i]["maxT"] {
-				//	Start off from the original stage to inherit all of the basic parameters
-				LOCAL gLimStage IS vehicle[i]:COPY().
-				//	Set the constant-acceleration mode and disable staging
-				SET gLimStage["mode"] TO 2.
-				SET gLimStage["staging"] TO LEXICON("jettison", FALSE, "ignition", FALSE, "postStageEvent", FALSE).
-				//	Calculate its initial mass and burn time
-				LOCAL burnedFuelMass IS thrustFlowIsp[1] * accLimTime.
-				SET gLimStage["massTotal"] TO gLimStage["massTotal"] - burnedFuelMass.
-				SET gLimStage["massFuel"] TO gLimStage["massFuel"] - burnedFuelMass.
-				SET gLimStage["maxT"] TO constAccBurnTime(gLimStage).
-				//	Insert it into the list
-				SET gLimStage["isVirtualStage"] TO TRUE.
-				SET gLimStage["virtualStageType"] TO "virtual (const-acc)".
-				SET gLimStage["isSustainer"] TO FALSE.
-				vehicle:INSERT(i + 1, gLimStage).
-				//	Adjust the current stage's burn time
-				SET vehicle[i]["maxT"] TO accLimTime.
-				//	And remember that it cannot shutdown before the virtual staging
-				SET vehicle[i]["shutdownRequired"] TO FALSE.
-				SET vehicle[i]["followedByVirtual"] TO TRUE.
-				//	Additional increment, so that we don't process the new stage next
-				SET i TO i + 1.
-			}
-		}
+	IF errorsFound:LENGTH > 0 {
+		IF EXISTS("sequence_errors.log") { DELETEPATH("sequence_errors.log"). }
+		LOG vehicle TO "sequence_errors.log".
+		LOG sequence TO "sequence_errors.log".
+		LOG "Offending events are: " TO "sequence_errors.log".
+		LOG errorsFound TO "sequence_errors.log".
+		pushUIMessage("ERROR: Some events were not processed!", 10, PRIORITY_HIGH).
 	}
-
+	//	Finally, we are ready to spawn events for all the stages
 	spawnStagingEvents().
-	//	The vehicle is ready so we can start the actual preconvergence for the first active stage
+	//	The vehicle is ready so we can start the actual preconvergence for the first actively guided stage
 	SET upfgStage TO 0.
 	SET stagingInProgress TO TRUE.
 	SET prestageHold TO TRUE.
