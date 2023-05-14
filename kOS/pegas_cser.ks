@@ -302,8 +302,8 @@ FUNCTION cse {
 	LOCAL Fts IS -2*b4*D*E.
 	LOCAL Gt IS 1-2*b4*A.
 
-	LOCAL r IS r0m*(F*ir0 + Gs*v0s).
-	LOCAL v IS f2*(Fts*ir0 + Gt*v0s).
+	LOCAL r_ IS r0m*(F*ir0 + Gs*v0s).
+	LOCAL v_ IS f2*(Fts*ir0 + Gt*v0s).
 
-	RETURN LIST(r, v, last).
+	RETURN LIST(r_, v_, last).
 }

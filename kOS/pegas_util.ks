@@ -65,12 +65,12 @@ FUNCTION constAccBurnTime {
 	LOCAL engineData IS getThrust(_stage["engines"]).
 	LOCAL isp IS engineData[2].
 	LOCAL baseFlow IS engineData[1].
-	LOCAL mass IS _stage["massTotal"].
+	LOCAL total IS _stage["massTotal"].
 	LOCAL fuel IS _stage["massFuel"].
 	LOCAL gLim IS _stage["gLim"].
 	LOCAL tMin IS _stage["minThrottle"].
 	//	Find maximum burn time
-	LOCAL maxBurnTime IS isp/gLim * LN( mass/(mass-fuel) ).
+	LOCAL maxBurnTime IS isp/gLim * LN( total/(total-fuel) ).
 	//	If there is no throttling limit - we will always be able to throttle a bit more down.
 	//	With no possible constraints to violate, we can just return this theoretical time.
 	IF tMin = 0 { RETURN maxBurnTime. }
@@ -80,7 +80,7 @@ FUNCTION constAccBurnTime {
 	LOCAL constThrustTime IS 0.	//	Declare now, so that we can have a single return statement.
 	IF violationTime < maxBurnTime {
 		//	First we calculate mass of the fuel burned until violation
-		LOCAL burnedFuel IS mass*(1 - CONSTANT:E^(-gLim/isp * violationTime)).
+		LOCAL burnedFuel IS total*(1 - CONSTANT:E^(-gLim/isp * violationTime)).
 		//	Then, time it will take to burn the rest on constant minimum throttle
 		SET constThrustTime TO (fuel - burnedFuel) / (baseFlow * tMin).
 	}
@@ -446,84 +446,84 @@ FUNCTION setVehicle {
 
 	LOCAL errorsFound IS FALSE.
 	LOCAL i IS 0.
-	FOR v IN vehicle {
+	FOR vst IN vehicle {
 		//	Mass calculations
-		IF v:HASKEY("massTotal") AND v:HASKEY("massDry")		{ v:ADD("massFuel",  v["massTotal"]-v["massDry"]).	}
-		ELSE IF v:HASKEY("massTotal") AND v:HASKEY("massFuel")	{ v:ADD("massDry",   v["massTotal"]-v["massFuel"]).	}
-		ELSE IF v:HASKEY("massFuel") AND v:HASKEY("massDry")	{ v:ADD("massTotal", v["massFuel"] +v["massDry"]).	}
+		IF vst:HASKEY("massTotal") AND vst:HASKEY("massDry")		{ vst:ADD("massFuel",  vst["massTotal"]-vst["massDry"]).	}
+		ELSE IF vst:HASKEY("massTotal") AND vst:HASKEY("massFuel")	{ vst:ADD("massDry",   vst["massTotal"]-vst["massFuel"]).	}
+		ELSE IF vst:HASKEY("massFuel") AND vst:HASKEY("massDry")	{ vst:ADD("massTotal", vst["massFuel"] +vst["massDry"]).	}
 		ELSE {
 			PRINT "Vehicle error: missing mass keys in stage " + i.
 			SET errorsFound TO TRUE.
 		}
 		IF mission:HASKEY("payload") {
-			SET v["massTotal"] TO v["massTotal"] + mission["payload"].
-			SET v["massDry"] TO v["massDry"] + mission["payload"].
+			SET vst["massTotal"] TO vst["massTotal"] + mission["payload"].
+			SET vst["massDry"] TO vst["massDry"] + mission["payload"].
 		}
 		//	Default fields: gLim, minThrottle, throttle, mode
-		IF NOT v:HASKEY("gLim")			{ v:ADD("gLim", 0). }
-		IF NOT v:HASKEY("minThrottle")	{ v:ADD("minThrottle", 0). }
+		IF NOT vst:HASKEY("gLim")			{ vst:ADD("gLim", 0). }
+		IF NOT vst:HASKEY("minThrottle")	{ vst:ADD("minThrottle", 0). }
 		//	In case user accidentally entered throttle as percentage instead of a fraction
-		ELSE IF v["minThrottle"] > 1.0	{ SET v["minThrottle"] TO v["minThrottle"] / 100.0. }
-		IF NOT v:HASKEY("throttle")		{ v:ADD("throttle", 1). }
-		ELSE IF v["throttle"] > 1.0		{ SET v["throttle"] TO v["throttle"] / 100.0. }
-		v:ADD("mode", 1).
+		ELSE IF vst["minThrottle"] > 1.0	{ SET vst["minThrottle"] TO vst["minThrottle"] / 100.0. }
+		IF NOT vst:HASKEY("throttle")		{ vst:ADD("throttle", 1). }
+		ELSE IF vst["throttle"] > 1.0		{ SET vst["throttle"] TO vst["throttle"] / 100.0. }
+		vst:ADD("mode", 1).
 		//	Engine update
-		FOR e IN v["engines"] {
-			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*CONSTANT:g0) * v["throttle"]). }
+		FOR e IN vst["engines"] {
+			IF NOT e:HASKEY("flow") { e:ADD("flow", e["thrust"] / (e["isp"]*CONSTANT:g0) * vst["throttle"]). }
 			IF NOT e:HASKEY("tag") { e:ADD("tag", ""). }
 		}
 		//	Check if the staging configuration has the correct flags
-		IF NOT v:HASKEY("staging") {
+		IF NOT vst:HASKEY("staging") {
 			PRINT "Vehicle error: undefined staging for stage " + i.
 			SET errorsFound TO TRUE.
 		} ELSE {
-			IF NOT v["staging"]:HASKEY("jettison") OR NOT v["staging"]:HASKEY("ignition") {
+			IF NOT vst["staging"]:HASKEY("jettison") OR NOT vst["staging"]:HASKEY("ignition") {
 				PRINT "Vehicle error: misconfigured staging for stage " + i.
 				SET errorsFound TO TRUE.
 			} ELSE {
-				IF v["staging"]["jettison"] AND (NOT v["staging"]:HASKEY("waitBeforeJettison")) {
+				IF vst["staging"]["jettison"] AND (NOT vst["staging"]:HASKEY("waitBeforeJettison")) {
 					PRINT "Vehicle error: 'waitBeforeJettison' missing".
 					SET errorsFound TO TRUE.
 				}
-				IF v["staging"]["ignition"] AND (NOT v["staging"]:HASKEY("waitBeforeIgnition")) {
+				IF vst["staging"]["ignition"] AND (NOT vst["staging"]:HASKEY("waitBeforeIgnition")) {
 					PRINT "Vehicle error: 'waitBeforeIgnition' missing".
 					SET errorsFound TO TRUE.
 				}
-				IF v["staging"]["ignition"] AND (NOT v["staging"]:HASKEY("ullage")) {
+				IF vst["staging"]["ignition"] AND (NOT vst["staging"]:HASKEY("ullage")) {
 					PRINT "Vehicle error: 'ullage' missing".
 					SET errorsFound TO TRUE.
-				} ELSE IF v["staging"]:HASKEY("ullage") {
-					IF LIST("none", "srb", "rcs", "hot"):FIND(v["staging"]["ullage"]) < 0 {
+				} ELSE IF vst["staging"]:HASKEY("ullage") {
+					IF LIST("none", "srb", "rcs", "hot"):FIND(vst["staging"]["ullage"]) < 0 {
 						PRINT "Vehicle error: unknown ullage mode".
 						SET errorsFound TO TRUE.
-					} ELSE IF LIST("none", "hot"):FIND(v["staging"]["ullage"]) < 0 AND NOT v["staging"]:HASKEY("ullageBurnDuration") {
+					} ELSE IF LIST("none", "hot"):FIND(vst["staging"]["ullage"]) < 0 AND NOT vst["staging"]:HASKEY("ullageBurnDuration") {
 						PRINT "Vehicle error: 'ullageBurnDuration' missing".
 						SET errorsFound TO TRUE.
-					} ELSE IF v["staging"]["ullage"] = "rcs" AND NOT v["staging"]:HASKEY("postUllageBurn") {
+					} ELSE IF vst["staging"]["ullage"] = "rcs" AND NOT vst["staging"]:HASKEY("postUllageBurn") {
 						PRINT "Vehicle error: 'postUllageBurn' missing".
 						SET errorsFound TO TRUE.
 					}
 				}
 			}
-			IF NOT v["staging"]:HASKEY("postStageEvent") {
-				v["staging"]:ADD("postStageEvent", FALSE).
+			IF NOT vst["staging"]:HASKEY("postStageEvent") {
+				vst["staging"]:ADD("postStageEvent", FALSE).
 			} ELSE {
-				IF v["staging"]["postStageEvent"] AND (NOT v["staging"]:HASKEY("waitBeforePostStage")) {
+				IF vst["staging"]["postStageEvent"] AND (NOT vst["staging"]:HASKEY("waitBeforePostStage")) {
 					PRINT "Vehicle error: 'waitBeforePostStage' missing".
 					SET errorsFound TO TRUE.
 				}
 			}
 		}
 		//	Add the shutdown flag - it is optional, but functions rely on its presence
-		IF NOT v:HASKEY("shutdownRequired") { v:ADD("shutdownRequired", FALSE). }
+		IF NOT vst:HASKEY("shutdownRequired") { vst:ADD("shutdownRequired", FALSE). }
 		//	Calculate max burn time
-		LOCAL combinedEngines IS getThrust(v["engines"]).
-		v:ADD("maxT", v["massFuel"] / combinedEngines[1]).
+		LOCAL combinedEngines IS getThrust(vst["engines"]).
+		vst:ADD("maxT", vst["massFuel"] / combinedEngines[1]).
 		//	Internal flags
-		v:ADD("followedByVirtual", FALSE).
-		v:ADD("isVirtualStage", FALSE).
-		v:ADD("virtualStageType", "regular").
-		v:ADD("isSustainer", FALSE).	//	Only for display purposes: see refreshUI, initializeVehicleForUPFG
+		vst:ADD("followedByVirtual", FALSE).
+		vst:ADD("isVirtualStage", FALSE).
+		vst:ADD("virtualStageType", "regular").
+		vst:ADD("isSustainer", FALSE).	//	Only for display purposes: see refreshUI, initializeVehicleForUPFG
 		//	Increment loop counter
 		SET i TO i+1.
 	}

@@ -12,8 +12,8 @@ FUNCTION upfg {
 	LOCAL vdval IS target["velocity"].
 	LOCAL t IS state["time"].
 	LOCAL m IS state["mass"].
-	LOCAL r IS state["radius"].
-	LOCAL v IS state["velocity"].
+	LOCAL r_ IS state["radius"].
+	LOCAL v_ IS state["velocity"].
 	LOCAL cser IS previous["cser"].
 	LOCAL rbias IS previous["rbias"].
 	LOCAL rd IS previous["rd"].
@@ -47,7 +47,7 @@ FUNCTION upfg {
 
 	//	2
 	LOCAL dt IS t-tp.
-	LOCAL dvsensed IS v-vprev.
+	LOCAL dvsensed IS v_-vprev.
 	LOCAL vgo IS vgo-dvsensed.
 	SET tb[0] TO tb[0] - previous["tb"].
 
@@ -88,14 +88,13 @@ FUNCTION upfg {
 		}
 	}
 
-	LOCAL L1 IS Li[0].
 	LOCAL tgo IS tgoi[n-1].
 
 	//	4
 	SET L TO 0.
 	LOCAL J IS 0.
 	LOCAL S IS 0.
-	LOCAL Q IS 0.
+	LOCAL Q_ IS 0.
 	LOCAL H IS 0.
 	LOCAL P IS 0.
 	LOCAL Ji IS LIST().
@@ -128,9 +127,9 @@ FUNCTION upfg {
 		SET L TO L+Li[i].
 		SET J TO J+Ji[i].
 		SET S TO S+Si[i].
-		SET Q TO Q+Qi[i].
+		SET Q_ TO Q_+Qi[i].
 		SET P TO P+Pi[i].
-		SET H TO J*tgoi[i] - Q.
+		SET H TO J*tgoi[i] - Q_.
 	}
 
 	//	5
@@ -138,26 +137,26 @@ FUNCTION upfg {
 	IF previous["tgo"]>0 {
 		SET rgrav TO (tgo/previous["tgo"])^2 * rgrav.
 	}
-	LOCAL rgo IS rd - (r + v*tgo + rgrav).
+	LOCAL rgo IS rd - (r_ + v_*tgo + rgrav).
 	LOCAL iz IS VCRS(rd,iy):NORMALIZED.
 	LOCAL rgoxy IS rgo - VDOT(iz,rgo)*iz.
 	LOCAL rgoz IS (S - VDOT(lambda,rgoxy)) / VDOT(lambda,iz).
 	SET rgo TO rgoxy + rgoz*iz + rbias.
-	LOCAL lambdade IS Q - S*J/L.
+	LOCAL lambdade IS Q_ - S*J/L.
 	LOCAL lambdadot IS (rgo - S*lambda) / lambdade.
 	LOCAL iF_ IS lambda - lambdadot*J/L.
 	SET iF_ TO iF_:NORMALIZED.
 	LOCAL phi IS VANG(iF_,lambda)*CONSTANT:DEGTORAD.
 	LOCAL phidot IS -phi*L/J.
 	LOCAL vthrust IS (L - 0.5*L*phi^2 - J*phi*phidot - 0.5*H*phidot^2)*lambda.
-	LOCAL rthrust IS S - 0.5*S*phi^2 - Q*phi*phidot - 0.5*P*phidot^2.
-	SET rthrust TO rthrust*lambda - (S*phi + Q*phidot)*lambdadot:NORMALIZED.
+	LOCAL rthrust IS S - 0.5*S*phi^2 - Q_*phi*phidot - 0.5*P*phidot^2.
+	SET rthrust TO rthrust*lambda - (S*phi + Q_*phidot)*lambdadot:NORMALIZED.
 	SET vbias TO vgo - vthrust.
 	SET rbias TO rgo - rthrust.
 
 	//	6
 	//	TODO: angle rates
-	LOCAL _up IS r:NORMALIZED.
+	LOCAL _up IS r_:NORMALIZED.
 	LOCAL _east IS VCRS(V(0,0,1),_up):NORMALIZED.
 	LOCAL pitch IS VANG(iF_,_up).
 	LOCAL inplane IS VXCL(_up,iF_).
@@ -168,15 +167,15 @@ FUNCTION upfg {
 	}
 
 	//	7
-	LOCAL rc1 IS r - 0.1*rthrust - (tgo/30)*vthrust.
-	LOCAL vc1 IS v + 1.2*rthrust/tgo - 0.1*vthrust.
+	LOCAL rc1 IS r_ - 0.1*rthrust - (tgo/30)*vthrust.
+	LOCAL vc1 IS v_ + 1.2*rthrust/tgo - 0.1*vthrust.
 	LOCAL pack IS cse(rc1, vc1, tgo, cser).
 	SET cser TO pack[2].
 	SET rgrav TO pack[0] - rc1 - vc1*tgo.
 	LOCAL vgrav IS pack[1] - vc1.
 
 	//	8
-	LOCAL rp IS r + v*tgo + rgrav + rthrust.
+	LOCAL rp IS r_ + v_*tgo + rgrav + rthrust.
 	SET rp TO rp - VDOT(rp,iy)*iy.
 	LOCAL rd IS rdval*rp:NORMALIZED.
 	SET ix TO rd:NORMALIZED.
@@ -187,7 +186,7 @@ FUNCTION upfg {
 	LOCAL vv3 IS V(ix:Z, iy:Z, iZ:Z).
 	LOCAL vop IS V(SIN(gamma), 0, COS(gamma)).
 	LOCAL vd IS V(VDOT(vv1,vop), VDOT(vv2,vop), VDOT(vv3,vop))*vdval.
-	SET vgo TO vd - v - vgrav + vbias.
+	SET vgo TO vd - v_ - vgrav + vbias.
 
 	//	RETURN - build new internal state instead of overwriting the old one
 	LOCAL current IS LEXICON(
@@ -198,7 +197,7 @@ FUNCTION upfg {
 		"tb", previous["tb"] + dt,
 		"time", t,
 		"tgo", tgo,
-		"v", v,
+		"v", v_,
 		"vgo", vgo
 	).
 	LOCAL guidance IS LEXICON(
