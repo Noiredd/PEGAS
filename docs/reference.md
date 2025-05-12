@@ -22,7 +22,6 @@ verticalAscentTime | s     | optional\* | After liftoff, vehicle will fly straig
 pitchOverAngle     | deg   | optional\* | Vehicle will pitch over by that many degrees away from vertical
 pitchProgram       | `lexicon` | optional\* | Vehicle will follow a pitch program given by pitch angle & altitude pairs
 upfgActivation     | s     | required | The active guidance phase will be activated that many seconds after liftoff
-launchAzimuth      | deg   | optional | Overrides automatic launch azimuth calculation, giving some basic optimization capability\*\*
 initialRoll        | deg   | optional | Angle to which the vehicle will roll during the initial pitchover maneuver (default is 0)
 disableThrustWatchdog | `boolean` | optional | Set to `TRUE` in order to disable loss-of-thrust checking on this vehicle, ignore this key otherwise.
 
@@ -34,8 +33,6 @@ following that angle until the vehicle starts tracking the prograde vector.
 The alternative is to specify `pitchProgram`
 in order to precisely control your initial ascent phase,
 as described in the [`pitchProgram`](#pitchprogram) section below.
-
-\*\* - see notes to [`mission`](#mission) struct.
 
 #### pitchProgram
 
@@ -266,14 +263,15 @@ altitude    | km         | **Optional**. Desired cutoff altitude above sea level
 inclination | deg        | **Optional**. Inclination of the target orbit. When not given, will be set to launch site latitude (absolute).
 LAN         | deg        | **Optional**. Longitude of ascending node of the target orbit. When not given, will be calculated for an instantaneous launch.
 direction   | `string`   | **Optional**. Direction of launch. Allowed values: `north`, `south`, `nearest`. By default it is `nearest`.
+launchAzimuth | deg      | **Optional**. Override the automatically calculated launch azimuth with an exact value (0 = north). Use with caution.
 
 In case of selecting target from the map, `inclination` and `LAN` will be overwritten from the target data, but apoapsis and periapsis will not.  
 Inclination can be omitted - it will be then set to the launch site latitude *magnitude*.
 LAN can also be omitted - in this case it will be calculated for a "right now" launch, depending on `direction`.
 If both LAN is set free and `direction` is set to `nearest`, the latter will be overridden with `north`.
 
-**Notice**: if the `controls` struct overrides the launch azimuth and `direction` is set to `nearest`,
-a conflict may happen where eg. the nearest launch opportunity is southerly but the launch azimuth optimized for a northerly launch.
+**Caution**: when overriding `launchAzimuth`, make sure your value does not conflict with the selected `direction`.
+If you set azimuth to e.g. $20\degree$ but set direction to _south_ (or leave it at _nearest_ and PEGAS decides to go south),
 PEGAS will not try to figure out this conflict but obey, attempting to fly an impossible mission - be careful!
 
 ## Communication module
