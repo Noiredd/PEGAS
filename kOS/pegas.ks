@@ -131,6 +131,11 @@ UNTIL ABORT {
 	IF upfgConverged AND upfgInternal["tgo"] < SETTINGS["upfgFinalizationTime"] { BREAK. }
 	//	Thrust loss detection
 	thrustWatchdog().
+	//	Angular momentum criterion
+	IF angularMomentumWatchdog() {
+		pushUIMessage("Angular momentum criterion satisfied!", 5, PRIORITY_CRITICAL).  // override potential "UPFG reset" message
+		BREAK.
+	}
 	//	UI
 	refreshUI().
 	//	User hooks
@@ -147,6 +152,8 @@ UNTIL ABORT {
 	//	Exit the loop before entering the next refresh cycle.
 	//	We can't do "tgo < 0" as then we still didn't break if the previous loop tgo was 0.01 or so.
 	IF upfgInternal["tgo"] < finalizeDT { BREAK. }
+	//	Apply the angular momentum criterion as well
+	IF angularMomentumWatchdog() { BREAK. }
 	refreshUI().
 	WAIT 0.
 }

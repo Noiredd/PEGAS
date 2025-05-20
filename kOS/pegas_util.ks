@@ -1112,3 +1112,33 @@ FUNCTION thrustWatchdog {
 		TOGGLE ABORT.
 	}
 }
+
+//	Secondary MECO criterion
+FUNCTION angularMomentumWatchdog {
+	//	Usually (main loop in pegas.ks) we determine the final MECO from Tgo reported by UPFG (upfgInternal).
+	//	However, in certain edge cases, target orbit might be achieved before we transition into burn finalization.
+	//	To safeguard against this, we will periodically check vehicle's specific orbital angular momentum
+	//	and compare against the expected value computed from target orbit parameters.
+	//	Expects global variables:
+	//	"target" as lexicon
+	//	Owns global variables: "amwd_target".
+	//	Returns TRUE if we should MECO, i.e. orbital angular momentum target is achieved, FALSE otherwise.
+
+	//	First run: set up the angular momentum target value
+	IF NOT (DEFINED amwd_target) {
+		LOCAL _target_ap IS SHIP:ORBIT:BODY:RADIUS + 1000 * mission["apoapsis"].
+		LOCAL _target_pe IS SHIP:ORBIT:BODY:RADIUS + 1000 * mission["periapsis"].
+		LOCAL _target_sma IS (_target_ap + _target_pe) / 2.
+		LOCAL _target_ecc IS (_target_ap - _target_pe) / (_target_ap + _target_pe).
+		GLOBAL amwd_target IS SQRT(_target_sma * (1 - _target_ecc ^ 2)).
+	}
+
+	//	Don't check if we're between stages (angular momentum should not change during staging, but we will wait
+	//	just in case, to avoid messing up with the procedure).
+	IF stagingInProgress { RETURN. }
+
+	//	Compute the current angular momentum
+	LOCAL current_am IS SQRT(SHIP:ORBIT:SEMIMAJORAXIS * (1 - SHIP:ORBIT:ECCENTRICITY ^ 2)).
+
+	RETURN current_am >= amwd_target.
+}
