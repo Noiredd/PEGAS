@@ -143,6 +143,7 @@ UNTIL ABORT {
 }
 //	Final orbital insertion loop
 pushUIMessage( "Holding attitude for burn finalization!" ).
+LOCK STEERING TO "KILL".
 SET previousTime TO TIME:SECONDS.
 UNTIL ABORT {
 	LOCAL finalizeDT IS TIME:SECONDS - previousTime.
