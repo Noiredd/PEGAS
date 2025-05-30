@@ -5,6 +5,7 @@ GLOBAL vehicle IS LIST(
 		"massTotal", 16772,
 		"massFuel", 3105+3800,
 		"engines", LIST(LEXICON("isp", 330, "thrust", 148000)),
+		"spoolup", 2.2,
 		"staging", LEXICON(
 			"jettison", FALSE,
 			"ignition", FALSE

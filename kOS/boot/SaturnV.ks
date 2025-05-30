@@ -5,6 +5,7 @@ GLOBAL vehicle IS LIST(
 						"massTotal", 611841+366,	//	kOS part upgrade
 						"massFuel", 377580+72188,
 						"engines", LIST(LEXICON("isp", 424, "thrust", 1023090*5)),
+						"spoolup", 2.9,
 						"staging", LEXICON(
 										"jettison", TRUE,
 										"waitBeforeJettison", 5,
@@ -18,6 +19,7 @@ GLOBAL vehicle IS LIST(
 						"massTotal", 122607+366,
 						"massFuel", 90709+16492,
 						"engines", LIST(LEXICON("isp", 424, "thrust", 1023090)),
+						"spoolup", 2.9,
 						"staging", LEXICON(
 										"jettison", TRUE,
 										"waitBeforeJettison", 5,

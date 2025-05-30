@@ -19,6 +19,7 @@ GLOBAL vehicle IS LIST(
 						"massTotal", 22374,			//	RSB Centaur has too much oxygen in the tank
 						"massFuel", 16402+3281,		//	these masses are for Centaur that has been reset and had tanks readjusted
 						"engines", LIST(LEXICON("isp", 422.0, "thrust", 2*67000)),
+						"spoolup", 1.33,
 						"staging", LEXICON(
 										"jettison", TRUE,
 										"waitBeforeJettison", 3,
