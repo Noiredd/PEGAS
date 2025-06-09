@@ -8,6 +8,7 @@ GLOBAL addonHookRegistry IS LEXICON(
 	"activeInit", LIST(),	//	transition from passive to active guidance, right before the first loop
 	"activePre", LIST(),	//	active guidance loop, before everything else
 	"activePost", LIST(),	//	active guidance loop, after everything else
+	"terminal", LIST(),		//	active guidance loop, terminal phase
 	"final", LIST()			//	just before exiting the program
 ).
 

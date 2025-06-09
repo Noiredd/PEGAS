@@ -158,6 +158,8 @@ UNTIL ABORT {
 		BREAK.
 	}
 	refreshUI().
+	//	Execute hooks if needed
+	callHooks("terminal").
 	WAIT 0.
 }
 
