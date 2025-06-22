@@ -252,7 +252,7 @@ FUNCTION refreshUI {
 		numberPrint(totalVgo, vehicleInfoOffset + 5, 33, 37, 0).
 	}
 	LOCAL throttle_ IS throttleDisplay.
-	LOCAL currentAcc IS (SHIP:AVAILABLETHRUST * throttle_) / (SHIP:MASS).
+	LOCAL currentAcc IS SHIP:THRUST / SHIP:MASS.
 	numberPrint(100*throttle_, vehicleInfoOffset + 5, 17, 21, 0).
 	numberPrint(currentAcc, vehicleInfoOffset + 6, 17, 21).
 	numberPrint(currentAcc / CONSTANT:g0, vehicleInfoOffset + 6, 28, 32, 1).
