@@ -1,5 +1,15 @@
 //	Atmospheric ascent library
 
+//	Calculate a steering vector for minimal angle of attack flight (surface-relative)
+FUNCTION minAoASteering {
+	//	Expects a global variable "mission" as lexicon.
+	DECLARE PARAMETER desiredRoll IS 0.	//	Expects a scalar
+
+	//	This is not a "zero AoA steering" by following the current surface velocity vector - we still provide azimuth control
+	SET surfVelAngle TO 90 - VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
+	RETURN aimAndRoll(HEADING(mission["launchAzimuth"], surfVelAngle):VECTOR, desiredRoll).
+}
+
 //	Passive guidance within the atmosphere
 FUNCTION atmosphericSteeringControl {
 	//	Call the appropriate steering controller, depending on vehicle control settings.

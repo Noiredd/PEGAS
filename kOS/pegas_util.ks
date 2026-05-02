@@ -859,16 +859,6 @@ FUNCTION updateThisStageEndTime {
 
 //	THROTTLE AND STEERING CONTROLS
 
-//	Calculate a steering vector for minimal angle of attack flight (surface-relative)
-FUNCTION minAoASteering {
-	//	Expects a global variable "mission" as lexicon.
-	DECLARE PARAMETER desiredRoll IS 0.	//	Expects a scalar
-
-	//	This is not a "zero AoA steering" by following the current surface velocity vector - we still provide azimuth control
-	SET surfVelAngle TO 90 - VANG(SHIP:UP:VECTOR, SHIP:VELOCITY:SURFACE).
-	RETURN aimAndRoll(HEADING(mission["launchAzimuth"], surfVelAngle):VECTOR, desiredRoll).
-}
-
 //	Intelligent wrapper around UPFG that controls the steering vector.
 FUNCTION upfgSteeringControl {
 	//	This function controls the entire process of active guidance by handling three tasks:
