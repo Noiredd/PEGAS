@@ -314,6 +314,7 @@ Now, for the second stage:
   * `ullage` = `"srb"` (because we have solid rockets for ullage)
   * `ullageBurnDuration` = 2 (let's say this time will suffice to settle the fuel so we can ignite the main engines safely)
 * `spoolup` = 1.6 (since we're playing Realism Overhaul and this is how long the RD-0146 takes to reach its full thrust)
+* `residuals` = 1.17 (that's what the GUI says about the predicted residuals volume)
 
 Pack those two lexicons into a list named `vehicle` and this part is done. Phew!
 

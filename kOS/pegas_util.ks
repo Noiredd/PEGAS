@@ -437,6 +437,7 @@ FUNCTION checkControls {
 //	Setup vehicle: transform user input to UPFG-compatible struct
 FUNCTION setVehicle {
 	//	Calculates missing mass inputs (user gives any 2 of 3: total, dry, fuel mass)
+	//	Adjusts the fuel available according to predicted residuals
 	//	Adds payload mass to the mass of each stage
 	//	Sets up defaults: acceleration limit (none, 0.0), throttle (1.0), and UPFG MODE
 	//	Calculates engine fuel mass flow (if thrust value was given instead) and adjusts for given throttle
@@ -459,6 +460,9 @@ FUNCTION setVehicle {
 			SET vst["massTotal"] TO vst["massTotal"] + mission["payload"].
 			SET vst["massDry"] TO vst["massDry"] + mission["payload"].
 		}
+		//	Handle residuals
+		IF NOT vst:HASKEY("residuals")		{ vst:ADD("residuals", 0.0). }
+		SET vst["massFuel"] TO vst["massFuel"] * (1 - vst["residuals"] / 100.0).
 		//	Default fields: gLim, minThrottle, throttle, mode
 		IF NOT vst:HASKEY("gLim")			{ vst:ADD("gLim", 0). }
 		IF NOT vst:HASKEY("minThrottle")	{ vst:ADD("minThrottle", 0). }

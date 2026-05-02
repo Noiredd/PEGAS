@@ -81,6 +81,7 @@ minThrottle      | (0.0-1.0)  | optional\*\*| Minimum possible throttle of this 
 throttle         | (0.0-1.0)  | optional  | Nominal throttle for this stage's engines (default = 1.0)
 shutdownRequired | `boolean`  | optional  | Explicitly shut down this stage's engines before activation of the next stage\*\*\*, \*\*\*\*
 spoolup          | s          | optional  | How long does it take for this stage's engines to spool up to max thrust (default = 0.0)
+residuals        | %          | optional  | Predicted amount of fuel residuals on this stage (e.g. if GUI says 1.13% put `1.13` here; default = 0.0)
 engines          | `list`     | required  | Parameters of each engine in the stage (details further)
 staging          | `lexicon`  | required  | Description of method of activation of this stage (details further)
 mode             | `int`      | reserved  | (Reserved for internal usage)
