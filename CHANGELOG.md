@@ -1,7 +1,37 @@
 ### Change log
 
+## [v1.3.1](https://github.com/Noiredd/PEGAS/releases/tag/v1.3.1) "Olympus" bugfix (2026-05-xx)
+Bug fixes and minor features.
+
+##### Features:
+* engine spool-up time can now be taken into account using the `"spoolup"` key in `vehicle` stages
+* engine residuals can now be taken into account using the `"residuals"` key in `vehicle` stages
+* a new _angular momentum watchdog_ will now prevent overshooting the target orbit
+
+##### Tweaks:
+* terminal guidance will now arrest all rotation, prioritizing stability over following the last good guidance
+* launch countdown events print messages in low-priority mode (so that user events override them)
+* addon hooks can be called from terminal guidance mode as well
+
+##### Fixes:
+* `initializeVehicleForUPFG` refactored to fix bugs with virtual stages
+* no more crashes with certain unusual flight plans
+* fixed some bugs related to pitch program guidance
+* guidance will no longer switch to terminal mode if staging is in progress
+* vehicles will no longer perform random rolls right after liftoff
+* controls will always be properly relinquished before exiting
+* GUI will correctly display acceleration based on the current thrust
+* documentation improvements
+
+##### Under the hood:
+* CPU usage optimized by not waiting at the end of the UPFG loop ([read this for "why"](https://ksp-kos.github.io/KOS_DOC/general/cpu_hardware.html#wait))
+* some variables renamed in compliance with kOS 1.4
+* variable `stageEndTime` renamed to `thisStageEndTime` for clarity
+* function `minAoASteering` moved from `pegas_util.ks` to `pegas_atmo.ks` where it should have always been
+
+
 ## [v1.3](https://github.com/Noiredd/PEGAS/releases/tag/v1.3) "Olympus" (2022-10-02)
-The final major version of PEGAS: now it has _all you might possibly use_.
+The final major version of PEGAS: now it has _all you might possibly need_.
 
 ##### Features:
 * GUI overhaul: better reporting of the vehicle and guidance status,
@@ -25,7 +55,7 @@ an [addon sharing repository](https://github.com/Noiredd/PEGAS-addons) has also 
 
 ##### Fixes:
 * PEGAS will now maintain min-AoA control while initially converging UPFG
-* UFPG will not longer steal control the instant it converges, but actually wait until the moment defined by user in `controls["upfgActivation"]`
+* UFPG will no longer steal control the instant it converges, but actually wait until the moment defined by user in `controls["upfgActivation"]`
 * throttle control in active guidance phase now correctly (i.e. instantly) switches between constant-acceleration and default modes
 * countdown clock is now accurate
 * documentation upgrades

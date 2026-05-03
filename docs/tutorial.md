@@ -23,7 +23,8 @@ You can read more about the algorithm [here](https://github.com/Noiredd/PEGAS-MA
 
 The ascent with PEGAS is divided into 3 phases.
 In the **pre-launch** phase, the launch time and azimuth are calculated, and the vehicle sits on the pad patiently waiting.
-In the **atmospheric ascent** phase, the vehicle goes up for some time, then pitches over by some angle, and once the velocity vector matches its attitude, it keeps prograde (a.k.a. performs a simple gravity turn).
+In the **atmospheric ascent** phase, the vehicle performs either a simple gravity turn (go straight up for some time, then pitch over by some angle, then hold prograde),
+_OR_, if you need finer control, executes a more advanced gravity turn (following a pitch-altitude program; more on that later).
 Finally, in the **closed-loop guidance** phase (or *active guidance*), the UPFG algorithm controls the vehicle, automatically guiding it onto a desired trajectory.  
 All of those phases require information from *you*. You need to input the parameters of the gravity turn, information about your vehicle and its intended destination.
 In this short tutorial, I will explain how to provide that information.
@@ -46,7 +47,7 @@ PEGAS will do the following things for you:
 * execute all other events you specified in `sequence` (all phases).
 
 To understand everything that follows, a strong emphasis has to be put on the difference between phase 1 and 2.
-During the atmospheric ascent, PEGAS does absolutely nothing beyond pitching over and holding prograde.
+During the atmospheric ascent, PEGAS does little more than follow your input, executing a pre-programmed gravity turn.
 Only during the active guidance phase it reveals its smarts - not only it dynamically calculates pitch & yaw angles, but it also *automatically handles staging*.  
 The reason is that the moment of switching between phases is customizable - so manually recalculating each and every event needed to perform a successful staging (jettison, ullage burn, ignition, ...) would be a terrible hassle.
 Instead, for each stage you define *how* to activate it, and when the time comes, PEGAS just does what it's told to.
@@ -91,7 +92,7 @@ In extreme cases, UPFG will refuse to converge and your mission will fail.
 **How to get these right?**
 First, you need to figure out some rough values by trial and error.
 If you get UPFG to converge and it doesn't need to pitch 60 degrees from the current prograde, you're in the ballpark.
-When UPFG converges, look at the pitch it calculated - to simplify things: the closer the active guidance pitch was close to the current prograde, the better your atmospheric ascent was.
+When UPFG converges, look at the pitch it calculated - to simplify things: the closer the active guidance pitch was to the current prograde, the better your atmospheric ascent was.
 If it pitched significantly above prograde, it means that your ascent was too shallow and UPFG needs to gain some more vertical velocity - reduce the `pitchOverAngle` or increase the `verticalAscentTime` slightly.
 If it pitched way below (it may even point below the horizon in extreme cases!), your ascent was probably too steep - adjust parameters in the opposite manner.
 
@@ -103,7 +104,7 @@ Unpredictable separation that disrupts your vehicle from flying straight can eve
 
 ##### pitchProgram
 For some vessels the above solution (with `verticalAscentTime` and `pitchOverAngle`) does not give enough controllability.
-PEGAS provides another approach to guide your vehicles through the atmospheric climb with more accuracy: `pitchProgram`
+PEGAS provides another approach to guide your vehicles through the atmospheric climb with more accuracy: `pitchProgram`.
 It allows you to define a precise pitch-vs-altitude program by specifying two lists (as keys of the `pitchProgram` lexicon):
 * `altitude` is a list of "keypoint altitudes",
 * `pitch` is a list of desired pitch angles,
@@ -168,7 +169,11 @@ The staging logic is as follows: when a stage is activated, its staging sequence
   * if the ullage is done with RCS thrusters, keep pushing for some time, then disengage them,
 * if some extra action was requested, more time is waited and spacebar is hit again.
 
-This provides a way to give your stage some "buffer time" before separation - eg. if you're not sure if you got the masses right, you can add some more time before ignition of the next stage.
+This provides a way to give your stage some "buffer time" before separation -
+eg. if you're not sure if you got the masses right, you can add some more time before ignition of the next stage
+(to give the previous stage time to _really_ finish the burn).
+Alternatively, you can _force_ PEGAS to shutdown the engines on a given stage before jettisoning it
+(assuming they _can_ be shut down) by specifying the `shutdownRequired` flag on a given stage.
 
 ##### Important note about the first stage
 Let's say you're flying a Saturn V.

@@ -3,9 +3,12 @@
 PEGAS is quite complex for a kOS script, and due to notorious difficulty in debugging anything in kOS (one has to run the entire ascent) it is not guaranteed to be completely free from bugs or errors.
 I am willing to provide support and correct those bugs.
 The best way to notify me about problems and receive help is via the [GitHub issue tracker](https://github.com/Noiredd/PEGAS/issues).
-Private messages on [forum.kerbalspaceprogram.com](https://forum.kerbalspaceprogram.com) or posts in my [development thread there](https://forum.kerbalspaceprogram.com/index.php?/topic/142213-pegas-powered-explicit-guidance-ascent-system-devlog/) also work, although might be slower.
+Please do not send me private messages on [forum.kerbalspaceprogram.com](https://forum.kerbalspaceprogram.com)
+nor post in my [development thread there](https://forum.kerbalspaceprogram.com/index.php?/topic/142213-pegas-powered-explicit-guidance-ascent-system-devlog/) - I am no longer active on that website.
 
-0. Make sure you are using the most recent release of PEGAS. Perhaps your problem was fixed in an update?
+Before you decide to bring a problem to my attention, please follow those steps:
+
+0. Make sure you are using the most recent release of PEGAS. Perhaps your problem has already been fixed?
 1. Check the [tutorial](tutorial.md) and [reference](reference.md) - maybe the answer is there already?
 2. Check the [issue tracker](https://github.com/Noiredd/PEGAS/issues) - maybe I already know about the problem?
 3. If not, make a new issue and describe what's wrong.
